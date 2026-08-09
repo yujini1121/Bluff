@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddb5fdd0839ddc049a6fe0a89acba944, type: 3}
+  m_Name: Prizm Chip
+  m_EditorClassIdentifier: 
+  itemName: "\uD504\uB9AC\uC998 \uCE69"
+  itemType: 2
+  description: "\uC2A4\uD2B8\uB808\uC774\uD2B8, \uD2B8\uB9AC\uD50C\uC758 \uD328\uB85C
+    FOLD \uD588\uC744 \uB54C \uD398\uB110\uD2F0\uB97C \uBB34\uC2DC\uD569\uB2C8\uB2E4."
