@@ -4,22 +4,14 @@ using UnityEngine;
 
 public class ItemSystem : MonoBehaviour
 {
-    public List<ItemData> itemList = new List<ItemData>();
-    public ItemInventory inventory;
+    // 전체 아이템 목록
+    public List<GameObject> itemList = new List<GameObject>();
 
-    // 아이템 획득시 인벤토리에 추가
-    public void GetItem(ItemData item)
-    {
-        inventory.items.Add(item);
-        Debug.Log($"{item.itemName}을 얻었습니다.");
-    }
+    private Vector3 itemSpawnPos = Vector3.zero; // 아이템 스폰 위치
 
-    // 아이템 사용시 인벤토리에서 제거
-    public void UseItem(ItemData item)
+    public void GetItem()
     {
-        if (item.Use())
-        {
-            inventory.items.Remove(item);
-        }
+        GameObject randomItem = itemList[Random.Range(0, itemList.Count)];
+        Instantiate(randomItem, itemSpawnPos, Quaternion.identity);
     }
 }
