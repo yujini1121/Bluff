@@ -14,5 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: "\uCCB4\uCEE4"
   itemType: 4
+  canUseType: 1
   description: "\uCD94\uAC00 \uCE69 \uBCA0\uD305 \uC5C6\uC774 CALL\uD55C \uAC83\uC73C\uB85C
     \uAC04\uC8FC\uB41C\uB2E4."

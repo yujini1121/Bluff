@@ -5,14 +5,10 @@ using UnityEngine;
 public class Item : MonoBehaviour
 {
     [SerializeField] private ItemData itemData;
-    public bool canUse = true; // 아이템 사용 가능 여부
 
     private void OnMouseDown()
     {
-        if (canUse)
-        {
-            UseItem();
-        }
+        UseItem();
     }
 
     public void UseItem()
