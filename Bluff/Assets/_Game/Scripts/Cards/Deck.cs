@@ -27,11 +27,26 @@ public sealed class Deck
         {
             if (card == null)
             {
-                throw new ArgumentException("The deck cannot contain a null card.", nameof(cards));
+                throw new ArgumentException("카드가 비어있습니다.", nameof(cards));
             }
 
             this.cards.Add(card);
         }
+    }
+
+    public static Deck CreateIndianHoldemDeck()
+    {
+        var cards = new List<Card>(40);
+
+        for (int rank = 1; rank <= 10; rank++)
+        {
+            for (int cardCount = 0; cardCount < 4; cardCount++)
+            {
+                cards.Add(new Card(rank));
+            }
+        }
+
+        return new Deck(cards);
     }
 
     public void Shuffle()

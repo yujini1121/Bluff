@@ -6,7 +6,7 @@ public sealed class CoreStateTests
     [Test]
     public void GameState_InitializesAllCoreState()
     {
-        var deck = new Deck(new[] { new Card(-1), new Card(20) });
+        var deck = new Deck(new[] { new Card(1), new Card(10) });
 
         var gameState = new GameState(10, 15, deck);
 
@@ -18,6 +18,73 @@ public sealed class CoreStateTests
         Assert.That(gameState.Deck, Is.SameAs(deck));
         Assert.That(gameState.PlayerCard, Is.Null);
         Assert.That(gameState.DealerCard, Is.Null);
+        Assert.That(gameState.CommunityCard1, Is.Null);
+        Assert.That(gameState.CommunityCard2, Is.Null);
+    }
+
+    [Test]
+    public void Card_AcceptsRanksOneAndTen()
+    {
+        var lowestCard = new Card(1);
+        var highestCard = new Card(10);
+
+        Assert.That(lowestCard.Rank, Is.EqualTo(1));
+        Assert.That(highestCard.Rank, Is.EqualTo(10));
+    }
+
+    [Test]
+    public void Card_RejectsRanksOutsideOneToTen()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Card(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Card(11));
+    }
+
+    [Test]
+    public void Deck_CreatesFortyCardIndianHoldemDeckWithFourOfEachRank()
+    {
+        Deck deck = Deck.CreateIndianHoldemDeck();
+        var rankCounts = new int[11];
+
+        Assert.That(deck.RemainingCount, Is.EqualTo(40));
+
+        while (deck.TryDraw(out Card card))
+        {
+            rankCounts[card.Rank]++;
+        }
+
+        for (int rank = 1; rank <= 10; rank++)
+        {
+            Assert.That(rankCounts[rank], Is.EqualTo(4));
+        }
+
+        Assert.That(deck.RemainingCount, Is.Zero);
+    }
+
+    [Test]
+    public void GameState_SetsAndClearsAllRoundCards()
+    {
+        var gameState = new GameState(10, 10, Deck.CreateIndianHoldemDeck());
+        var playerCard = new Card(1);
+        var dealerCard = new Card(2);
+        var communityCard1 = new Card(3);
+        var communityCard2 = new Card(4);
+
+        Assert.That(gameState.TrySetPlayerCard(playerCard), Is.True);
+        Assert.That(gameState.TrySetDealerCard(dealerCard), Is.True);
+        Assert.That(
+            gameState.TrySetCommunityCards(communityCard1, communityCard2),
+            Is.True);
+        Assert.That(gameState.PlayerCard, Is.SameAs(playerCard));
+        Assert.That(gameState.DealerCard, Is.SameAs(dealerCard));
+        Assert.That(gameState.CommunityCard1, Is.SameAs(communityCard1));
+        Assert.That(gameState.CommunityCard2, Is.SameAs(communityCard2));
+
+        gameState.ClearCards();
+
+        Assert.That(gameState.PlayerCard, Is.Null);
+        Assert.That(gameState.DealerCard, Is.Null);
+        Assert.That(gameState.CommunityCard1, Is.Null);
+        Assert.That(gameState.CommunityCard2, Is.Null);
     }
 
     [Test]

@@ -12,6 +12,8 @@ public sealed class GameState
     public Deck Deck { get; }
     public Card PlayerCard { get; private set; }
     public Card DealerCard { get; private set; }
+    public Card CommunityCard1 { get; private set; }
+    public Card CommunityCard2 { get; private set; }
 
     public GameState(int playerStartingChips, int dealerStartingChips, Deck deck)
     {
@@ -57,10 +59,24 @@ public sealed class GameState
         return true;
     }
 
+    public bool TrySetCommunityCards(Card communityCard1, Card communityCard2)
+    {
+        if (communityCard1 == null || communityCard2 == null)
+        {
+            return false;
+        }
+
+        CommunityCard1 = communityCard1;
+        CommunityCard2 = communityCard2;
+        return true;
+    }
+
     public void ClearCards()
     {
         PlayerCard = null;
         DealerCard = null;
+        CommunityCard1 = null;
+        CommunityCard2 = null;
     }
 
     public bool TryPlaceBet(int amount)
