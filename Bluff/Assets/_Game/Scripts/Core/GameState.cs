@@ -88,6 +88,21 @@ public sealed class GameState
         FoldedBy = TurnOwner.None;
     }
 
+    public bool TryPrepareNextRound()
+    {
+        if (Phase != GamePhase.RoundEnd)
+        {
+            return false;
+        }
+
+        Betting.Reset();
+        ClearCards();
+        ResetRoundResult();
+        Turn.Reset();
+        Phase = GamePhase.Setup;
+        return true;
+    }
+
     public bool TryGetHandRank(TurnOwner owner, out HandRank handRank)
     {
         handRank = HandRank.None;
