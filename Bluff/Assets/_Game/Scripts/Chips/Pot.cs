@@ -13,6 +13,17 @@ public sealed class Pot
         return true;
     }
 
+    internal bool TryRemove(int amount)
+    {
+        if (amount <= 0 || amount > Amount)
+        {
+            return false;
+        }
+
+        Amount -= amount;
+        return true;
+    }
+
     public int TakeAll()
     {
         int amount = Amount;

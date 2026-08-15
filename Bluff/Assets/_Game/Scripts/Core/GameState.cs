@@ -90,25 +90,36 @@ public sealed class GameState
 
     private bool TryAddBetToPot(int amount)
     {
+        if (!CanAddBetToPot(amount))
+        {
+            return false;
+        }
+
+        AddBetToPot(amount);
+        return true;
+    }
+
+    private bool CanAddBetToPot(int amount)
+    {
         if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
         {
             return false;
         }
 
-        ChipStack chips = GetChips(CurrentTurn);
+        ChipStack ownerChips = GetChips(CurrentTurn);
 
-        if (amount <= 0 ||
-            amount > chips.Count ||
-            amount > int.MaxValue - Pot.Amount ||
-            !Betting.CanAddToTotalBet(CurrentTurn, amount))
-        {
-            return false;
-        }
+        return amount > 0 &&
+               amount <= ownerChips.Count &&
+               amount <= int.MaxValue - Pot.Amount &&
+               Betting.CanAddToTotalBet(CurrentTurn, amount);
+    }
 
-        chips.TrySpend(amount);
+    private void AddBetToPot(int amount)
+    {
+        ChipStack ownerChips = GetChips(CurrentTurn);
+        ownerChips.TrySpend(amount);
         Pot.TryAdd(amount);
         Betting.TryAddToTotalBet(CurrentTurn, amount);
-        return true;
     }
 
     public bool TryCall()
@@ -169,16 +180,27 @@ public sealed class GameState
             return false;
         }
 
-        int allInAmount = GetChips(CurrentTurn).Count;
+        TurnOwner allInOwner = CurrentTurn;
+        int allInAmount = GetChips(allInOwner).Count;
 
-        if (!TryAddBetToPot(allInAmount))
+        if (allInAmount <= 0 || !CanAddBetToPot(allInAmount))
         {
             return false;
         }
 
-        TurnOwner opponent = GetOpponent(CurrentTurn);
-        bool opponentCanRespond = Betting.GetCallAmount(opponent) > 0 &&
+        TurnOwner opponent = GetOpponent(allInOwner);
+        int allInTotalBet = Betting.GetTotalBet(allInOwner) + allInAmount;
+        int opponentTotalBet = Betting.GetTotalBet(opponent);
+        bool opponentCanRespond = allInTotalBet > opponentTotalBet &&
                                   GetChips(opponent).Count > 0;
+
+        if (!opponentCanRespond &&
+            !CanRefundUnmatchedBet(allInOwner, allInAmount))
+        {
+            return false;
+        }
+
+        AddBetToPot(allInAmount);
 
         if (opponentCanRespond)
         {
@@ -186,10 +208,92 @@ public sealed class GameState
         }
         else
         {
+            TryRefundUnmatchedBet();
             Phase = GamePhase.Showdown;
             Turn.Reset();
         }
 
+        return true;
+    }
+
+    private bool CanRefundUnmatchedBet(
+        TurnOwner allInOwner,
+        int allInAmount)
+    {
+        int playerTotalBet = Betting.PlayerTotalBet;
+        int dealerTotalBet = Betting.DealerTotalBet;
+
+        if (allInOwner == TurnOwner.Player)
+        {
+            playerTotalBet += allInAmount;
+        }
+        else
+        {
+            dealerTotalBet += allInAmount;
+        }
+
+        TurnOwner unmatchedBetOwner;
+        int unmatchedBet;
+
+        if (playerTotalBet > dealerTotalBet)
+        {
+            unmatchedBetOwner = TurnOwner.Player;
+            unmatchedBet = playerTotalBet - dealerTotalBet;
+        }
+        else if (dealerTotalBet > playerTotalBet)
+        {
+            unmatchedBetOwner = TurnOwner.Dealer;
+            unmatchedBet = dealerTotalBet - playerTotalBet;
+        }
+        else
+        {
+            return true;
+        }
+
+        int chipsAfterAllIn = GetChips(unmatchedBetOwner).Count;
+
+        if (unmatchedBetOwner == allInOwner)
+        {
+            chipsAfterAllIn -= allInAmount;
+        }
+
+        int potAfterAllIn = Pot.Amount + allInAmount;
+
+        return unmatchedBet <= potAfterAllIn &&
+               unmatchedBet <= int.MaxValue - chipsAfterAllIn;
+    }
+
+    private bool TryRefundUnmatchedBet()
+    {
+        TurnOwner unmatchedBetOwner;
+        int unmatchedBet;
+
+        if (Betting.PlayerTotalBet > Betting.DealerTotalBet)
+        {
+            unmatchedBetOwner = TurnOwner.Player;
+            unmatchedBet = Betting.PlayerTotalBet - Betting.DealerTotalBet;
+        }
+        else if (Betting.DealerTotalBet > Betting.PlayerTotalBet)
+        {
+            unmatchedBetOwner = TurnOwner.Dealer;
+            unmatchedBet = Betting.DealerTotalBet - Betting.PlayerTotalBet;
+        }
+        else
+        {
+            return true;
+        }
+
+        ChipStack ownerChips = GetChips(unmatchedBetOwner);
+
+        if (unmatchedBet > Pot.Amount ||
+            unmatchedBet > int.MaxValue - ownerChips.Count)
+        {
+            return false;
+        }
+
+        Pot.TryRemove(unmatchedBet);
+        Betting.TryRemoveFromTotalBet(unmatchedBetOwner, unmatchedBet);
+        ownerChips.TryAdd(unmatchedBet);
         return true;
     }
 

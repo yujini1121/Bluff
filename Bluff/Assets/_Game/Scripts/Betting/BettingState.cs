@@ -75,4 +75,27 @@ public sealed class BettingState
 
         return true;
     }
+
+    internal bool TryRemoveFromTotalBet(TurnOwner owner, int amount)
+    {
+        if (amount <= 0 || amount > GetTotalBet(owner))
+        {
+            return false;
+        }
+
+        if (owner == TurnOwner.Player)
+        {
+            PlayerTotalBet -= amount;
+        }
+        else if (owner == TurnOwner.Dealer)
+        {
+            DealerTotalBet -= amount;
+        }
+        else
+        {
+            return false;
+        }
+
+        return true;
+    }
 }
