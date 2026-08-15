@@ -136,8 +136,7 @@ public sealed class GameState
             return false;
         }
 
-        Phase = GamePhase.Showdown;
-        Turn.Reset();
+        FinishBetting();
         return true;
     }
 
@@ -189,12 +188,9 @@ public sealed class GameState
         }
 
         TurnOwner opponent = GetOpponent(allInOwner);
-        int allInTotalBet = Betting.GetTotalBet(allInOwner) + allInAmount;
-        int opponentTotalBet = Betting.GetTotalBet(opponent);
-        bool opponentCanRespond = allInTotalBet > opponentTotalBet &&
-                                  GetChips(opponent).Count > 0;
+        bool shouldEndBetting = ShouldEndBetting(allInOwner, allInAmount);
 
-        if (!opponentCanRespond &&
+        if (shouldEndBetting &&
             !CanRefundUnmatchedBet(allInOwner, allInAmount))
         {
             return false;
@@ -202,18 +198,34 @@ public sealed class GameState
 
         AddBetToPot(allInAmount);
 
-        if (opponentCanRespond)
+        if (shouldEndBetting)
         {
-            Turn.TrySwitch();
+            TryRefundUnmatchedBet();
+            FinishBetting();
         }
         else
         {
-            TryRefundUnmatchedBet();
-            Phase = GamePhase.Showdown;
-            Turn.Reset();
+            Turn.TrySwitch();
         }
 
         return true;
+    }
+
+    private bool ShouldEndBetting(TurnOwner owner, int addedBet)
+    {
+        TurnOwner opponent = GetOpponent(owner);
+        int ownerTotalBetAfterAction = Betting.GetTotalBet(owner) + addedBet;
+        bool opponentNeedsToRespond = ownerTotalBetAfterAction >
+                                      Betting.GetTotalBet(opponent);
+        bool opponentCanRespond = GetChips(opponent).Count > 0;
+
+        return !opponentNeedsToRespond || !opponentCanRespond;
+    }
+
+    private void FinishBetting()
+    {
+        Phase = GamePhase.Showdown;
+        Turn.Reset();
     }
 
     private bool CanRefundUnmatchedBet(
