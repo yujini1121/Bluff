@@ -88,6 +88,123 @@ public sealed class GameState
         FoldedBy = TurnOwner.None;
     }
 
+    public bool TryGetHandRank(TurnOwner owner, out HandRank handRank)
+    {
+        handRank = HandRank.None;
+
+        if (Phase != GamePhase.Showdown ||
+            CommunityCard1 == null ||
+            CommunityCard2 == null)
+        {
+            return false;
+        }
+
+        Card privateCard;
+
+        if (owner == TurnOwner.Player)
+        {
+            privateCard = PlayerCard;
+        }
+        else if (owner == TurnOwner.Dealer)
+        {
+            privateCard = DealerCard;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (privateCard == null)
+        {
+            return false;
+        }
+
+        handRank = GetHandRank(privateCard);
+        return true;
+    }
+
+    public bool TryDetermineWinner(out RoundWinner winner)
+    {
+        winner = RoundWinner.None;
+
+        if (!TryGetHandRank(TurnOwner.Player, out HandRank playerHandRank) ||
+            !TryGetHandRank(TurnOwner.Dealer, out HandRank dealerHandRank))
+        {
+            return false;
+        }
+
+        if (playerHandRank != dealerHandRank)
+        {
+            winner = (int)playerHandRank > (int)dealerHandRank
+                ? RoundWinner.Player
+                : RoundWinner.Dealer;
+        }
+        else if (PlayerCard.Rank > DealerCard.Rank)
+        {
+            winner = RoundWinner.Player;
+        }
+        else if (DealerCard.Rank > PlayerCard.Rank)
+        {
+            winner = RoundWinner.Dealer;
+        }
+        else
+        {
+            winner = RoundWinner.Draw;
+        }
+
+        return true;
+    }
+
+    private HandRank GetHandRank(Card privateCard)
+    {
+        int privateRank = privateCard.Rank;
+        int communityRank1 = CommunityCard1.Rank;
+        int communityRank2 = CommunityCard2.Rank;
+
+        if (privateRank == communityRank1 &&
+            communityRank1 == communityRank2)
+        {
+            return HandRank.Triple;
+        }
+
+        if (IsStraight(privateRank, communityRank1, communityRank2))
+        {
+            return HandRank.Straight;
+        }
+
+        if (privateRank == communityRank1 ||
+            privateRank == communityRank2 ||
+            communityRank1 == communityRank2)
+        {
+            return HandRank.Double;
+        }
+
+        return HandRank.Number;
+    }
+
+    private static bool IsStraight(int rank1, int rank2, int rank3)
+    {
+        if (rank1 == rank2 || rank1 == rank3 || rank2 == rank3)
+        {
+            return false;
+        }
+
+        int lowestRank = Math.Min(rank1, Math.Min(rank2, rank3));
+        int highestRank = Math.Max(rank1, Math.Max(rank2, rank3));
+
+        if (highestRank - lowestRank == 2)
+        {
+            return true;
+        }
+
+        bool hasOne = rank1 == 1 || rank2 == 1 || rank3 == 1;
+        bool hasTen = rank1 == 10 || rank2 == 10 || rank3 == 10;
+        bool hasTwoOrNine = rank1 == 2 || rank2 == 2 || rank3 == 2 ||
+                            rank1 == 9 || rank2 == 9 || rank3 == 9;
+
+        return hasOne && hasTen && hasTwoOrNine;
+    }
+
     private bool TryAddBetToPot(int amount)
     {
         if (!CanAddBetToPot(amount))
