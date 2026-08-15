@@ -1,16 +1,16 @@
 public sealed class BettingState
 {
-    public int PlayerBet { get; private set; }
-    public int DealerBet { get; private set; }
+    public int PlayerTotalBet { get; private set; }
+    public int DealerTotalBet { get; private set; }
 
-    public int GetBet(TurnOwner owner)
+    public int GetTotalBet(TurnOwner owner)
     {
         switch (owner)
         {
             case TurnOwner.Player:
-                return PlayerBet;
+                return PlayerTotalBet;
             case TurnOwner.Dealer:
-                return DealerBet;
+                return DealerTotalBet;
             default:
                 return 0;
         }
@@ -21,12 +21,12 @@ public sealed class BettingState
         switch (owner)
         {
             case TurnOwner.Player:
-                return DealerBet > PlayerBet
-                    ? DealerBet - PlayerBet
+                return DealerTotalBet > PlayerTotalBet
+                    ? DealerTotalBet - PlayerTotalBet
                     : 0;
             case TurnOwner.Dealer:
-                return PlayerBet > DealerBet
-                    ? PlayerBet - DealerBet
+                return PlayerTotalBet > DealerTotalBet
+                    ? PlayerTotalBet - DealerTotalBet
                     : 0;
             default:
                 return 0;
@@ -35,11 +35,11 @@ public sealed class BettingState
 
     public void Reset()
     {
-        PlayerBet = 0;
-        DealerBet = 0;
+        PlayerTotalBet = 0;
+        DealerTotalBet = 0;
     }
 
-    internal bool CanAddBet(TurnOwner owner, int amount)
+    internal bool CanAddToTotalBet(TurnOwner owner, int amount)
     {
         if (amount <= 0)
         {
@@ -49,28 +49,28 @@ public sealed class BettingState
         switch (owner)
         {
             case TurnOwner.Player:
-                return amount <= int.MaxValue - PlayerBet;
+                return amount <= int.MaxValue - PlayerTotalBet;
             case TurnOwner.Dealer:
-                return amount <= int.MaxValue - DealerBet;
+                return amount <= int.MaxValue - DealerTotalBet;
             default:
                 return false;
         }
     }
 
-    internal bool TryAddBet(TurnOwner owner, int amount)
+    internal bool TryAddToTotalBet(TurnOwner owner, int amount)
     {
-        if (!CanAddBet(owner, amount))
+        if (!CanAddToTotalBet(owner, amount))
         {
             return false;
         }
 
         if (owner == TurnOwner.Player)
         {
-            PlayerBet += amount;
+            PlayerTotalBet += amount;
         }
         else
         {
-            DealerBet += amount;
+            DealerTotalBet += amount;
         }
 
         return true;

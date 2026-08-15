@@ -7,8 +7,7 @@ public sealed class BettingActionTests
     {
         GameState gameState = CreateBettingGame(TurnOwner.Dealer);
 
-        Assert.That(gameState.TryPlaceBet(4), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
+        Assert.That(gameState.TryRaise(4), Is.True);
         Assert.That(gameState.Betting.GetCallAmount(TurnOwner.Player), Is.EqualTo(4));
 
         Assert.That(gameState.TryCall(), Is.True);
@@ -16,8 +15,8 @@ public sealed class BettingActionTests
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(6));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(6));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(8));
-        Assert.That(gameState.Betting.PlayerBet, Is.EqualTo(4));
-        Assert.That(gameState.Betting.DealerBet, Is.EqualTo(4));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(4));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
     }
@@ -40,14 +39,15 @@ public sealed class BettingActionTests
     {
         GameState gameState = CreateBettingGame(TurnOwner.Dealer, 3, 10);
 
-        Assert.That(gameState.TryPlaceBet(4), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
+        Assert.That(gameState.TryRaise(4), Is.True);
 
         Assert.That(gameState.TryCall(), Is.False);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(3));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(6));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(4));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
     }
@@ -57,16 +57,15 @@ public sealed class BettingActionTests
     {
         GameState gameState = CreateBettingGame(TurnOwner.Dealer);
 
-        Assert.That(gameState.TryPlaceBet(4), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
+        Assert.That(gameState.TryRaise(4), Is.True);
 
         Assert.That(gameState.TryRaise(3), Is.True);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(3));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(6));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(11));
-        Assert.That(gameState.Betting.PlayerBet, Is.EqualTo(7));
-        Assert.That(gameState.Betting.DealerBet, Is.EqualTo(4));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(7));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
         Assert.That(gameState.Betting.GetCallAmount(TurnOwner.Dealer), Is.EqualTo(3));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
@@ -81,16 +80,15 @@ public sealed class BettingActionTests
     {
         GameState gameState = CreateBettingGame(TurnOwner.Dealer, 5, 10);
 
-        Assert.That(gameState.TryPlaceBet(4), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
+        Assert.That(gameState.TryRaise(4), Is.True);
 
         Assert.That(gameState.TryRaise(2), Is.False);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(5));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(6));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(4));
-        Assert.That(gameState.Betting.PlayerBet, Is.Zero);
-        Assert.That(gameState.Betting.DealerBet, Is.EqualTo(4));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
     }
@@ -105,8 +103,8 @@ public sealed class BettingActionTests
         Assert.That(gameState.PlayerChips.Count, Is.Zero);
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(7));
-        Assert.That(gameState.Betting.PlayerBet, Is.EqualTo(7));
-        Assert.That(gameState.Betting.DealerBet, Is.Zero);
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(7));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
         Assert.That(gameState.Betting.GetCallAmount(TurnOwner.Dealer), Is.EqualTo(7));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
@@ -117,16 +115,15 @@ public sealed class BettingActionTests
     {
         GameState gameState = CreateBettingGame(TurnOwner.Dealer, 3, 10);
 
-        Assert.That(gameState.TryPlaceBet(5), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
+        Assert.That(gameState.TryRaise(5), Is.True);
 
         Assert.That(gameState.TryAllIn(), Is.True);
 
         Assert.That(gameState.PlayerChips.Count, Is.Zero);
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(5));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(8));
-        Assert.That(gameState.Betting.PlayerBet, Is.EqualTo(3));
-        Assert.That(gameState.Betting.DealerBet, Is.EqualTo(5));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(3));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(5));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
     }
@@ -136,18 +133,16 @@ public sealed class BettingActionTests
     {
         GameState gameState = CreateBettingGame(TurnOwner.Player);
 
-        Assert.That(gameState.TryPlaceBet(2), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
-        Assert.That(gameState.TryPlaceBet(4), Is.True);
-        Assert.That(gameState.Turn.TrySwitch(), Is.True);
+        Assert.That(gameState.TryRaise(2), Is.True);
+        Assert.That(gameState.TryRaise(2), Is.True);
 
         Assert.That(gameState.TryFold(), Is.True);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(8));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(12));
         Assert.That(gameState.Pot.Amount, Is.Zero);
-        Assert.That(gameState.Betting.PlayerBet, Is.Zero);
-        Assert.That(gameState.Betting.DealerBet, Is.Zero);
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
     }
@@ -161,7 +156,6 @@ public sealed class BettingActionTests
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
         Assert.That(gameState.TryFold(), Is.False);
-        Assert.That(gameState.TryPlaceBet(1), Is.False);
 
         Assert.That(gameState.TrySetPhase(GamePhase.Betting), Is.True);
 
@@ -169,7 +163,6 @@ public sealed class BettingActionTests
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
         Assert.That(gameState.TryFold(), Is.False);
-        Assert.That(gameState.TryPlaceBet(1), Is.False);
     }
 
     private static GameState CreateBettingGame(

@@ -79,7 +79,7 @@ public sealed class GameState
         CommunityCard2 = null;
     }
 
-    public bool TryPlaceBet(int amount)
+    private bool TryAddBetToPot(int amount)
     {
         if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
         {
@@ -91,14 +91,14 @@ public sealed class GameState
         if (amount <= 0 ||
             amount > chips.Count ||
             amount > int.MaxValue - Pot.Amount ||
-            !Betting.CanAddBet(CurrentTurn, amount))
+            !Betting.CanAddToTotalBet(CurrentTurn, amount))
         {
             return false;
         }
 
         chips.TrySpend(amount);
         Pot.TryAdd(amount);
-        Betting.TryAddBet(CurrentTurn, amount);
+        Betting.TryAddToTotalBet(CurrentTurn, amount);
         return true;
     }
 
@@ -111,7 +111,7 @@ public sealed class GameState
 
         int callAmount = Betting.GetCallAmount(CurrentTurn);
 
-        if (callAmount <= 0 || !TryPlaceBet(callAmount))
+        if (callAmount <= 0 || !TryAddBetToPot(callAmount))
         {
             return false;
         }
@@ -121,7 +121,7 @@ public sealed class GameState
         return true;
     }
 
-    public bool TryRaise(int raiseAmount)
+    public bool TryRaise(int raiseBy)
     {
         if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
         {
@@ -130,21 +130,21 @@ public sealed class GameState
 
         TurnOwner opponent = GetOpponent(CurrentTurn);
 
-        if (raiseAmount <= 0 || GetChips(opponent).Count == 0)
+        if (raiseBy <= 0 || GetChips(opponent).Count == 0)
         {
             return false;
         }
 
         int callAmount = Betting.GetCallAmount(CurrentTurn);
 
-        if (callAmount > int.MaxValue - raiseAmount)
+        if (callAmount > int.MaxValue - raiseBy)
         {
             return false;
         }
 
-        int betAmount = callAmount + raiseAmount;
+        int amountToBet = callAmount + raiseBy;
 
-        if (!TryPlaceBet(betAmount))
+        if (!TryAddBetToPot(amountToBet))
         {
             return false;
         }
@@ -162,7 +162,7 @@ public sealed class GameState
 
         int allInAmount = GetChips(CurrentTurn).Count;
 
-        if (!TryPlaceBet(allInAmount))
+        if (!TryAddBetToPot(allInAmount))
         {
             return false;
         }
