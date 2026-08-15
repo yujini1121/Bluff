@@ -11,6 +11,8 @@ public sealed class CoreStateTests
         var gameState = new GameState(10, 15, deck);
 
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Setup));
+        Assert.That(gameState.RoundEndReason, Is.EqualTo(RoundEndReason.None));
+        Assert.That(gameState.FoldedBy, Is.EqualTo(TurnOwner.None));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(10));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(15));

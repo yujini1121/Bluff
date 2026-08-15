@@ -3,6 +3,8 @@ using System;
 public sealed class GameState
 {
     public GamePhase Phase { get; private set; }
+    public RoundEndReason RoundEndReason { get; private set; }
+    public TurnOwner FoldedBy { get; private set; }
     public TurnState Turn { get; }
     public TurnOwner CurrentTurn => Turn.Owner;
     public ChipStack PlayerChips { get; }
@@ -24,6 +26,7 @@ public sealed class GameState
         Betting = new BettingState();
         Turn = new TurnState();
         Phase = GamePhase.Setup;
+        ResetRoundResult();
     }
 
     public bool TrySetPhase(GamePhase phase)
@@ -77,6 +80,12 @@ public sealed class GameState
         DealerCard = null;
         CommunityCard1 = null;
         CommunityCard2 = null;
+    }
+
+    public void ResetRoundResult()
+    {
+        RoundEndReason = global::RoundEndReason.None;
+        FoldedBy = TurnOwner.None;
     }
 
     private bool TryAddBetToPot(int amount)
@@ -191,7 +200,8 @@ public sealed class GameState
             return false;
         }
 
-        TurnOwner winner = GetOpponent(CurrentTurn);
+        TurnOwner foldedBy = CurrentTurn;
+        TurnOwner winner = GetOpponent(foldedBy);
         ChipStack winnerChips = GetChips(winner);
         int potAmount = Pot.Amount;
 
@@ -199,6 +209,9 @@ public sealed class GameState
         {
             return false;
         }
+
+        FoldedBy = foldedBy;
+        RoundEndReason = global::RoundEndReason.Fold;
 
         if (potAmount > 0)
         {
