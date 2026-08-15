@@ -105,6 +105,69 @@ public sealed class GameState
         return true;
     }
 
+    public bool TryRaise(int raiseAmount)
+    {
+        if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
+        {
+            return false;
+        }
+
+        TurnOwner opponent = GetOpponent(CurrentTurn);
+
+        if (raiseAmount <= 0 || GetChips(opponent).Count == 0)
+        {
+            return false;
+        }
+
+        int callAmount = Betting.GetCallAmount(CurrentTurn);
+
+        if (callAmount > int.MaxValue - raiseAmount)
+        {
+            return false;
+        }
+
+        int betAmount = callAmount + raiseAmount;
+
+        if (!TryPlaceBet(betAmount))
+        {
+            return false;
+        }
+
+        Turn.TrySwitch();
+        return true;
+    }
+
+    public bool TryAllIn()
+    {
+        if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
+        {
+            return false;
+        }
+
+        int allInAmount = GetChips(CurrentTurn).Count;
+
+        if (!TryPlaceBet(allInAmount))
+        {
+            return false;
+        }
+
+        TurnOwner opponent = GetOpponent(CurrentTurn);
+        bool opponentCanRespond = Betting.GetCallAmount(opponent) > 0 &&
+                                  GetChips(opponent).Count > 0;
+
+        if (opponentCanRespond)
+        {
+            Turn.TrySwitch();
+        }
+        else
+        {
+            Phase = GamePhase.Showdown;
+            Turn.Reset();
+        }
+
+        return true;
+    }
+
     public bool TryFold()
     {
         if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
@@ -112,9 +175,7 @@ public sealed class GameState
             return false;
         }
 
-        TurnOwner winner = CurrentTurn == TurnOwner.Player
-            ? TurnOwner.Dealer
-            : TurnOwner.Player;
+        TurnOwner winner = GetOpponent(CurrentTurn);
         ChipStack winnerChips = GetChips(winner);
         int potAmount = Pot.Amount;
 
@@ -137,6 +198,11 @@ public sealed class GameState
     private ChipStack GetChips(TurnOwner owner)
     {
         return owner == TurnOwner.Player ? PlayerChips : DealerChips;
+    }
+
+    private static TurnOwner GetOpponent(TurnOwner owner)
+    {
+        return owner == TurnOwner.Player ? TurnOwner.Dealer : TurnOwner.Player;
     }
 
     private static bool IsActiveTurn(TurnOwner owner)
