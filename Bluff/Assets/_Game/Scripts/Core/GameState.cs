@@ -5,6 +5,7 @@ public sealed class GameState
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
     public TurnOwner FoldedBy { get; private set; }
+    public GameWinner FinalWinner { get; private set; }
     public TurnState Turn { get; }
     public TurnOwner CurrentTurn => Turn.Owner;
     public ChipStack PlayerChips { get; }
@@ -26,6 +27,7 @@ public sealed class GameState
         Betting = new BettingState();
         Turn = new TurnState();
         Phase = GamePhase.Setup;
+        FinalWinner = GameWinner.None;
         ResetRoundResult();
     }
 
@@ -168,6 +170,68 @@ public sealed class GameState
         }
 
         return true;
+    }
+
+    public bool TrySettleShowdown(out RoundWinner winner)
+    {
+        winner = RoundWinner.None;
+
+        if (!TryDetermineWinner(out RoundWinner determinedWinner))
+        {
+            return false;
+        }
+
+        ChipStack winnerChips = null;
+
+        if (determinedWinner == RoundWinner.Player)
+        {
+            winnerChips = PlayerChips;
+        }
+        else if (determinedWinner == RoundWinner.Dealer)
+        {
+            winnerChips = DealerChips;
+        }
+
+        int potAmount = Pot.Amount;
+
+        if (winnerChips != null &&
+            potAmount > int.MaxValue - winnerChips.Count)
+        {
+            return false;
+        }
+
+        if (winnerChips != null && potAmount > 0)
+        {
+            winnerChips.TryAdd(Pot.TakeAll());
+        }
+
+        Betting.Reset();
+        FoldedBy = TurnOwner.None;
+        RoundEndReason = global::RoundEndReason.Showdown;
+        Phase = GamePhase.RoundEnd;
+        Turn.Reset();
+        winner = determinedWinner;
+        EndGameIfNeeded();
+        return true;
+    }
+
+    private void EndGameIfNeeded()
+    {
+        if (Pot.Amount > 0)
+        {
+            return;
+        }
+
+        if (PlayerChips.Count == 0 && DealerChips.Count > 0)
+        {
+            FinalWinner = GameWinner.Dealer;
+            Phase = GamePhase.GameOver;
+        }
+        else if (DealerChips.Count == 0 && PlayerChips.Count > 0)
+        {
+            FinalWinner = GameWinner.Player;
+            Phase = GamePhase.GameOver;
+        }
     }
 
     private HandRank GetHandRank(Card privateCard)
@@ -469,6 +533,7 @@ public sealed class GameState
         Betting.Reset();
         Phase = GamePhase.RoundEnd;
         Turn.Reset();
+        EndGameIfNeeded();
         return true;
     }
 

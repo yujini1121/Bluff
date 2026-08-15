@@ -94,11 +94,8 @@ public sealed class RoundTransitionTests
         gameState.Turn.TrySet(TurnOwner.Dealer);
         Assert.That(gameState.TryRaise(2), Is.True);
         Assert.That(gameState.TryCall(), Is.True);
-        Assert.That(gameState.TryDetermineWinner(out RoundWinner winner), Is.True);
+        Assert.That(gameState.TrySettleShowdown(out RoundWinner winner), Is.True);
         Assert.That(winner, Is.EqualTo(RoundWinner.Player));
-
-        Assert.That(gameState.PlayerChips.TryAdd(gameState.Pot.TakeAll()), Is.True);
-        Assert.That(gameState.TrySetPhase(GamePhase.RoundEnd), Is.True);
         int playerChips = gameState.PlayerChips.Count;
         int dealerChips = gameState.DealerChips.Count;
 
@@ -117,9 +114,8 @@ public sealed class RoundTransitionTests
         gameState.Turn.TrySet(TurnOwner.Dealer);
         Assert.That(gameState.TryRaise(4), Is.True);
         Assert.That(gameState.TryCall(), Is.True);
-        Assert.That(gameState.TryDetermineWinner(out RoundWinner winner), Is.True);
+        Assert.That(gameState.TrySettleShowdown(out RoundWinner winner), Is.True);
         Assert.That(winner, Is.EqualTo(RoundWinner.Draw));
-        Assert.That(gameState.TrySetPhase(GamePhase.RoundEnd), Is.True);
         int playerChips = gameState.PlayerChips.Count;
         int dealerChips = gameState.DealerChips.Count;
 
