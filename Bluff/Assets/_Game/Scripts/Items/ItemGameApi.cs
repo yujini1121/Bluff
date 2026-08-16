@@ -54,6 +54,11 @@ public sealed class ItemGameApi
         return gameState.TryCall();
     }
 
+    public bool TryFoldWithoutPenalty()
+    {
+        return gameState.TryFold(isFoldPenaltyWaived: true);
+    }
+
     private bool CanReplaceCard(CardTarget target)
     {
         switch (target)
