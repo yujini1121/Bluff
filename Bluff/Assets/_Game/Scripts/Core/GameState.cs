@@ -90,6 +90,35 @@ public sealed class GameState
         FoldedBy = TurnOwner.None;
     }
 
+    public bool TryStartRound(TurnOwner firstTurn)
+    {
+        if (Phase != GamePhase.Setup ||
+            !IsActiveTurn(firstTurn) ||
+            PlayerCard != null ||
+            DealerCard != null ||
+            CommunityCard1 != null ||
+            CommunityCard2 != null ||
+            Deck.RemainingCount < 4)
+        {
+            return false;
+        }
+
+        Deck.TryDraw(out Card playerCard);
+        Deck.TryDraw(out Card dealerCard);
+        Deck.TryDraw(out Card communityCard1);
+        Deck.TryDraw(out Card communityCard2);
+
+        PlayerCard = playerCard;
+        DealerCard = dealerCard;
+        CommunityCard1 = communityCard1;
+        CommunityCard2 = communityCard2;
+        Betting.Reset();
+        ResetRoundResult();
+        Turn.TrySet(firstTurn);
+        Phase = GamePhase.Betting;
+        return true;
+    }
+
     public bool TryPrepareNextRound()
     {
         if (Phase != GamePhase.RoundEnd)

@@ -5,7 +5,10 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
-    path: Assets/_Game/Scenes/Main/Main.unity
+  - enabled: 0
+    path: Assets/_Game/Scenes/Main.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/_Game/Scenes/Dev_Yujin.unity
+    guid: 8b45c8b081eb67c4cb16201ea0ccda2e
   m_configObjects: {}
