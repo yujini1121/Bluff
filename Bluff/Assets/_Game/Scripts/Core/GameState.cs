@@ -2,6 +2,9 @@ using System;
 
 public sealed class GameState
 {
+    private const int AnteAmount = 1;
+    private const int TotalAnteAmount = AnteAmount * 2;
+
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
     public TurnOwner FoldedBy { get; private set; }
@@ -98,7 +101,12 @@ public sealed class GameState
             DealerCard != null ||
             CommunityCard1 != null ||
             CommunityCard2 != null ||
-            Deck.RemainingCount < 4)
+            Deck.RemainingCount < 4 ||
+            PlayerChips.Count < AnteAmount ||
+            DealerChips.Count < AnteAmount ||
+            Pot.Amount > int.MaxValue - TotalAnteAmount ||
+            !Betting.CanAddToTotalBet(TurnOwner.Player, AnteAmount) ||
+            !Betting.CanAddToTotalBet(TurnOwner.Dealer, AnteAmount))
         {
             return false;
         }
@@ -113,6 +121,11 @@ public sealed class GameState
         CommunityCard1 = communityCard1;
         CommunityCard2 = communityCard2;
         Betting.Reset();
+        PlayerChips.TrySpend(AnteAmount);
+        DealerChips.TrySpend(AnteAmount);
+        Pot.TryAdd(TotalAnteAmount);
+        Betting.TryAddToTotalBet(TurnOwner.Player, AnteAmount);
+        Betting.TryAddToTotalBet(TurnOwner.Dealer, AnteAmount);
         ResetRoundResult();
         Turn.TrySet(firstTurn);
         Phase = GamePhase.Betting;

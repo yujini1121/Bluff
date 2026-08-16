@@ -77,7 +77,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             Debug.LogError(
                 "인디언 홀덤 UI 참조가 연결되지 않았습니다. " +
-                "Tools > 인디언 홀덤 > 프로토타입 UI 재생성을 사용해주세요.",
+                "Inspector에서 UI 참조를 확인해주세요.",
                 this);
             enabled = false;
             return;
@@ -351,7 +351,12 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             resultTitleText.text = gameState.FinalWinner == GameWinner.Player
                 ? "PLAYER WINS"
                 : "DEALER WINS";
-            resultDetailText.text = "GAME OVER\n" + BuildHandRankSummary();
+            string gameOverDetail = isFoldResult
+                ? (gameState.FoldedBy == TurnOwner.Player
+                    ? "PLAYER FOLD"
+                    : "DEALER FOLD")
+                : BuildHandRankSummary();
+            resultDetailText.text = "GAME OVER\n" + gameOverDetail;
             return;
         }
 
