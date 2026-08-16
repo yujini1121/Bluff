@@ -4,10 +4,12 @@ public sealed class GameState
 {
     private const int AnteAmount = 1;
     private const int TotalAnteAmount = AnteAmount * 2;
+    private const int MaximumFoldPenaltyAmount = 10;
 
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
     public TurnOwner FoldedBy { get; private set; }
+    public int FoldPenaltyAmount { get; private set; }
     public GameWinner FinalWinner { get; private set; }
     public TurnState Turn { get; }
     public TurnOwner CurrentTurn => Turn.Owner;
@@ -91,6 +93,7 @@ public sealed class GameState
     {
         RoundEndReason = global::RoundEndReason.None;
         FoldedBy = TurnOwner.None;
+        FoldPenaltyAmount = 0;
     }
 
     public bool TryStartRound(TurnOwner firstTurn)
@@ -549,6 +552,11 @@ public sealed class GameState
 
     public bool TryFold()
     {
+        return TryFold(false);
+    }
+
+    public bool TryFold(bool isFoldPenaltyWaived)
+    {
         if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
         {
             return false;
@@ -556,15 +564,20 @@ public sealed class GameState
 
         TurnOwner foldedBy = CurrentTurn;
         TurnOwner winner = GetOpponent(foldedBy);
+        ChipStack foldedChips = GetChips(foldedBy);
         ChipStack winnerChips = GetChips(winner);
         int potAmount = Pot.Amount;
+        int penaltyAmount = isFoldPenaltyWaived
+            ? 0
+            : CalculateFoldPenaltyAmount(foldedBy);
 
-        if (potAmount > int.MaxValue - winnerChips.Count)
+        if ((long)winnerChips.Count + potAmount + penaltyAmount > int.MaxValue)
         {
             return false;
         }
 
         FoldedBy = foldedBy;
+        FoldPenaltyAmount = penaltyAmount;
         RoundEndReason = global::RoundEndReason.Fold;
 
         if (potAmount > 0)
@@ -572,11 +585,40 @@ public sealed class GameState
             winnerChips.TryAdd(Pot.TakeAll());
         }
 
+        if (penaltyAmount > 0)
+        {
+            foldedChips.TrySpend(penaltyAmount);
+            winnerChips.TryAdd(penaltyAmount);
+        }
+
         Betting.Reset();
         Phase = GamePhase.RoundEnd;
         Turn.Reset();
         EndGameIfNeeded();
         return true;
+    }
+
+    private int CalculateFoldPenaltyAmount(TurnOwner foldedBy)
+    {
+        Card privateCard = foldedBy == TurnOwner.Player
+            ? PlayerCard
+            : DealerCard;
+
+        if (privateCard == null ||
+            CommunityCard1 == null ||
+            CommunityCard2 == null)
+        {
+            return 0;
+        }
+
+        HandRank handRank = GetHandRank(privateCard);
+
+        if (handRank != HandRank.Straight && handRank != HandRank.Triple)
+        {
+            return 0;
+        }
+
+        return Math.Min(MaximumFoldPenaltyAmount, GetChips(foldedBy).Count);
     }
 
     private ChipStack GetChips(TurnOwner owner)

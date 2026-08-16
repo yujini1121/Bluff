@@ -478,7 +478,7 @@ MonoBehaviour:
   playerStartingChips: 20
   dealerStartingChips: 20
   firstTurn: 1
-  maxLogLines: 5
+  maxLogLines: 8
   uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
   phaseText: {fileID: 696463238}
   turnText: {fileID: 1495789816}

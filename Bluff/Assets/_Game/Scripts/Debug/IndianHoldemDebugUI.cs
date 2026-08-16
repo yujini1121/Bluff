@@ -352,9 +352,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 ? "PLAYER WINS"
                 : "DEALER WINS";
             string gameOverDetail = isFoldResult
-                ? (gameState.FoldedBy == TurnOwner.Player
-                    ? "PLAYER FOLD"
-                    : "DEALER FOLD")
+                ? BuildFoldResultSummary()
                 : BuildHandRankSummary();
             resultDetailText.text = "GAME OVER\n" + gameOverDetail;
             return;
@@ -364,7 +362,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             bool playerWon = gameState.FoldedBy == TurnOwner.Dealer;
             resultTitleText.text = playerWon ? "PLAYER WIN" : "DEALER WIN";
-            resultDetailText.text = playerWon ? "DEALER FOLD" : "PLAYER FOLD";
+            resultDetailText.text = BuildFoldResultSummary();
             return;
         }
 
@@ -399,7 +397,35 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             $"Call Amount    " +
             $"{gameState.Betting.GetCallAmount(gameState.CurrentTurn)}\n" +
             $"Folded By      {gameState.FoldedBy}\n" +
+            $"Fold Penalty   {BuildFoldPenaltyDebugText()}\n" +
             $"Deck Remaining {gameState.Deck.RemainingCount}";
+    }
+
+    private string BuildFoldResultSummary()
+    {
+        string foldedBy = gameState.FoldedBy == TurnOwner.Player
+            ? "PLAYER FOLD"
+            : "DEALER FOLD";
+
+        if (gameState.FoldPenaltyAmount == 0)
+        {
+            return foldedBy;
+        }
+
+        return foldedBy + " · PENALTY -" + gameState.FoldPenaltyAmount;
+    }
+
+    private string BuildFoldPenaltyDebugText()
+    {
+        if (gameState.FoldPenaltyAmount == 0)
+        {
+            return "0";
+        }
+
+        string foldedBy = gameState.FoldedBy == TurnOwner.Player
+            ? "Player"
+            : "Dealer";
+        return foldedBy + " -" + gameState.FoldPenaltyAmount;
     }
 
     private string BuildHandRankSummary()
