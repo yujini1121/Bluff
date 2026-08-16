@@ -68,6 +68,31 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private HandRank dealerHandRank;
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
+    private IndianHoldemUIEffects uiEffects;
+    private PendingAction pendingAction;
+    private TurnOwner pendingActor = TurnOwner.None;
+    private bool newRoundAnimationPending;
+    private bool showdownSettlementPending;
+    private bool hasViewSnapshot;
+    private GamePhase previousPhase;
+    private TurnOwner previousTurn;
+    private int previousPlayerBet;
+    private int previousDealerBet;
+    private int previousPot;
+    private int previousPlayerChips;
+    private int previousDealerChips;
+    private int previousFoldPenalty;
+    private RoundWinner previousRoundWinner;
+    private bool previousResultVisible;
+
+    private enum PendingAction
+    {
+        None,
+        Call,
+        Raise,
+        AllIn,
+        Fold
+    }
 
     private void Awake()
     {
@@ -82,6 +107,29 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             enabled = false;
             return;
         }
+
+        uiEffects = GetComponent<IndianHoldemUIEffects>();
+
+        if (uiEffects == null)
+        {
+            uiEffects = gameObject.AddComponent<IndianHoldemUIEffects>();
+        }
+
+        uiEffects.Initialize(
+            dealerActionBar,
+            playerActionBar,
+            resultOverlay,
+            dealerCardText,
+            communityCard1Text,
+            communityCard2Text,
+            playerCardText,
+            dealerNameText,
+            playerNameText,
+            dealerTotalBetText,
+            playerTotalBetText,
+            potText,
+            dealerChipsText,
+            playerChipsText);
 
         debugPanelOpen = false;
         CreateDebugGame();
@@ -106,27 +154,33 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     public void OnCallClicked()
     {
-        RunBettingAction("콜", gameState.TryCall);
+        RunBettingAction("콜", PendingAction.Call, gameState.TryCall);
     }
 
     public void OnFoldClicked()
     {
-        RunBettingAction("폴드", gameState.TryFold);
+        RunBettingAction("폴드", PendingAction.Fold, gameState.TryFold);
     }
 
     public void OnRaiseOneClicked()
     {
-        RunBettingAction("레이즈 +1", () => gameState.TryRaise(1));
+        RunBettingAction(
+            "레이즈 +1",
+            PendingAction.Raise,
+            () => gameState.TryRaise(1));
     }
 
     public void OnRaiseFiveClicked()
     {
-        RunBettingAction("레이즈 +5", () => gameState.TryRaise(5));
+        RunBettingAction(
+            "레이즈 +5",
+            PendingAction.Raise,
+            () => gameState.TryRaise(5));
     }
 
     public void OnAllInClicked()
     {
-        RunBettingAction("올인", gameState.TryAllIn);
+        RunBettingAction("올인", PendingAction.AllIn, gameState.TryAllIn);
     }
 
     public void OnResolveShowdownClicked()
@@ -172,6 +226,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         ResetDisplayedRoundResult();
+        uiEffects.PrepareForNewRound();
+        newRoundAnimationPending = true;
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
     }
 
@@ -191,7 +247,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RefreshView();
     }
 
-    private void RunBettingAction(string actionName, Func<bool> action)
+    private void RunBettingAction(
+        string actionName,
+        PendingAction actionFeedback,
+        Func<bool> action)
     {
         TurnOwner actor = gameState.CurrentTurn;
 
@@ -201,6 +260,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        pendingAction = actionFeedback;
+        pendingActor = actor;
         AddLog($"{OwnerText(actor)} {actionName}");
 
         if (gameState.Phase == GamePhase.Showdown)
@@ -231,6 +292,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        showdownSettlementPending = true;
         AddLog(
             $"플레이어 {HandRankText(playerHandRank)} / " +
             $"딜러 {HandRankText(dealerHandRank)}");
@@ -287,8 +349,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                           gameState.CurrentTurn == TurnOwner.Dealer;
         bool playerTurn = gameState.Phase == GamePhase.Betting &&
                           gameState.CurrentTurn == TurnOwner.Player;
-        dealerActionBar.SetActive(dealerTurn);
-        playerActionBar.SetActive(playerTurn);
 
         for (int index = 0; index < bettingActionButtons.Length; index++)
         {
@@ -303,7 +363,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         resolveShowdownButton.gameObject.SetActive(canResolve);
         nextRoundButton.gameObject.SetActive(canStartNextRound);
 
-        RefreshResultOverlay();
+        bool resultVisible = RefreshResultOverlayContent();
+        HandleVisualStateChanges(resultVisible);
+        CaptureViewSnapshot(resultVisible);
     }
 
     private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
@@ -327,7 +389,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             : new Vector2(2, -2);
     }
 
-    private void RefreshResultOverlay()
+    private bool RefreshResultOverlayContent()
     {
         bool isGameOver = gameState.Phase == GamePhase.GameOver &&
                           gameState.FinalWinner != GameWinner.None;
@@ -339,11 +401,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                              gameState.Phase == GamePhase.GameOver);
         bool shouldShow = isGameOver || isShowdownResult || isFoldResult;
 
-        resultOverlay.SetActive(shouldShow);
-
         if (!shouldShow)
         {
-            return;
+            return false;
         }
 
         if (isGameOver)
@@ -355,7 +415,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 ? BuildFoldResultSummary()
                 : BuildHandRankSummary();
             resultDetailText.text = "GAME OVER\n" + gameOverDetail;
-            return;
+            return true;
         }
 
         if (isFoldResult)
@@ -363,14 +423,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             bool playerWon = gameState.FoldedBy == TurnOwner.Dealer;
             resultTitleText.text = playerWon ? "PLAYER WIN" : "DEALER WIN";
             resultDetailText.text = BuildFoldResultSummary();
-            return;
+            return true;
         }
 
         if (roundWinner == RoundWinner.Draw)
         {
             resultTitleText.text = "DRAW";
             resultDetailText.text = BuildHandRankSummary();
-            return;
+            return true;
         }
 
         bool playerIsWinner = roundWinner == RoundWinner.Player;
@@ -380,6 +440,217 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         resultTitleText.text = playerIsWinner ? "PLAYER WIN" : "DEALER WIN";
         resultDetailText.text =
             HandRankGameText(winnerHandRank) + "\n" + BuildHandRankSummary();
+        return true;
+    }
+
+    private void HandleVisualStateChanges(bool resultVisible)
+    {
+        if (newRoundAnimationPending)
+        {
+            uiEffects.PlayNewRound(gameState.CurrentTurn);
+            newRoundAnimationPending = false;
+            pendingAction = PendingAction.None;
+            pendingActor = TurnOwner.None;
+            showdownSettlementPending = false;
+            return;
+        }
+
+        if (!hasViewSnapshot)
+        {
+            if (gameState.Phase == GamePhase.Betting)
+            {
+                uiEffects.PlayTurnChange(gameState.CurrentTurn);
+            }
+            else if (resultVisible)
+            {
+                uiEffects.PlayResult(gameState.Phase == GamePhase.GameOver);
+            }
+
+            return;
+        }
+
+        bool phaseChanged = previousPhase != gameState.Phase;
+        bool turnChanged = previousTurn != gameState.CurrentTurn;
+
+        if (pendingAction != PendingAction.None)
+        {
+            PlayPendingBettingAction(phaseChanged, turnChanged);
+            pendingAction = PendingAction.None;
+            pendingActor = TurnOwner.None;
+            return;
+        }
+
+        if (showdownSettlementPending)
+        {
+            bool potWasPaid = previousPot > gameState.Pot.Amount;
+            uiEffects.PlayShowdownResult(
+                roundWinner,
+                potWasPaid,
+                gameState.Phase == GamePhase.GameOver);
+            showdownSettlementPending = false;
+            return;
+        }
+
+        if (IsFoldResultTransition(resultVisible))
+        {
+            PlayFoldEffects(gameState.FoldedBy);
+            return;
+        }
+
+        if (IsShowdownResultTransition(resultVisible))
+        {
+            bool potWasPaid = previousPot > gameState.Pot.Amount;
+            uiEffects.PlayShowdownResult(
+                roundWinner,
+                potWasPaid,
+                gameState.Phase == GamePhase.GameOver);
+            return;
+        }
+
+        if (phaseChanged && gameState.Phase == GamePhase.Showdown)
+        {
+            uiEffects.PlayShowdownIntro(0f);
+        }
+        else if (gameState.Phase == GamePhase.Betting && turnChanged)
+        {
+            uiEffects.PlayTurnChange(gameState.CurrentTurn);
+        }
+        else if (phaseChanged && gameState.Phase != GamePhase.Betting)
+        {
+            uiEffects.HideActionBars();
+        }
+
+        PlayFallbackValueFeedback();
+    }
+
+    private void PlayPendingBettingAction(
+        bool phaseChanged,
+        bool turnChanged)
+    {
+        if (pendingAction == PendingAction.Fold)
+        {
+            PlayFoldEffects(pendingActor);
+            return;
+        }
+
+        IndianHoldemBettingFeedback feedback =
+            IndianHoldemBettingFeedback.Call;
+
+        if (pendingAction == PendingAction.Raise)
+        {
+            feedback = IndianHoldemBettingFeedback.Raise;
+        }
+        else if (pendingAction == PendingAction.AllIn)
+        {
+            feedback = IndianHoldemBettingFeedback.AllIn;
+        }
+
+        uiEffects.PlayBettingFeedback(feedback, pendingActor);
+
+        if (phaseChanged && gameState.Phase == GamePhase.Showdown)
+        {
+            float allInDelay = pendingAction == PendingAction.AllIn
+                ? 0.12f
+                : 0f;
+            uiEffects.PlayShowdownIntro(allInDelay);
+        }
+        else if (gameState.Phase == GamePhase.Betting && turnChanged)
+        {
+            uiEffects.PlayTurnChange(gameState.CurrentTurn);
+        }
+    }
+
+    private void PlayFoldEffects(TurnOwner foldedBy)
+    {
+        TurnOwner winner = foldedBy == TurnOwner.Player
+            ? TurnOwner.Dealer
+            : TurnOwner.Player;
+        bool potWasPaid = previousPot > gameState.Pot.Amount;
+
+        uiEffects.PlayFold(
+            foldedBy,
+            gameState.FoldPenaltyAmount,
+            winner,
+            potWasPaid,
+            gameState.Phase == GamePhase.GameOver);
+    }
+
+    private void PlayFallbackValueFeedback()
+    {
+        bool playerBetChanged =
+            previousPlayerBet != gameState.Betting.PlayerTotalBet;
+        bool dealerBetChanged =
+            previousDealerBet != gameState.Betting.DealerTotalBet;
+        bool potChanged = previousPot != gameState.Pot.Amount;
+
+        if (potChanged && (playerBetChanged || dealerBetChanged))
+        {
+            TurnOwner actor = playerBetChanged
+                ? TurnOwner.Player
+                : TurnOwner.Dealer;
+            uiEffects.PlayBettingFeedback(
+                IndianHoldemBettingFeedback.Call,
+                actor);
+            return;
+        }
+
+        if (previousPlayerChips != gameState.PlayerChips.Count)
+        {
+            uiEffects.PlayChipsFeedback(TurnOwner.Player);
+        }
+
+        if (previousDealerChips != gameState.DealerChips.Count)
+        {
+            uiEffects.PlayChipsFeedback(TurnOwner.Dealer);
+        }
+    }
+
+    private bool IsFoldResultTransition(bool resultVisible)
+    {
+        return resultVisible &&
+               !previousResultVisible &&
+               gameState.RoundEndReason == RoundEndReason.Fold &&
+               (gameState.FoldPenaltyAmount != previousFoldPenalty ||
+                previousPhase != gameState.Phase);
+    }
+
+    private bool IsShowdownResultTransition(bool resultVisible)
+    {
+        return resultVisible &&
+               !previousResultVisible &&
+               roundWinner != RoundWinner.None &&
+               roundWinner != previousRoundWinner;
+    }
+
+    private void CaptureViewSnapshot(bool resultVisible)
+    {
+        previousPhase = gameState.Phase;
+        previousTurn = gameState.CurrentTurn;
+        previousPlayerBet = gameState.Betting.PlayerTotalBet;
+        previousDealerBet = gameState.Betting.DealerTotalBet;
+        previousPot = gameState.Pot.Amount;
+        previousPlayerChips = gameState.PlayerChips.Count;
+        previousDealerChips = gameState.DealerChips.Count;
+        previousFoldPenalty = gameState.FoldPenaltyAmount;
+        previousRoundWinner = roundWinner;
+        previousResultVisible = resultVisible;
+        hasViewSnapshot = true;
+    }
+
+    private void OnDisable()
+    {
+        if (uiEffects != null)
+        {
+            uiEffects.StopAndRestore();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (uiEffects != null)
+        {
+            uiEffects.StopAndRestore();
+        }
     }
 
     private string BuildDebugInfo()
