@@ -4,22 +4,19 @@ using UnityEngine;
 
 public class Item : MonoBehaviour
 {
-    [SerializeField] private ItemData itemData;
+    [SerializeField] private ItemSystem itemSystem;
+    [SerializeField] public ItemData itemData;
 
     private void OnMouseDown()
     {
-        UseItem();
+        Use();
     }
 
-    public void UseItem()
+    public void Use()
     {
-        if (itemData.Use())
+        if (itemSystem.UseItem(itemData))
         {
             Destroy(gameObject);
-        }
-        else
-        {
-            Debug.LogError("아이템을 사용하지 못했습니다.");
         }
     }
 }
