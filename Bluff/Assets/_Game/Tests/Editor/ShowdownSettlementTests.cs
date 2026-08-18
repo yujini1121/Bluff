@@ -17,6 +17,28 @@ public sealed class ShowdownSettlementTests
     }
 
     [Test]
+    public void SettleShowdown_SecondRequestDoesNotPayWinnerAgain()
+    {
+        GameState gameState = CreateShowdownGame(6, 4, 4, 5);
+        Assert.That(gameState.TrySettleShowdown(out RoundWinner winner), Is.True);
+        Assert.That(winner, Is.EqualTo(RoundWinner.Player));
+
+        int playerChips = gameState.PlayerChips.Count;
+        int dealerChips = gameState.DealerChips.Count;
+        int potAmount = gameState.Pot.Amount;
+
+        Assert.That(
+            gameState.TrySettleShowdown(out RoundWinner secondWinner),
+            Is.False);
+
+        Assert.That(secondWinner, Is.EqualTo(RoundWinner.None));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(dealerChips));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(potAmount));
+        AssertRoundEndedAfterShowdown(gameState);
+    }
+
+    [Test]
     public void SettleShowdown_AwardsEntirePotToDealerWinner()
     {
         GameState gameState = CreateShowdownGame(9, 4, 4, 7);

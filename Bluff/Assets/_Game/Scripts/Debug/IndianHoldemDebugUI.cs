@@ -74,6 +74,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private HandRank dealerHandRank;
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
+    private bool isActionProcessing;
 
     private void Awake()
     {
@@ -109,61 +110,62 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         UpdateVisibleHandRanks();
+        CancelInvalidDealerAction();
         TryScheduleDealerAction();
         RefreshView();
     }
 
     private void OnDisable()
     {
-        if (dealerActionCoroutine == null)
-        {
-            return;
-        }
-
-        StopCoroutine(dealerActionCoroutine);
-        dealerActionCoroutine = null;
+        isActionProcessing = false;
+        CancelDealerAction();
     }
 
     public void OnCallClicked()
     {
-        if (gameState.Betting.GetCallAmount(gameState.CurrentTurn) == 0)
+        if (gameState == null)
         {
-            RunBettingAction("체크", gameState.TryCheck);
+            return;
+        }
+
+        if (gameState.Betting.GetCallAmount(TurnOwner.Player) == 0)
+        {
+            RunPlayerBettingAction("체크", gameState.TryCheck);
         }
         else
         {
-            RunBettingAction("콜", gameState.TryCall);
+            RunPlayerBettingAction("콜", gameState.TryCall);
         }
     }
 
     public void OnFoldClicked()
     {
-        RunBettingAction("폴드", gameState.TryFold);
+        RunPlayerBettingAction("폴드", () => gameState.TryFold());
     }
 
     public void OnRaiseOneClicked()
     {
-        RunBettingAction("레이즈 +1", () => gameState.TryRaise(1));
+        RunPlayerBettingAction("레이즈 +1", () => gameState.TryRaise(1));
     }
 
     public void OnRaiseFiveClicked()
     {
-        RunBettingAction("레이즈 +5", () => gameState.TryRaise(5));
+        RunPlayerBettingAction("레이즈 +5", () => gameState.TryRaise(5));
     }
 
     public void OnAllInClicked()
     {
-        RunBettingAction("올인", gameState.TryAllIn);
+        RunPlayerBettingAction("올인", () => gameState.TryAllIn());
     }
 
     public void OnResolveShowdownClicked()
     {
-        ResolveShowdown();
+        RunProgressAction(GamePhase.Showdown, ResolveShowdown);
     }
 
     public void OnNextRoundClicked()
     {
-        PrepareAndStartNextRound();
+        RunProgressAction(GamePhase.RoundEnd, PrepareAndStartNextRound);
     }
 
     public void OnDebugToggleClicked()
@@ -215,22 +217,70 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         ResetDisplayedRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
-        RefreshView();
     }
 
-    private void RunBettingAction(string actionName, Func<bool> action)
+    private void RunPlayerBettingAction(string actionName, Func<bool> action)
     {
-        TurnOwner actor = gameState.CurrentTurn;
-
-        if (!action())
+        if (!CanAcceptPlayerBettingInput() || action == null)
         {
-            AddLog($"{OwnerText(actor)} {actionName} 실패");
             return;
         }
 
-        AddLog($"{OwnerText(actor)} {actionName}");
-        AddBettingResultLog();
-        RefreshView();
+        isActionProcessing = true;
+
+        try
+        {
+            if (!action())
+            {
+                AddLog($"{OwnerText(TurnOwner.Player)} {actionName} 실패");
+                return;
+            }
+
+            AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
+            AddBettingResultLog();
+        }
+        finally
+        {
+            isActionProcessing = false;
+            RefreshView();
+        }
+    }
+
+    private void RunProgressAction(GamePhase requiredPhase, Action action)
+    {
+        if (!CanAcceptProgressInput(requiredPhase) || action == null)
+        {
+            return;
+        }
+
+        isActionProcessing = true;
+
+        try
+        {
+            action();
+        }
+        finally
+        {
+            isActionProcessing = false;
+            RefreshView();
+        }
+    }
+
+    private bool CanAcceptPlayerBettingInput()
+    {
+        return gameState != null &&
+               !isActionProcessing &&
+               dealerActionCoroutine == null &&
+               gameState.Phase == GamePhase.Betting &&
+               gameState.CurrentTurn == TurnOwner.Player;
+    }
+
+    private bool CanAcceptProgressInput(GamePhase requiredPhase)
+    {
+        return gameState != null &&
+               !isActionProcessing &&
+               dealerActionCoroutine == null &&
+               gameState.Phase == requiredPhase;
     }
 
     private void AddBettingResultLog()
@@ -251,7 +301,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void TryScheduleDealerAction()
     {
-        if (dealerActionCoroutine != null ||
+        if (isActionProcessing ||
+            dealerActionCoroutine != null ||
             gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
         {
@@ -261,12 +312,44 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         dealerActionCoroutine = StartCoroutine(PerformDealerActionAfterDelay());
     }
 
+    private void CancelInvalidDealerAction()
+    {
+        if (dealerActionCoroutine == null ||
+            (gameState.Phase == GamePhase.Betting &&
+             gameState.CurrentTurn == TurnOwner.Dealer))
+        {
+            return;
+        }
+
+        CancelDealerAction();
+    }
+
+    private void CancelDealerAction()
+    {
+        if (dealerActionCoroutine == null)
+        {
+            return;
+        }
+
+        StopCoroutine(dealerActionCoroutine);
+        dealerActionCoroutine = null;
+    }
+
     private IEnumerator PerformDealerActionAfterDelay()
     {
         yield return new WaitForSeconds(Mathf.Max(0f, dealerActionDelay));
 
-        if (gameState.Phase == GamePhase.Betting &&
-            gameState.CurrentTurn == TurnOwner.Dealer)
+        if (gameState.Phase != GamePhase.Betting ||
+            gameState.CurrentTurn != TurnOwner.Dealer)
+        {
+            dealerActionCoroutine = null;
+            RefreshView();
+            yield break;
+        }
+
+        isActionProcessing = true;
+
+        try
         {
             int randomRoll = UnityEngine.Random.Range(0, 100);
             DealerDecision decision = dealerAi.Decide(gameState, randomRoll);
@@ -280,11 +363,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             {
                 AddLog($"DEALER {DealerDecisionText(decision)} 실패");
             }
-
+        }
+        finally
+        {
+            isActionProcessing = false;
+            dealerActionCoroutine = null;
             RefreshView();
         }
-
-        dealerActionCoroutine = null;
     }
 
     private void ResolveShowdown()
@@ -311,8 +396,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
         }
-
-        RefreshView();
     }
 
     private void UpdateVisibleHandRanks()
@@ -356,12 +439,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                           gameState.CurrentTurn == TurnOwner.Dealer;
         bool playerTurn = gameState.Phase == GamePhase.Betting &&
                           gameState.CurrentTurn == TurnOwner.Player;
+        bool canAcceptPlayerBettingInput = CanAcceptPlayerBettingInput();
         dealerActionBar.SetActive(dealerTurn);
         playerActionBar.SetActive(playerTurn);
 
         for (int index = 0; index < bettingActionButtons.Length; index++)
         {
-            bettingActionButtons[index].interactable = playerTurn;
+            bettingActionButtons[index].interactable =
+                canAcceptPlayerBettingInput;
         }
 
         RefreshTurnHighlight(dealerTurn, playerTurn);
@@ -371,6 +456,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         contextActionArea.SetActive(canResolve || canStartNextRound);
         resolveShowdownButton.gameObject.SetActive(canResolve);
         nextRoundButton.gameObject.SetActive(canStartNextRound);
+        resolveShowdownButton.interactable =
+            CanAcceptProgressInput(GamePhase.Showdown);
+        nextRoundButton.interactable =
+            CanAcceptProgressInput(GamePhase.RoundEnd);
 
         RefreshResultOverlay();
     }

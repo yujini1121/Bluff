@@ -117,6 +117,32 @@ public sealed class DealerAiTests
     }
 
     [Test]
+    public void Execute_SecondRequestInSameDealerTurnIsRejected()
+    {
+        GameState gameState = CreateDealerTurnGame(10, 10, 1, 2, 4, 7);
+        var dealerAi = new DealerAi();
+
+        Assert.That(
+            dealerAi.TryExecute(gameState, DealerDecision.Check),
+            Is.True);
+
+        int playerChips = gameState.PlayerChips.Count;
+        int dealerChips = gameState.DealerChips.Count;
+        int potAmount = gameState.Pot.Amount;
+
+        Assert.That(
+            dealerAi.TryExecute(gameState, DealerDecision.Check),
+            Is.False);
+
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(dealerChips));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(potAmount));
+        Assert.That(gameState.Betting.PendingCheckBy, Is.EqualTo(TurnOwner.Dealer));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+    }
+
+    [Test]
     public void Execute_CallUsesExistingGameStateSettlement()
     {
         GameState gameState = CreateDealerResponseGame(20, 1, 2, 4, 7, 4);

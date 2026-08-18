@@ -326,6 +326,54 @@ public sealed class BettingActionTests
     }
 
     [Test]
+    public void Fold_SecondRequestDoesNotAwardPotAgain()
+    {
+        GameState gameState = CreateBettingGame(TurnOwner.Player);
+        Assert.That(gameState.TryRaise(2), Is.True);
+        Assert.That(gameState.TryFold(), Is.True);
+
+        int playerChips = gameState.PlayerChips.Count;
+        int dealerChips = gameState.DealerChips.Count;
+        int potAmount = gameState.Pot.Amount;
+
+        Assert.That(gameState.TryFold(), Is.False);
+
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(dealerChips));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(potAmount));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
+        Assert.That(gameState.FoldedBy, Is.EqualTo(TurnOwner.Dealer));
+    }
+
+    [Test]
+    public void BettingActions_AfterAllInShowdownDoNotChangeState()
+    {
+        GameState gameState = CreateBettingGame(TurnOwner.Player, 5, 5);
+        Assert.That(gameState.TryAllIn(), Is.True);
+        Assert.That(gameState.TryCall(), Is.True);
+
+        int playerChips = gameState.PlayerChips.Count;
+        int dealerChips = gameState.DealerChips.Count;
+        int potAmount = gameState.Pot.Amount;
+        int playerTotalBet = gameState.Betting.PlayerTotalBet;
+        int dealerTotalBet = gameState.Betting.DealerTotalBet;
+
+        Assert.That(gameState.TryCheck(), Is.False);
+        Assert.That(gameState.TryCall(), Is.False);
+        Assert.That(gameState.TryRaise(1), Is.False);
+        Assert.That(gameState.TryAllIn(), Is.False);
+        Assert.That(gameState.TryFold(), Is.False);
+
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(dealerChips));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(potAmount));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(playerTotalBet));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(dealerTotalBet));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
+    }
+
+    [Test]
     public void Fold_FailsWithoutChangingRoundOrBettingState()
     {
         var gameState = new GameState(10, 10, CreateDeck());
