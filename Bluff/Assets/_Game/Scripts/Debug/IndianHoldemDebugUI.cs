@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -15,6 +16,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private TurnOwner firstTurn = TurnOwner.Player;
     [SerializeField, Min(1), InspectorName("최대 로그 줄 수")]
     private int maxLogLines = 4;
+    [SerializeField, Min(0f), InspectorName("딜러 행동 대기 시간")]
+    private float dealerActionDelay = 0.75f;
     [SerializeField, InspectorName("UI 폰트 (한글 지원 권장)")]
     private TMP_FontAsset uiFont;
 
@@ -63,7 +66,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private Button nextRoundButton;
 
     private readonly List<string> logs = new List<string>();
+    private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private GameState gameState;
+    private DealerAi dealerAi;
+    private Coroutine dealerActionCoroutine;
     private HandRank playerHandRank;
     private HandRank dealerHandRank;
     private RoundWinner roundWinner;
@@ -84,6 +90,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         debugPanelOpen = false;
+        dealerAi = new DealerAi();
+        CacheCallActionTexts();
         CreateDebugGame();
         RefreshView();
     }
@@ -101,12 +109,31 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         UpdateVisibleHandRanks();
+        TryScheduleDealerAction();
         RefreshView();
+    }
+
+    private void OnDisable()
+    {
+        if (dealerActionCoroutine == null)
+        {
+            return;
+        }
+
+        StopCoroutine(dealerActionCoroutine);
+        dealerActionCoroutine = null;
     }
 
     public void OnCallClicked()
     {
-        RunBettingAction("콜", gameState.TryCall);
+        if (gameState.Betting.GetCallAmount(gameState.CurrentTurn) == 0)
+        {
+            RunBettingAction("체크", gameState.TryCheck);
+        }
+        else
+        {
+            RunBettingAction("콜", gameState.TryCall);
+        }
     }
 
     public void OnFoldClicked()
@@ -202,7 +229,12 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         AddLog($"{OwnerText(actor)} {actionName}");
+        AddBettingResultLog();
+        RefreshView();
+    }
 
+    private void AddBettingResultLog()
+    {
         if (gameState.Phase == GamePhase.Showdown)
         {
             AddLog("베팅 종료 - 쇼다운을 정산하세요");
@@ -215,8 +247,44 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
         }
+    }
 
-        RefreshView();
+    private void TryScheduleDealerAction()
+    {
+        if (dealerActionCoroutine != null ||
+            gameState.Phase != GamePhase.Betting ||
+            gameState.CurrentTurn != TurnOwner.Dealer)
+        {
+            return;
+        }
+
+        dealerActionCoroutine = StartCoroutine(PerformDealerActionAfterDelay());
+    }
+
+    private IEnumerator PerformDealerActionAfterDelay()
+    {
+        yield return new WaitForSeconds(Mathf.Max(0f, dealerActionDelay));
+
+        if (gameState.Phase == GamePhase.Betting &&
+            gameState.CurrentTurn == TurnOwner.Dealer)
+        {
+            int randomRoll = UnityEngine.Random.Range(0, 100);
+            DealerDecision decision = dealerAi.Decide(gameState, randomRoll);
+
+            if (dealerAi.TryExecute(gameState, decision))
+            {
+                AddLog($"DEALER {DealerDecisionText(decision)}");
+                AddBettingResultLog();
+            }
+            else
+            {
+                AddLog($"DEALER {DealerDecisionText(decision)} 실패");
+            }
+
+            RefreshView();
+        }
+
+        dealerActionCoroutine = null;
     }
 
     private void ResolveShowdown()
@@ -282,6 +350,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         debugInfoText.text = BuildDebugInfo();
         messageText.text = string.Join("\n", logs);
         debugPanel.SetActive(debugPanelOpen);
+        RefreshCallActionTexts();
 
         bool dealerTurn = gameState.Phase == GamePhase.Betting &&
                           gameState.CurrentTurn == TurnOwner.Dealer;
@@ -292,7 +361,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         for (int index = 0; index < bettingActionButtons.Length; index++)
         {
-            bettingActionButtons[index].interactable = dealerTurn || playerTurn;
+            bettingActionButtons[index].interactable = playerTurn;
         }
 
         RefreshTurnHighlight(dealerTurn, playerTurn);
@@ -304,6 +373,52 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         nextRoundButton.gameObject.SetActive(canStartNextRound);
 
         RefreshResultOverlay();
+    }
+
+    private void CacheCallActionTexts()
+    {
+        callActionTexts.Clear();
+
+        for (int buttonIndex = 0;
+             buttonIndex < bettingActionButtons.Length;
+             buttonIndex++)
+        {
+            Button button = bettingActionButtons[buttonIndex];
+
+            for (int eventIndex = 0;
+                 eventIndex < button.onClick.GetPersistentEventCount();
+                 eventIndex++)
+            {
+                if (button.onClick.GetPersistentMethodName(eventIndex) !=
+                    nameof(OnCallClicked))
+                {
+                    continue;
+                }
+
+                TMP_Text actionText =
+                    button.GetComponentInChildren<TMP_Text>(true);
+
+                if (actionText != null)
+                {
+                    callActionTexts.Add(actionText);
+                }
+
+                break;
+            }
+        }
+    }
+
+    private void RefreshCallActionTexts()
+    {
+        string actionText =
+            gameState.Betting.GetCallAmount(gameState.CurrentTurn) == 0
+                ? "CHECK"
+                : "CALL";
+
+        for (int index = 0; index < callActionTexts.Count; index++)
+        {
+            callActionTexts[index].text = actionText;
+        }
     }
 
     private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
@@ -564,6 +679,23 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return "딜러";
             default:
                 return "없음";
+        }
+    }
+
+    private static string DealerDecisionText(DealerDecision decision)
+    {
+        switch (decision)
+        {
+            case DealerDecision.Check:
+                return "CHECK";
+            case DealerDecision.Call:
+                return "CALL";
+            case DealerDecision.Fold:
+                return "FOLD";
+            case DealerDecision.AllIn:
+                return "ALL-IN";
+            default:
+                return "NONE";
         }
     }
 

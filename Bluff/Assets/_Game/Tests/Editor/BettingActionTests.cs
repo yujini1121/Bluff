@@ -364,6 +364,7 @@ public sealed class BettingActionTests
         GameState gameState = new GameState(10, 10, CreateDeck());
 
         Assert.That(gameState.TryCall(), Is.False);
+        Assert.That(gameState.TryCheck(), Is.False);
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
         Assert.That(gameState.TryFold(), Is.False);
@@ -371,6 +372,7 @@ public sealed class BettingActionTests
         Assert.That(gameState.TrySetPhase(GamePhase.Betting), Is.True);
 
         Assert.That(gameState.TryCall(), Is.False);
+        Assert.That(gameState.TryCheck(), Is.False);
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
         Assert.That(gameState.TryFold(), Is.False);
