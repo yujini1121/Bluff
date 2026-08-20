@@ -1,40 +1,58 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class ItemSystem : MonoBehaviour
 {
-    // 전체 아이템 목록
-    public List<GameObject> itemList = new List<GameObject>();
+    public List<GameObject> itemList = new List<GameObject>(); // 전체 아이템 목록
+    public List<GameObject> itemInventory = new List<GameObject>(); // 플레이어 인벤토리 아이템 목록
 
+    private readonly GameState gameState;
+    private ItemGameApi itemGameApi;
+
+    [Header("아이템 세부 수치")]
+    [SerializeField] private int chipPocketAmount = 5; // chipPocket 아이템으로 얻는 칩 수량
     private Vector3 itemSpawnPos = Vector3.zero; // 아이템 스폰 위치
+
+    [Header("Test")]
+    [SerializeField] private GamePhase currentPhase = GamePhase.Betting; // 현재 게임 단계
+
+    public ItemSystem(GameState gameState, ItemGameApi itemGameApi)
+    {
+        this.gameState = gameState ?? throw new ArgumentNullException(nameof(gameState));
+        this.itemGameApi = itemGameApi ?? throw new ArgumentNullException(nameof(itemGameApi));
+    }
 
     public void GetItem()
     {
-        GameObject randomItem = itemList[Random.Range(0, itemList.Count)]; // 랜덤 아이템 선택
-        ItemData itemData = randomItem.GetComponent<Item>().itemData; // 아이템 데이터 가져오기
-        Instantiate(randomItem, itemSpawnPos, Quaternion.identity); // 아이템을 게임 씬에 생성
+        GameObject randomItem = itemList[UnityEngine.Random.Range(0, itemList.Count)]; // 랜덤 아이템 선택
+        GameObject item = Instantiate(randomItem, itemSpawnPos, Quaternion.identity); // 아이템을 게임 씬에 생성
+
+        if (item.TryGetComponent<Item>(out var itemComponent))
+        {
+            itemComponent.itemSystem = this;
+        }
+
+        itemInventory.Add(item); // 아이템을 인벤토리에 추가
     }
 
-    public bool UseItem(ItemData itemData)
+    private bool CheckHasItem(GameObject item) // 아이템 보유 여부 확인
     {
-        switch (itemData.itemType) // 아이템 종류에 따라 조건 검사
+        return itemInventory.Contains(item);
+    }
+
+    private bool CheckCanUseItem(ItemType itemtype) // 아이템 사용 가능 여부 확인
+    {
+        switch (itemtype)
         {
-            case ItemType.test:
-                Debug.Log("테스트 아이템이 사용되었습니다.");
-                break;
-            case ItemType.refreshCard:
-                RefreshCard();
-                Debug.Log("'새로고침 카드' 아이템이 사용되었습니다. 시드 카드와 각 플레이어의 카드를 재설정합니다.");
-                break;
-            case ItemType.prizmChip:
-                Debug.Log("'프리즘 칩' 아이템이 사용되었습니다. 패널티 칩을 반납하지 않습니다.");
-                break;
             case ItemType.chipPocket:
-                Debug.Log("'칩 포켓' 아이템이 사용되었습니다. 일정량의 칩을 얻습니다.");
-                break;
-            case ItemType.checker:
-                Debug.Log("'체커' 아이템이 사용되었습니다. 베팅을 강제 종료합니다.");
+                // 베팅 페이즈가 아니면 사용 불가능
+                if (currentPhase != GamePhase.Betting) // gameState 참조에서 오류 발생하여 우선 고정값 사용
+                {
+                    Debug.LogWarning("아이템은 베팅 단계에서만 사용할 수 있습니다.");
+                    return false;
+                }
                 break;
             default:
                 Debug.LogWarning("아이템이 사용되지 않았습니다.");
@@ -44,22 +62,37 @@ public class ItemSystem : MonoBehaviour
         return true;
     }
 
-    private bool CheckCanUseItem(ItemData itemData)
+    public bool UseItem(GameObject item)
     {
-        // 아이템 사용 가능 여부 확인
-        switch (itemData.canUseType)
+        if (!CheckHasItem(item)) // 아이템 보유 여부 확인
         {
-            case CanUseType.SetupPhase:
-                Debug.Log("아이템은 세팅 단계에서만 사용할 수 있습니다.");
+            Debug.LogWarning("해당 아이템을 보유하고 있지 않습니다.");
+            return false;
+        }
+
+        ItemType itemType = item.GetComponent<Item>().itemData.itemType;
+
+        if (!CheckCanUseItem(itemType)) // 아이템 사용 가능 여부 확인
+        {
+            return false;
+        }
+
+        switch (itemType) // 아이템 타입에 따라 효과 적용
+        {
+            case ItemType.refreshCard:
+                UseRefreshCard();
                 break;
-            case CanUseType.BettingPhase:
-                Debug.Log("아이템은 베팅 단계에서만 사용할 수 있습니다.");
+            case ItemType.prizmChip:
+                UsePrizmChip();
                 break;
-            case CanUseType.ResultPhase:
-                Debug.Log("아이템은 결과 단계에서만 사용할 수 있습니다.");
+            case ItemType.chipPocket:
+                UseChipPocket();
+                break;
+            case ItemType.checker:
+                UseChecker();
                 break;
             default:
-                Debug.LogWarning("아이템 사용 가능 여부를 확인할 수 없습니다.");
+                Debug.LogWarning("아이템 타입을 알 수 없습니다.");
                 return false;
         }
 
@@ -67,24 +100,25 @@ public class ItemSystem : MonoBehaviour
     }
 
     // 아이템 효과
-    private void RefreshCard()
+    private void UseRefreshCard()
     {
         // 1. Player & AI & Seed Card Reset
         // 2. Deck Shuffle
         // 3. Player & AI & Seed Card Draw
     }
 
-    private void PrizmChip()
+    private void UsePrizmChip()
     {
         // 패널티 칩을 반납하지 않는 로직 구현
     }
 
-    private void ChipPocket()
+    private void UseChipPocket()
     {
         // 일정량의 칩을 얻는 로직 구현
+        itemGameApi.TryGiveChips(TurnOwner.Player, chipPocketAmount); // itemGameApi 참조에서 오류 발생
     }
 
-    private void Checker()
+    private void UseChecker()
     {
         // 베팅을 강제 종료하는 로직 구현
     }
