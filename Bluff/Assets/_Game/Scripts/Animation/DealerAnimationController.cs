@@ -1,8 +1,13 @@
+using DG.Tweening;
 using UnityEngine;
 
 public class DealerAnimationController : MonoBehaviour
 {
     [SerializeField] private Animator animator;
+
+    [SerializeField] private Transform chip;
+    [SerializeField] private Transform chipSocket;
+    [SerializeField] private Transform potPoint;
 
     public void PlayCall()
     {
@@ -19,15 +24,42 @@ public class DealerAnimationController : MonoBehaviour
         animator.SetTrigger("Collect");
     }
 
-    private void Update()
+    // Call Animation에서 
+    // GrabChip : 22프레임 (칩을 손에 붙이는 순간)
+    // ReleaseChip : 44프레임 (손에서 완전히 분리한 순간)
+
+    public void GrabChip()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-            PlayCall();
+        chip.SetParent(chipSocket);
 
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-            PlayAllIn();
+        chip.localPosition = Vector3.zero;
+        chip.localRotation = Quaternion.identity;
 
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-            PlayCollect();
+        Debug.Log("Chip Grab!!!");
     }
+
+    public void ReleaseChip()
+    {
+        chip.SetParent(null);
+
+        chip
+            .DOMove(potPoint.position, 0.25f)
+            .SetEase(Ease.OutQuad);
+
+        Debug.Log("Chip Release!!!");
+    }
+
+
+    // 테스트용
+    //private void Update()
+    //{
+    //    if (Input.GetKeyDown(KeyCode.Alpha1))
+    //        PlayCall();
+
+    //    if (Input.GetKeyDown(KeyCode.Alpha2))
+    //        PlayAllIn();
+
+    //    if (Input.GetKeyDown(KeyCode.Alpha3))
+    //        PlayCollect();
+    //}
 }
