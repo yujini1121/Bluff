@@ -185,6 +185,22 @@ public sealed class GameState
         return true;
     }
 
+    public bool TryGetVisiblePlayerHandRank(out HandRank handRank)
+    {
+        handRank = HandRank.None;
+
+        if (Phase != GamePhase.Betting ||
+            PlayerCard == null ||
+            CommunityCard1 == null ||
+            CommunityCard2 == null)
+        {
+            return false;
+        }
+
+        handRank = GetHandRank(PlayerCard);
+        return true;
+    }
+
     public bool TryDetermineWinner(out RoundWinner winner)
     {
         winner = RoundWinner.None;
@@ -361,6 +377,27 @@ public sealed class GameState
         ownerChips.TrySpend(amount);
         Pot.TryAdd(amount);
         Betting.TryAddToTotalBet(CurrentTurn, amount);
+        Betting.ResetPendingCheck();
+    }
+
+    public bool TryCheck()
+    {
+        if (Phase != GamePhase.Betting ||
+            !IsActiveTurn(CurrentTurn) ||
+            Betting.GetCallAmount(CurrentTurn) != 0)
+        {
+            return false;
+        }
+
+        if (Betting.PendingCheckBy == GetOpponent(CurrentTurn))
+        {
+            FinishBetting();
+            return true;
+        }
+
+        Betting.RecordCheck(CurrentTurn);
+        Turn.TrySwitch();
+        return true;
     }
 
     public bool TryCall()
@@ -465,6 +502,7 @@ public sealed class GameState
 
     private void FinishBetting()
     {
+        Betting.ResetPendingCheck();
         Phase = GamePhase.Showdown;
         Turn.Reset();
     }

@@ -2,6 +2,7 @@ public sealed class BettingState
 {
     public int PlayerTotalBet { get; private set; }
     public int DealerTotalBet { get; private set; }
+    public TurnOwner PendingCheckBy { get; private set; }
 
     public int GetTotalBet(TurnOwner owner)
     {
@@ -37,6 +38,17 @@ public sealed class BettingState
     {
         PlayerTotalBet = 0;
         DealerTotalBet = 0;
+        ResetPendingCheck();
+    }
+
+    internal void RecordCheck(TurnOwner owner)
+    {
+        PendingCheckBy = owner;
+    }
+
+    internal void ResetPendingCheck()
+    {
+        PendingCheckBy = TurnOwner.None;
     }
 
     internal bool CanAddToTotalBet(TurnOwner owner, int amount)

@@ -63,6 +63,30 @@ public sealed class RoundTransitionTests
     }
 
     [Test]
+    public void PrepareNextRound_SecondRequestDoesNotResetAgain()
+    {
+        GameState gameState = CreateGameWithCards(1, 2, 4, 7);
+        gameState.TrySetPhase(GamePhase.Betting);
+        gameState.Turn.TrySet(TurnOwner.Player);
+        Assert.That(gameState.TryFold(), Is.True);
+        Assert.That(gameState.TryPrepareNextRound(), Is.True);
+
+        int playerChips = gameState.PlayerChips.Count;
+        int dealerChips = gameState.DealerChips.Count;
+        int potAmount = gameState.Pot.Amount;
+
+        Assert.That(gameState.TryPrepareNextRound(), Is.False);
+
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(dealerChips));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(potAmount));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Setup));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
+        Assert.That(gameState.PlayerCard, Is.Null);
+        Assert.That(gameState.DealerCard, Is.Null);
+    }
+
+    [Test]
     public void PrepareNextRound_FailsDuringBettingWithoutChangingState()
     {
         GameState gameState = CreateGameWithCards(1, 2, 4, 7);
