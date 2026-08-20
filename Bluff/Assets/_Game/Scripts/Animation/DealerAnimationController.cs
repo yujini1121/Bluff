@@ -25,8 +25,12 @@ public class DealerAnimationController : MonoBehaviour
     }
 
     // Call Animation에서 
-    // GrabChip : 22프레임 (칩을 손에 붙이는 순간)
-    // ReleaseChip : 44프레임 (손에서 완전히 분리한 순간)
+    // Grab : 22프레임 (칩을 손에 붙이는 순간)
+    // Release : 44프레임 (손에서 완전히 분리한 순간)
+
+    // All-In Animation에서
+    // Grab : 20프레임
+    // Release : 50프레임
 
     public void GrabChip()
     {
