@@ -20,6 +20,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private float dealerActionDelay = 0.75f;
     [SerializeField, InspectorName("UI 폰트 (한글 지원 권장)")]
     private TMP_FontAsset uiFont;
+    [SerializeField] private ItemSystem itemSystem;
 
     [Header("메인 게임 화면")]
     [SerializeField] private TMP_Text phaseText;
@@ -183,6 +184,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             Mathf.Max(0, playerStartingChips),
             Mathf.Max(0, dealerStartingChips),
             deck);
+        //itemSystem.Initialize(new ItemGameApi(gameState));
 
         ResetDisplayedRoundResult();
         StartRound();
