@@ -8,6 +8,19 @@ public class DealerAnimationController : MonoBehaviour
     [SerializeField] private Transform chip;
     [SerializeField] private Transform chipSocket;
     [SerializeField] private Transform potPoint;
+    [SerializeField] private Transform dealerChipPoint;
+
+    // Call Animation에서 
+    // Grab : 22프레임 (칩을 손에 붙이는 순간)
+    // Release : 44프레임 (손에서 완전히 분리한 순간)
+
+    // All-In Animation에서
+    // Grab : 20프레임
+    // Release : 50프레임
+
+    // Collect Animation에서
+    // Grab : 12프레임
+    // Release : 29프레임
 
     public void PlayCall()
     {
@@ -23,14 +36,6 @@ public class DealerAnimationController : MonoBehaviour
     {
         animator.SetTrigger("Collect");
     }
-
-    // Call Animation에서 
-    // Grab : 22프레임 (칩을 손에 붙이는 순간)
-    // Release : 44프레임 (손에서 완전히 분리한 순간)
-
-    // All-In Animation에서
-    // Grab : 20프레임
-    // Release : 50프레임
 
     public void GrabChip()
     {
@@ -53,17 +58,12 @@ public class DealerAnimationController : MonoBehaviour
         Debug.Log("Chip Release!!!");
     }
 
+    public void ReleaseCollectChip()
+    {
+        chip.SetParent(null);
 
-    // 테스트용
-    //private void Update()
-    //{
-    //    if (Input.GetKeyDown(KeyCode.Alpha1))
-    //        PlayCall();
-
-    //    if (Input.GetKeyDown(KeyCode.Alpha2))
-    //        PlayAllIn();
-
-    //    if (Input.GetKeyDown(KeyCode.Alpha3))
-    //        PlayCollect();
-    //}
+        chip
+            .DOMove(dealerChipPoint.position, 0.25f)
+            .SetEase(Ease.OutQuad);
+    }
 }
