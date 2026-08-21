@@ -84,6 +84,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool debugPanelOpen;
     private bool isActionProcessing;
     private bool isChipAnimating;
+    private bool isCardAnimating;
 
     private void Awake()
     {
@@ -216,14 +217,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         if (!gameState.TryStartRound(roundFirstTurn))
         {
+            isCardAnimating = false;
             AddLog("라운드 시작 실패 - 남은 카드와 현재 단계를 확인하세요");
             return;
         }
 
-        cardVisualController?.RefreshCards();
         chipVisualController?.RefreshChips();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
+        TryStartCardDeal();
     }
 
     private void PrepareAndStartNextRound()
@@ -313,6 +315,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return gameState != null &&
                !isActionProcessing &&
                !isChipAnimating &&
+               !isCardAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == GamePhase.Betting &&
                gameState.CurrentTurn == TurnOwner.Player;
@@ -323,6 +326,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return gameState != null &&
                !isActionProcessing &&
                !isChipAnimating &&
+               !isCardAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == requiredPhase;
     }
@@ -347,6 +351,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         if (isActionProcessing ||
             isChipAnimating ||
+            isCardAnimating ||
             dealerActionCoroutine != null ||
             gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
@@ -395,6 +400,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         if (isChipAnimating ||
+            isCardAnimating ||
             gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
         {
@@ -453,6 +459,41 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             dealerActionCoroutine = null;
             RefreshView();
         }
+    }
+
+    private void TryStartCardDeal()
+    {
+        if (cardVisualController == null)
+        {
+            isCardAnimating = false;
+            return;
+        }
+
+        isCardAnimating = true;
+
+        if (cardVisualController.TryPlayDeal(
+                OnCardDealCompleted,
+                OnCardDealFailed))
+        {
+            return;
+        }
+
+        isCardAnimating = false;
+        cardVisualController.RefreshCards();
+    }
+
+    private void OnCardDealCompleted()
+    {
+        isCardAnimating = false;
+        cardVisualController?.RefreshCards();
+        RefreshView();
+    }
+
+    private void OnCardDealFailed()
+    {
+        isCardAnimating = false;
+        cardVisualController?.RefreshCards();
+        RefreshView();
     }
 
     private bool TryStartPlayerBetAnimation(int chipCount)

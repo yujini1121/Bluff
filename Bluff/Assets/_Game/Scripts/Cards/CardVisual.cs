@@ -7,7 +7,7 @@ public sealed class CardVisual : MonoBehaviour
     [SerializeField, Tooltip("0번부터 Rank 1, 2, ... 10 순서로 연결합니다.")]
     private Material[] rankMaterials = new Material[10];
 
-    private bool hasAppliedRank;
+    private bool hasValidCardAppearance;
 
     public int CurrentRank { get; private set; }
 
@@ -24,23 +24,18 @@ public sealed class CardVisual : MonoBehaviour
     public void SetCard(Card card)
     {
         int rank = card == null ? 0 : card.Rank;
-
-        if (hasAppliedRank && rank == CurrentRank)
-        {
-            return;
-        }
-
-        hasAppliedRank = true;
         CurrentRank = rank;
 
         if (rank == 0)
         {
+            hasValidCardAppearance = false;
             SetRendererVisible(false);
             return;
         }
 
         if (!TryGetRankMaterial(rank, out Material rankMaterial))
         {
+            hasValidCardAppearance = false;
             SetRendererVisible(false);
             Debug.LogWarning(
                 $"{name}: Rank {rank} 카드 Material이 연결되지 않았습니다.",
@@ -50,6 +45,7 @@ public sealed class CardVisual : MonoBehaviour
 
         if (!EnsureRenderer())
         {
+            hasValidCardAppearance = false;
             Debug.LogWarning(
                 $"{name}: 카드 Renderer가 연결되지 않았습니다.",
                 this);
@@ -57,7 +53,13 @@ public sealed class CardVisual : MonoBehaviour
         }
 
         cardRenderer.sharedMaterial = rankMaterial;
-        cardRenderer.enabled = true;
+        hasValidCardAppearance = true;
+        SetRendererVisible(true);
+    }
+
+    public void SetVisible(bool isVisible)
+    {
+        SetRendererVisible(isVisible && hasValidCardAppearance);
     }
 
     public void Clear()
