@@ -46,6 +46,9 @@ public sealed class ChipVisualController : MonoBehaviour
     private bool isDealerCollectPending;
     private bool isPlayerBetPending;
     private bool isPlayerCollectPending;
+    private bool isFoldSettlementPending;
+    private TurnOwner pendingFoldedBy;
+    private int pendingFoldPotChipCount;
     private int completedPlayerMoveTweenCount;
     private Coroutine playerMoveTimeoutCoroutine;
     private Action<GameObject[]> playerMoveCompleted;
@@ -453,6 +456,170 @@ public sealed class ChipVisualController : MonoBehaviour
         ClearPendingChipMove();
     }
 
+    public bool TryBeginFoldSettlement(
+        TurnOwner foldedBy,
+        int potChipCount,
+        int penaltyChipCount,
+        Action onCompleted,
+        Action onFailed)
+    {
+        if (gameState == null ||
+            (foldedBy != TurnOwner.Player &&
+             foldedBy != TurnOwner.Dealer) ||
+            potChipCount < 0 ||
+            penaltyChipCount < 0 ||
+            potChipCount + penaltyChipCount <= 0 ||
+            pendingChips.Count > 0 ||
+            playerChipArea == null ||
+            dealerChipArea == null ||
+            potArea == null ||
+            !isActiveAndEnabled ||
+            onCompleted == null ||
+            onFailed == null ||
+            gameState.RoundEndReason != RoundEndReason.Fold ||
+            gameState.FoldedBy != foldedBy ||
+            gameState.FoldPenaltyAmount != penaltyChipCount)
+        {
+            return false;
+        }
+
+        RemoveMissingInstances(playerChipInstances);
+        RemoveMissingInstances(dealerChipInstances);
+        RemoveMissingInstances(potChipInstances);
+
+        List<GameObject> foldedChipInstances = foldedBy == TurnOwner.Player
+            ? playerChipInstances
+            : dealerChipInstances;
+        List<GameObject> winnerChipInstances = foldedBy == TurnOwner.Player
+            ? dealerChipInstances
+            : playerChipInstances;
+        Transform winnerChipArea = foldedBy == TurnOwner.Player
+            ? dealerChipArea
+            : playerChipArea;
+        int foldedGameChipCount = foldedBy == TurnOwner.Player
+            ? gameState.PlayerChips.Count
+            : gameState.DealerChips.Count;
+        int winnerGameChipCount = foldedBy == TurnOwner.Player
+            ? gameState.DealerChips.Count
+            : gameState.PlayerChips.Count;
+
+        if (foldedChipInstances.Count < penaltyChipCount ||
+            potChipInstances.Count < potChipCount ||
+            foldedChipInstances.Count !=
+                foldedGameChipCount + penaltyChipCount ||
+            winnerChipInstances.Count + potChipCount + penaltyChipCount !=
+                winnerGameChipCount ||
+            potChipInstances.Count !=
+                gameState.Pot.Amount + potChipCount)
+        {
+            return false;
+        }
+
+        Vector3[] targetPositions =
+            new Vector3[potChipCount + penaltyChipCount];
+
+        for (int index = 0; index < potChipCount; index++)
+        {
+            GameObject chip = potChipInstances[
+                potChipInstances.Count - 1 - index];
+
+            if (!TryAddPendingChip(chip))
+            {
+                ClearPendingChipMove();
+                return false;
+            }
+
+            targetPositions[index] = winnerChipArea.TransformPoint(
+                GetChipLocalPosition(winnerChipInstances.Count + index));
+        }
+
+        for (int index = 0; index < penaltyChipCount; index++)
+        {
+            GameObject chip = foldedChipInstances[
+                foldedChipInstances.Count - 1 - index];
+            int targetIndex = potChipCount + index;
+
+            if (!TryAddPendingChip(chip))
+            {
+                ClearPendingChipMove();
+                return false;
+            }
+
+            targetPositions[targetIndex] = winnerChipArea.TransformPoint(
+                GetChipLocalPosition(
+                    winnerChipInstances.Count + targetIndex));
+        }
+
+        isFoldSettlementPending = true;
+        pendingFoldedBy = foldedBy;
+        pendingFoldPotChipCount = potChipCount;
+        int delayedStartIndex = potChipCount > 0 && penaltyChipCount > 0
+            ? potChipCount
+            : int.MaxValue;
+        return StartPlayerChipMove(
+            targetPositions,
+            _ => onCompleted(),
+            _ => onFailed(),
+            delayedStartIndex);
+    }
+
+    public bool CompleteFoldSettlement()
+    {
+        if (!CanCompleteFoldSettlement())
+        {
+            return false;
+        }
+
+        List<GameObject> foldedChipInstances =
+            pendingFoldedBy == TurnOwner.Player
+                ? playerChipInstances
+                : dealerChipInstances;
+        List<GameObject> winnerChipInstances =
+            pendingFoldedBy == TurnOwner.Player
+                ? dealerChipInstances
+                : playerChipInstances;
+        Transform winnerChipArea = pendingFoldedBy == TurnOwner.Player
+            ? dealerChipArea
+            : playerChipArea;
+
+        for (int index = 0; index < pendingFoldPotChipCount; index++)
+        {
+            potChipInstances.Remove(pendingChips[index]);
+        }
+
+        for (int index = pendingFoldPotChipCount;
+             index < pendingChips.Count;
+             index++)
+        {
+            foldedChipInstances.Remove(pendingChips[index]);
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            GameObject chip = pendingChips[index];
+            chip.transform.SetParent(winnerChipArea, true);
+            chip.transform.localRotation = pendingRotations[index];
+            chip.transform.localScale = pendingScales[index];
+            winnerChipInstances.Add(chip);
+        }
+
+        ClearPlayerChipMoveState();
+        ClearPendingChipMove();
+        ArrangeChips(potChipInstances);
+        ArrangeChips(foldedChipInstances);
+        ArrangeChips(winnerChipInstances);
+        RefreshChips();
+        return true;
+    }
+
+    public void CancelFoldSettlement()
+    {
+        KillPlayerChipMoveTweens();
+        RestorePendingChips();
+        ClearPlayerChipMoveState();
+        ClearPendingChipMove();
+    }
+
     private bool CanCompleteDealerBet(GameObject[] chips)
     {
         if (chips == null ||
@@ -461,6 +628,7 @@ public sealed class ChipVisualController : MonoBehaviour
             isDealerCollectPending ||
             isPlayerBetPending ||
             isPlayerCollectPending ||
+            isFoldSettlementPending ||
             potArea == null)
         {
             return false;
@@ -486,6 +654,7 @@ public sealed class ChipVisualController : MonoBehaviour
             chips.Length != pendingChips.Count ||
             !isPlayerBetPending ||
             isPlayerCollectPending ||
+            isFoldSettlementPending ||
             potArea == null)
         {
             return false;
@@ -511,6 +680,7 @@ public sealed class ChipVisualController : MonoBehaviour
             chips.Length != pendingChips.Count ||
             !isPlayerCollectPending ||
             isPlayerBetPending ||
+            isFoldSettlementPending ||
             playerChipArea == null)
         {
             return false;
@@ -535,6 +705,7 @@ public sealed class ChipVisualController : MonoBehaviour
             chips.Length == 0 ||
             chips.Length != pendingChips.Count ||
             !isDealerCollectPending ||
+            isFoldSettlementPending ||
             dealerChipArea == null)
         {
             return false;
@@ -553,10 +724,44 @@ public sealed class ChipVisualController : MonoBehaviour
         return true;
     }
 
+    private bool CanCompleteFoldSettlement()
+    {
+        if (!isFoldSettlementPending ||
+            pendingChips.Count == 0 ||
+            pendingFoldPotChipCount < 0 ||
+            pendingFoldPotChipCount > pendingChips.Count ||
+            (pendingFoldedBy != TurnOwner.Player &&
+             pendingFoldedBy != TurnOwner.Dealer))
+        {
+            return false;
+        }
+
+        List<GameObject> foldedChipInstances =
+            pendingFoldedBy == TurnOwner.Player
+                ? playerChipInstances
+                : dealerChipInstances;
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            GameObject chip = pendingChips[index];
+
+            if (chip == null ||
+                (index < pendingFoldPotChipCount
+                    ? !potChipInstances.Contains(chip)
+                    : !foldedChipInstances.Contains(chip)))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private bool StartPlayerChipMove(
         Vector3[] targetPositions,
         Action<GameObject[]> onMoveCompleted,
-        Action<GameObject[]> onMoveFailed)
+        Action<GameObject[]> onMoveFailed,
+        int delayedStartIndex = int.MaxValue)
     {
         if (targetPositions == null ||
             targetPositions.Length != pendingChips.Count)
@@ -577,6 +782,9 @@ public sealed class ChipVisualController : MonoBehaviour
                 .DOMove(
                     targetPositions[index],
                     PlayerChipMoveDuration)
+                .SetDelay(index >= delayedStartIndex
+                    ? PlayerChipMoveDuration
+                    : 0f)
                 .SetEase(Ease.OutQuad)
                 .OnComplete(CompletePlayerChipMoveTween);
             playerMoveTweens.Add(moveTween);
@@ -596,7 +804,9 @@ public sealed class ChipVisualController : MonoBehaviour
 
     private void CompletePlayerChipMoveTween()
     {
-        if (!isPlayerBetPending && !isPlayerCollectPending)
+        if (!isPlayerBetPending &&
+            !isPlayerCollectPending &&
+            !isFoldSettlementPending)
         {
             return;
         }
@@ -628,6 +838,7 @@ public sealed class ChipVisualController : MonoBehaviour
     {
         if (!isPlayerBetPending &&
             !isPlayerCollectPending &&
+            !isFoldSettlementPending &&
             playerMoveFailed == null)
         {
             return;
@@ -696,6 +907,21 @@ public sealed class ChipVisualController : MonoBehaviour
         playerMoveTweens.Clear();
     }
 
+    private bool TryAddPendingChip(GameObject chip)
+    {
+        if (chip == null || !chip.activeInHierarchy)
+        {
+            return false;
+        }
+
+        pendingChips.Add(chip);
+        pendingParents.Add(chip.transform.parent);
+        pendingLocalPositions.Add(chip.transform.localPosition);
+        pendingRotations.Add(chip.transform.localRotation);
+        pendingScales.Add(chip.transform.localScale);
+        return true;
+    }
+
     private void ClearPendingChipMove()
     {
         pendingChips.Clear();
@@ -706,6 +932,9 @@ public sealed class ChipVisualController : MonoBehaviour
         isDealerCollectPending = false;
         isPlayerBetPending = false;
         isPlayerCollectPending = false;
+        isFoldSettlementPending = false;
+        pendingFoldedBy = TurnOwner.None;
+        pendingFoldPotChipCount = 0;
     }
 
     private void OnDisable()

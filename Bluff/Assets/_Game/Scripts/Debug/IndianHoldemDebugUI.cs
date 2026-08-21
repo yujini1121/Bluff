@@ -264,15 +264,25 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return;
             }
 
+            bool isPlayerFold =
+                gameState.RoundEndReason == RoundEndReason.Fold &&
+                gameState.FoldedBy == TurnOwner.Player;
+            bool foldSettlementStarted =
+                isPlayerFold &&
+                TryStartFoldSettlement(
+                    TurnOwner.Player,
+                    potBefore,
+                    gameState.FoldPenaltyAmount);
             int potIncrease = gameState.Pot.Amount - potBefore;
             int playerChipDecrease =
                 playerChipsBefore - gameState.PlayerChips.Count;
             bool playerBetAnimationStarted =
+                !isPlayerFold &&
                 potIncrease > 0 &&
                 playerChipDecrease == potIncrease &&
                 TryStartPlayerBetAnimation(potIncrease);
 
-            if (!playerBetAnimationStarted)
+            if (!foldSettlementStarted && !playerBetAnimationStarted)
             {
                 RefreshChipsIfChanged(
                     playerChipsBefore,
@@ -421,6 +431,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
             if (dealerAi.TryExecute(gameState, decision))
             {
+                bool isDealerFold =
+                    gameState.RoundEndReason == RoundEndReason.Fold &&
+                    gameState.FoldedBy == TurnOwner.Dealer;
+                bool foldSettlementStarted =
+                    isDealerFold &&
+                    TryStartFoldSettlement(
+                        TurnOwner.Dealer,
+                        potBefore,
+                        gameState.FoldPenaltyAmount);
                 int movedChipCount =
                     dealerChipsBefore - gameState.DealerChips.Count;
                 bool isAllInCall =
@@ -430,6 +449,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 bool useAllInAnimation =
                     decision == DealerDecision.AllIn || isAllInCall;
                 bool betAnimationStarted =
+                    !isDealerFold &&
                     (decision == DealerDecision.Call ||
                      decision == DealerDecision.AllIn) &&
                     movedChipCount > 0 &&
@@ -437,7 +457,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                         movedChipCount,
                         useAllInAnimation);
 
-                if (!betAnimationStarted)
+                if (!foldSettlementStarted && !betAnimationStarted)
                 {
                     RefreshChipsIfChanged(
                         playerChipsBefore,
@@ -592,6 +612,62 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         if (chipVisualController != null)
         {
             chipVisualController.CancelPlayerCollect();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private bool TryStartFoldSettlement(
+        TurnOwner foldedBy,
+        int potChipCount,
+        int penaltyChipCount)
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginFoldSettlement(
+                foldedBy,
+                potChipCount,
+                penaltyChipCount,
+                OnFoldSettlementCompleted,
+                OnFoldSettlementFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnFoldSettlementCompleted()
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompleteFoldSettlement();
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelFoldSettlement();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private void OnFoldSettlementFailed()
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelFoldSettlement();
             chipVisualController.RefreshChips();
         }
 
