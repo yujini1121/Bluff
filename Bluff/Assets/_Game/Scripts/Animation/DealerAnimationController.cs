@@ -37,6 +37,11 @@ public class DealerAnimationController : MonoBehaviour
         animator.SetTrigger("Collect");
     }
 
+    public void PlayThink()
+    {
+        animator.SetTrigger("Think");
+    }
+
     public void GrabChip()
     {
         chip.SetParent(chipSocket);
@@ -65,5 +70,13 @@ public class DealerAnimationController : MonoBehaviour
         chip
             .DOMove(dealerChipPoint.position, 0.25f)
             .SetEase(Ease.OutQuad);
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Alpha4))
+        {
+            PlayThink();
+        }
     }
 }
