@@ -22,6 +22,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private TMP_FontAsset uiFont;
     [SerializeField] private ItemSystem itemSystem;
 
+    [Header("3D 카드 표시")]
+    [SerializeField] private CardVisualController cardVisualController;
+
     [Header("메인 게임 화면")]
     [SerializeField] private TMP_Text phaseText;
     [SerializeField] private TMP_Text turnText;
@@ -186,6 +189,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             deck);
         //itemSystem.Initialize(new ItemGameApi(gameState));
 
+        if (cardVisualController != null)
+        {
+            cardVisualController.Initialize(gameState);
+        }
+
         ResetDisplayedRoundResult();
         StartRound();
     }
@@ -202,6 +210,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        cardVisualController?.RefreshCards();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
     }
@@ -216,6 +225,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        cardVisualController?.RefreshCards();
         ResetDisplayedRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
