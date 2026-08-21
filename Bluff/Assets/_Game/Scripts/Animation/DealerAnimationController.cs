@@ -7,9 +7,10 @@ using UnityEngine.Serialization;
 
 public class DealerAnimationController : MonoBehaviour
 {
-    private const float CallChipMoveDuration = 0.25f;
-    private const float CallAnimationTimeout = 4f;
+    private const float BetChipMoveDuration = 0.25f;
+    private const float BetAnimationTimeout = 4f;
     private const string CallTrigger = "Call";
+    private const string AllInTrigger = "All-In";
 
     [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
@@ -19,19 +20,53 @@ public class DealerAnimationController : MonoBehaviour
     [FormerlySerializedAs("collectChip")]
     [SerializeField] private Transform testChip;
 
-    private Transform[] activeCallChips;
+    private Transform[] activeBetChips;
     private Transform[] originalChipParents;
     private Vector3[] originalChipLocalPositions;
     private Quaternion[] originalChipLocalRotations;
     private Vector3[] originalChipLocalScales;
-    private Vector3[] callPotTargetPositions;
-    private Action<GameObject[]> callMoveCompleted;
-    private Action<GameObject[]> callMoveFailed;
-    private Coroutine callTimeoutCoroutine;
-    private readonly List<Tween> callMoveTweens = new List<Tween>();
-    private int completedCallMoveCount;
+    private Vector3[] chipOffsetsAtGrab;
+    private Quaternion[] chipWorldRotationsAtGrab;
+    private float[] chipWorldYAtGrab;
+    private bool keepChipWorldY;
+    private bool isFollowingChipSocket;
+    private Vector3[] betPotTargetPositions;
+    private Action<GameObject[]> betMoveCompleted;
+    private Action<GameObject[]> betMoveFailed;
+    private Coroutine betTimeoutCoroutine;
+    private readonly List<Tween> betMoveTweens = new List<Tween>();
+    private int completedBetMoveCount;
 
     public bool TryPlayCallChips(
+        GameObject[] chips,
+        Vector3[] potTargetPositions,
+        Action<GameObject[]> onMoveCompleted,
+        Action<GameObject[]> onMoveFailed)
+    {
+        return TryPlayBetChips(
+            CallTrigger,
+            chips,
+            potTargetPositions,
+            onMoveCompleted,
+            onMoveFailed);
+    }
+
+    public bool TryPlayAllInChips(
+        GameObject[] chips,
+        Vector3[] potTargetPositions,
+        Action<GameObject[]> onMoveCompleted,
+        Action<GameObject[]> onMoveFailed)
+    {
+        return TryPlayBetChips(
+            AllInTrigger,
+            chips,
+            potTargetPositions,
+            onMoveCompleted,
+            onMoveFailed);
+    }
+
+    private bool TryPlayBetChips(
+        string triggerName,
         GameObject[] chips,
         Vector3[] potTargetPositions,
         Action<GameObject[]> onMoveCompleted,
@@ -41,9 +76,9 @@ public class DealerAnimationController : MonoBehaviour
             chips.Length == 0 ||
             potTargetPositions == null ||
             chips.Length != potTargetPositions.Length ||
-            activeCallChips != null ||
+            activeBetChips != null ||
             chipSocket == null ||
-            !CanSetTrigger(CallTrigger))
+            !CanSetTrigger(triggerName))
         {
             return false;
         }
@@ -56,29 +91,30 @@ public class DealerAnimationController : MonoBehaviour
             }
         }
 
-        activeCallChips = new Transform[chips.Length];
+        activeBetChips = new Transform[chips.Length];
         originalChipParents = new Transform[chips.Length];
         originalChipLocalPositions = new Vector3[chips.Length];
         originalChipLocalRotations = new Quaternion[chips.Length];
         originalChipLocalScales = new Vector3[chips.Length];
-        callPotTargetPositions = new Vector3[potTargetPositions.Length];
+        betPotTargetPositions = new Vector3[potTargetPositions.Length];
 
         for (int index = 0; index < chips.Length; index++)
         {
             Transform chip = chips[index].transform;
-            activeCallChips[index] = chip;
+            activeBetChips[index] = chip;
             originalChipParents[index] = chip.parent;
             originalChipLocalPositions[index] = chip.localPosition;
             originalChipLocalRotations[index] = chip.localRotation;
             originalChipLocalScales[index] = chip.localScale;
-            callPotTargetPositions[index] = potTargetPositions[index];
+            betPotTargetPositions[index] = potTargetPositions[index];
         }
 
-        callMoveCompleted = onMoveCompleted;
-        callMoveFailed = onMoveFailed;
+        betMoveCompleted = onMoveCompleted;
+        betMoveFailed = onMoveFailed;
+        keepChipWorldY = triggerName == AllInTrigger;
 
-        animator.SetTrigger(CallTrigger);
-        callTimeoutCoroutine = StartCoroutine(CallAnimationTimeoutRoutine());
+        animator.SetTrigger(triggerName);
+        betTimeoutCoroutine = StartCoroutine(BetAnimationTimeoutRoutine());
         return true;
     }
 
@@ -89,7 +125,7 @@ public class DealerAnimationController : MonoBehaviour
 
     public void PlayAllIn()
     {
-        TrySetTrigger("All-In");
+        TrySetTrigger(AllInTrigger);
     }
 
     public void PlayCollect()
@@ -109,25 +145,39 @@ public class DealerAnimationController : MonoBehaviour
             return;
         }
 
-        if (activeCallChips != null)
+        if (activeBetChips != null)
         {
-            if (!HasValidActiveCallChips())
+            if (isFollowingChipSocket)
             {
-                FailCallChipMove();
                 return;
             }
 
-            Vector3 firstChipPosition = originalChipLocalPositions[0];
-
-            for (int index = 0; index < activeCallChips.Length; index++)
+            if (!HasValidActiveBetChips())
             {
-                Transform chip = activeCallChips[index];
-                chip.SetParent(chipSocket, false);
-                chip.localPosition =
-                    originalChipLocalPositions[index] - firstChipPosition;
-                chip.localRotation = Quaternion.identity;
+                FailBetChipMove();
+                return;
             }
 
+            chipOffsetsAtGrab =
+                new Vector3[activeBetChips.Length];
+            chipWorldRotationsAtGrab =
+                new Quaternion[activeBetChips.Length];
+            chipWorldYAtGrab = new float[activeBetChips.Length];
+            Vector3 offsetOrigin = keepChipWorldY
+                ? chipSocket.position
+                : GetBetChipCenter();
+
+            for (int index = 0; index < activeBetChips.Length; index++)
+            {
+                Transform chip = activeBetChips[index];
+                chipOffsetsAtGrab[index] =
+                    chip.position - offsetOrigin;
+                chipWorldRotationsAtGrab[index] = chip.rotation;
+                chipWorldYAtGrab[index] = chip.position.y;
+            }
+
+            isFollowingChipSocket = true;
+            UpdateFollowedBetChips();
             return;
         }
 
@@ -141,32 +191,34 @@ public class DealerAnimationController : MonoBehaviour
 
     public void ReleaseChip()
     {
-        if (activeCallChips != null)
+        if (activeBetChips != null)
         {
-            if (callMoveTweens.Count > 0)
+            isFollowingChipSocket = false;
+
+            if (betMoveTweens.Count > 0)
             {
                 return;
             }
 
-            if (!HasValidActiveCallChips())
+            if (!HasValidActiveBetChips())
             {
-                FailCallChipMove();
+                FailBetChipMove();
                 return;
             }
 
-            completedCallMoveCount = 0;
+            completedBetMoveCount = 0;
 
-            for (int index = 0; index < activeCallChips.Length; index++)
+            for (int index = 0; index < activeBetChips.Length; index++)
             {
-                Transform movingChip = activeCallChips[index];
+                Transform movingChip = activeBetChips[index];
                 movingChip.SetParent(null, true);
                 Tween moveTween = movingChip
                     .DOMove(
-                        callPotTargetPositions[index],
-                        CallChipMoveDuration)
+                        betPotTargetPositions[index],
+                        BetChipMoveDuration)
                     .SetEase(Ease.OutQuad)
-                    .OnComplete(CompleteCallChipMove);
-                callMoveTweens.Add(moveTween);
+                    .OnComplete(CompleteBetChipMove);
+                betMoveTweens.Add(moveTween);
             }
 
             return;
@@ -179,7 +231,7 @@ public class DealerAnimationController : MonoBehaviour
 
         testChip.SetParent(null);
         testChip
-            .DOMove(potPoint.position, CallChipMoveDuration)
+            .DOMove(potPoint.position, BetChipMoveDuration)
             .SetEase(Ease.OutQuad);
     }
 
@@ -192,13 +244,13 @@ public class DealerAnimationController : MonoBehaviour
 
         testChip.SetParent(null);
         testChip
-            .DOMove(dealerChipPoint.position, CallChipMoveDuration)
+            .DOMove(dealerChipPoint.position, BetChipMoveDuration)
             .SetEase(Ease.OutQuad);
     }
 
-    public void CancelCallChipAnimation()
+    public void CancelBetChipAnimation()
     {
-        FailCallChipMove();
+        FailBetChipMove();
     }
 
     private bool TrySetTrigger(string triggerName)
@@ -237,58 +289,59 @@ public class DealerAnimationController : MonoBehaviour
         return false;
     }
 
-    private IEnumerator CallAnimationTimeoutRoutine()
+    private IEnumerator BetAnimationTimeoutRoutine()
     {
-        yield return new WaitForSeconds(CallAnimationTimeout);
-        callTimeoutCoroutine = null;
-        FailCallChipMove();
+        yield return new WaitForSeconds(BetAnimationTimeout);
+        betTimeoutCoroutine = null;
+        FailBetChipMove();
     }
 
-    private void CompleteCallChipMove()
+    private void CompleteBetChipMove()
     {
-        if (activeCallChips == null)
+        if (activeBetChips == null)
         {
             return;
         }
 
-        completedCallMoveCount++;
+        completedBetMoveCount++;
 
-        if (completedCallMoveCount < activeCallChips.Length)
+        if (completedBetMoveCount < activeBetChips.Length)
         {
             return;
         }
 
-        GameObject[] completedChips = GetActiveCallChipObjects();
-        Action<GameObject[]> completedCallback = callMoveCompleted;
-        ClearCallChipState(false);
+        GameObject[] completedChips = GetActiveBetChipObjects();
+        Action<GameObject[]> completedCallback = betMoveCompleted;
+        ClearBetChipState(false);
         completedCallback?.Invoke(completedChips);
     }
 
-    private void FailCallChipMove()
+    private void FailBetChipMove()
     {
-        if (activeCallChips == null && callMoveFailed == null)
+        if (activeBetChips == null && betMoveFailed == null)
         {
             return;
         }
 
-        GameObject[] failedChips = GetActiveCallChipObjects();
-        Action<GameObject[]> failedCallback = callMoveFailed;
-        KillCallMoveTweens();
-        RestoreCallChips();
-        ClearCallChipState(false);
+        GameObject[] failedChips = GetActiveBetChipObjects();
+        Action<GameObject[]> failedCallback = betMoveFailed;
+        isFollowingChipSocket = false;
+        KillBetMoveTweens();
+        RestoreBetChips();
+        ClearBetChipState(false);
         failedCallback?.Invoke(failedChips);
     }
 
-    private bool HasValidActiveCallChips()
+    private bool HasValidActiveBetChips()
     {
-        if (activeCallChips == null || activeCallChips.Length == 0)
+        if (activeBetChips == null || activeBetChips.Length == 0)
         {
             return false;
         }
 
-        for (int index = 0; index < activeCallChips.Length; index++)
+        for (int index = 0; index < activeBetChips.Length; index++)
         {
-            if (activeCallChips[index] == null)
+            if (activeBetChips[index] == null)
             {
                 return false;
             }
@@ -297,16 +350,16 @@ public class DealerAnimationController : MonoBehaviour
         return true;
     }
 
-    private void RestoreCallChips()
+    private void RestoreBetChips()
     {
-        if (activeCallChips == null)
+        if (activeBetChips == null)
         {
             return;
         }
 
-        for (int index = 0; index < activeCallChips.Length; index++)
+        for (int index = 0; index < activeBetChips.Length; index++)
         {
-            Transform chip = activeCallChips[index];
+            Transform chip = activeBetChips[index];
 
             if (chip == null)
             {
@@ -320,63 +373,118 @@ public class DealerAnimationController : MonoBehaviour
         }
     }
 
-    private GameObject[] GetActiveCallChipObjects()
+    private GameObject[] GetActiveBetChipObjects()
     {
-        if (activeCallChips == null)
+        if (activeBetChips == null)
         {
             return null;
         }
 
-        GameObject[] chips = new GameObject[activeCallChips.Length];
+        GameObject[] chips = new GameObject[activeBetChips.Length];
 
-        for (int index = 0; index < activeCallChips.Length; index++)
+        for (int index = 0; index < activeBetChips.Length; index++)
         {
-            chips[index] = activeCallChips[index] != null
-                ? activeCallChips[index].gameObject
+            chips[index] = activeBetChips[index] != null
+                ? activeBetChips[index].gameObject
                 : null;
         }
 
         return chips;
     }
 
-    private void ClearCallChipState(bool killTween)
+    private void ClearBetChipState(bool killTween)
     {
-        if (callTimeoutCoroutine != null)
+        if (betTimeoutCoroutine != null)
         {
-            StopCoroutine(callTimeoutCoroutine);
-            callTimeoutCoroutine = null;
+            StopCoroutine(betTimeoutCoroutine);
+            betTimeoutCoroutine = null;
         }
 
         if (killTween)
         {
-            KillCallMoveTweens();
+            KillBetMoveTweens();
         }
 
-        callMoveTweens.Clear();
-        completedCallMoveCount = 0;
-        activeCallChips = null;
+        betMoveTweens.Clear();
+        completedBetMoveCount = 0;
+        activeBetChips = null;
         originalChipParents = null;
         originalChipLocalPositions = null;
         originalChipLocalRotations = null;
         originalChipLocalScales = null;
-        callPotTargetPositions = null;
-        callMoveCompleted = null;
-        callMoveFailed = null;
+        chipOffsetsAtGrab = null;
+        chipWorldRotationsAtGrab = null;
+        chipWorldYAtGrab = null;
+        keepChipWorldY = false;
+        isFollowingChipSocket = false;
+        betPotTargetPositions = null;
+        betMoveCompleted = null;
+        betMoveFailed = null;
     }
 
-    private void KillCallMoveTweens()
+    private void KillBetMoveTweens()
     {
-        for (int index = 0; index < callMoveTweens.Count; index++)
+        for (int index = 0; index < betMoveTweens.Count; index++)
         {
-            callMoveTweens[index]?.Kill(false);
+            betMoveTweens[index]?.Kill(false);
         }
 
-        callMoveTweens.Clear();
+        betMoveTweens.Clear();
     }
 
     private void OnDisable()
     {
-        FailCallChipMove();
+        FailBetChipMove();
+    }
+
+    private void LateUpdate()
+    {
+        if (!isFollowingChipSocket)
+        {
+            return;
+        }
+
+        if (chipSocket == null ||
+            !HasValidActiveBetChips() ||
+            chipOffsetsAtGrab == null ||
+            chipWorldRotationsAtGrab == null ||
+            chipWorldYAtGrab == null)
+        {
+            FailBetChipMove();
+            return;
+        }
+
+        UpdateFollowedBetChips();
+    }
+
+    private void UpdateFollowedBetChips()
+    {
+        for (int index = 0; index < activeBetChips.Length; index++)
+        {
+            Transform chip = activeBetChips[index];
+            Vector3 followedPosition =
+                chipSocket.position + chipOffsetsAtGrab[index];
+
+            if (keepChipWorldY)
+            {
+                followedPosition.y = chipWorldYAtGrab[index];
+            }
+
+            chip.position = followedPosition;
+            chip.rotation = chipWorldRotationsAtGrab[index];
+        }
+    }
+
+    private Vector3 GetBetChipCenter()
+    {
+        Vector3 center = Vector3.zero;
+
+        for (int index = 0; index < activeBetChips.Length; index++)
+        {
+            center += activeBetChips[index].position;
+        }
+
+        return center / activeBetChips.Length;
     }
 
     private void Update()

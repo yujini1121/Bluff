@@ -74,18 +74,39 @@ public sealed class ChipVisualController : MonoBehaviour
         chips = null;
         potTargetPositions = null;
 
-        RemoveMissingInstances(dealerChipInstances);
-        RemoveMissingInstances(potChipInstances);
-
         if (gameState == null ||
             chipCount <= 0 ||
             pendingChips.Count > 0 ||
             dealerChipArea == null ||
-            potArea == null ||
+            potArea == null)
+        {
+            return false;
+        }
+
+        int potCountBeforeDealerBet = gameState.Pot.Amount - chipCount;
+
+        if (potCountBeforeDealerBet < 0)
+        {
+            return false;
+        }
+
+        MatchChipCount(
+            playerChipInstances,
+            gameState.PlayerChips.Count,
+            playerChipArea,
+            chipPrefabs);
+        MatchChipCount(
+            potChipInstances,
+            potCountBeforeDealerBet,
+            potArea,
+            chipPrefabs);
+        RemoveMissingInstances(dealerChipInstances);
+
+        if (playerChipInstances.Count != gameState.PlayerChips.Count ||
             dealerChipInstances.Count < chipCount ||
             dealerChipInstances.Count !=
                 gameState.DealerChips.Count + chipCount ||
-            potChipInstances.Count + chipCount != gameState.Pot.Amount)
+            potChipInstances.Count != potCountBeforeDealerBet)
         {
             return false;
         }

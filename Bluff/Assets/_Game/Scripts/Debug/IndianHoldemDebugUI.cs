@@ -83,7 +83,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
     private bool isActionProcessing;
-    private bool isCallAnimating;
+    private bool isBetAnimating;
 
     private void Awake()
     {
@@ -159,7 +159,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     public void OnRaiseFiveClicked()
     {
-        RunPlayerBettingAction("레이즈 +5", () => gameState.TryRaise(5));
+        RunPlayerBettingAction("레이즈 +7", () => gameState.TryRaise(7));
     }
 
     public void OnAllInClicked()
@@ -300,7 +300,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         return gameState != null &&
                !isActionProcessing &&
-               !isCallAnimating &&
+               !isBetAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == GamePhase.Betting &&
                gameState.CurrentTurn == TurnOwner.Player;
@@ -310,7 +310,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         return gameState != null &&
                !isActionProcessing &&
-               !isCallAnimating &&
+               !isBetAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == requiredPhase;
     }
@@ -385,21 +385,29 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             int randomRoll = UnityEngine.Random.Range(0, 100);
             DealerDecision decision = dealerAi.Decide(gameState, randomRoll);
-            int dealerCallAmount = decision == DealerDecision.Call
-                ? gameState.Betting.GetCallAmount(TurnOwner.Dealer)
-                : 0;
             int playerChipsBefore = gameState.PlayerChips.Count;
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
 
             if (dealerAi.TryExecute(gameState, decision))
             {
-                bool callAnimationStarted =
+                int movedChipCount =
+                    dealerChipsBefore - gameState.DealerChips.Count;
+                bool isAllInCall =
                     decision == DealerDecision.Call &&
-                    dealerCallAmount > 0 &&
-                    TryStartCallAnimation(dealerCallAmount);
+                    dealerChipsBefore > 0 &&
+                    gameState.DealerChips.Count == 0;
+                bool useAllInAnimation =
+                    decision == DealerDecision.AllIn || isAllInCall;
+                bool betAnimationStarted =
+                    (decision == DealerDecision.Call ||
+                     decision == DealerDecision.AllIn) &&
+                    movedChipCount > 0 &&
+                    TryStartBetAnimation(
+                        movedChipCount,
+                        useAllInAnimation);
 
-                if (!callAnimationStarted)
+                if (!betAnimationStarted)
                 {
                     RefreshChipsIfChanged(
                         playerChipsBefore,
@@ -423,7 +431,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
     }
 
-    private bool TryStartCallAnimation(int chipCount)
+    private bool TryStartBetAnimation(
+        int chipCount,
+        bool useAllInAnimation)
     {
         if (chipVisualController == null ||
             dealerAnimationController == null ||
@@ -435,29 +445,36 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return false;
         }
 
-        isCallAnimating = true;
-
-        if (dealerAnimationController.TryPlayCallChips(
+        isBetAnimating = true;
+        bool animationStarted = useAllInAnimation
+            ? dealerAnimationController.TryPlayAllInChips(
                 chips,
                 potTargetPositions,
-                OnCallChipsMoved,
-                OnCallChipsMoveFailed))
+                OnBetChipsMoved,
+                OnBetChipsMoveFailed)
+            : dealerAnimationController.TryPlayCallChips(
+                chips,
+                potTargetPositions,
+                OnBetChipsMoved,
+                OnBetChipsMoveFailed);
+
+        if (animationStarted)
         {
             return true;
         }
 
-        isCallAnimating = false;
+        isBetAnimating = false;
         chipVisualController.CancelDealerBet();
         return false;
     }
 
-    private void OnCallChipsMoved(GameObject[] chips)
+    private void OnBetChipsMoved(GameObject[] chips)
     {
         bool moveCompleted =
             chipVisualController != null &&
             chipVisualController.CompleteDealerBet(chips);
 
-        isCallAnimating = false;
+        isBetAnimating = false;
 
         if (!moveCompleted && chipVisualController != null)
         {
@@ -468,9 +485,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RefreshView();
     }
 
-    private void OnCallChipsMoveFailed(GameObject[] chips)
+    private void OnBetChipsMoveFailed(GameObject[] chips)
     {
-        isCallAnimating = false;
+        isBetAnimating = false;
 
         if (chipVisualController != null)
         {
