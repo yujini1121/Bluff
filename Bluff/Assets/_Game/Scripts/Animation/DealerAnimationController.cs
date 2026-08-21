@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -18,37 +19,61 @@ public class DealerAnimationController : MonoBehaviour
     [FormerlySerializedAs("collectChip")]
     [SerializeField] private Transform testChip;
 
-    private Transform activeCallChip;
-    private Transform originalChipParent;
-    private Vector3 originalChipLocalPosition;
-    private Quaternion originalChipLocalRotation;
-    private Vector3 originalChipLocalScale;
-    private Vector3 callPotTargetPosition;
-    private Action<GameObject> callMoveCompleted;
-    private Action<GameObject> callMoveFailed;
+    private Transform[] activeCallChips;
+    private Transform[] originalChipParents;
+    private Vector3[] originalChipLocalPositions;
+    private Quaternion[] originalChipLocalRotations;
+    private Vector3[] originalChipLocalScales;
+    private Vector3[] callPotTargetPositions;
+    private Action<GameObject[]> callMoveCompleted;
+    private Action<GameObject[]> callMoveFailed;
     private Coroutine callTimeoutCoroutine;
-    private Tween callMoveTween;
+    private readonly List<Tween> callMoveTweens = new List<Tween>();
+    private int completedCallMoveCount;
 
-    public bool TryPlayCallChip(
-        GameObject chip,
-        Vector3 potTargetPosition,
-        Action<GameObject> onMoveCompleted,
-        Action<GameObject> onMoveFailed)
+    public bool TryPlayCallChips(
+        GameObject[] chips,
+        Vector3[] potTargetPositions,
+        Action<GameObject[]> onMoveCompleted,
+        Action<GameObject[]> onMoveFailed)
     {
-        if (chip == null ||
-            activeCallChip != null ||
+        if (chips == null ||
+            chips.Length == 0 ||
+            potTargetPositions == null ||
+            chips.Length != potTargetPositions.Length ||
+            activeCallChips != null ||
             chipSocket == null ||
             !CanSetTrigger(CallTrigger))
         {
             return false;
         }
 
-        activeCallChip = chip.transform;
-        originalChipParent = activeCallChip.parent;
-        originalChipLocalPosition = activeCallChip.localPosition;
-        originalChipLocalRotation = activeCallChip.localRotation;
-        originalChipLocalScale = activeCallChip.localScale;
-        callPotTargetPosition = potTargetPosition;
+        for (int index = 0; index < chips.Length; index++)
+        {
+            if (chips[index] == null)
+            {
+                return false;
+            }
+        }
+
+        activeCallChips = new Transform[chips.Length];
+        originalChipParents = new Transform[chips.Length];
+        originalChipLocalPositions = new Vector3[chips.Length];
+        originalChipLocalRotations = new Quaternion[chips.Length];
+        originalChipLocalScales = new Vector3[chips.Length];
+        callPotTargetPositions = new Vector3[potTargetPositions.Length];
+
+        for (int index = 0; index < chips.Length; index++)
+        {
+            Transform chip = chips[index].transform;
+            activeCallChips[index] = chip;
+            originalChipParents[index] = chip.parent;
+            originalChipLocalPositions[index] = chip.localPosition;
+            originalChipLocalRotations[index] = chip.localRotation;
+            originalChipLocalScales[index] = chip.localScale;
+            callPotTargetPositions[index] = potTargetPositions[index];
+        }
+
         callMoveCompleted = onMoveCompleted;
         callMoveFailed = onMoveFailed;
 
@@ -84,11 +109,25 @@ public class DealerAnimationController : MonoBehaviour
             return;
         }
 
-        if (activeCallChip != null)
+        if (activeCallChips != null)
         {
-            activeCallChip.SetParent(chipSocket, false);
-            activeCallChip.localPosition = Vector3.zero;
-            activeCallChip.localRotation = Quaternion.identity;
+            if (!HasValidActiveCallChips())
+            {
+                FailCallChipMove();
+                return;
+            }
+
+            Vector3 firstChipPosition = originalChipLocalPositions[0];
+
+            for (int index = 0; index < activeCallChips.Length; index++)
+            {
+                Transform chip = activeCallChips[index];
+                chip.SetParent(chipSocket, false);
+                chip.localPosition =
+                    originalChipLocalPositions[index] - firstChipPosition;
+                chip.localRotation = Quaternion.identity;
+            }
+
             return;
         }
 
@@ -102,19 +141,34 @@ public class DealerAnimationController : MonoBehaviour
 
     public void ReleaseChip()
     {
-        if (activeCallChip != null)
+        if (activeCallChips != null)
         {
-            if (callMoveTween != null)
+            if (callMoveTweens.Count > 0)
             {
                 return;
             }
 
-            Transform movingChip = activeCallChip;
-            movingChip.SetParent(null, true);
-            callMoveTween = movingChip
-                .DOMove(callPotTargetPosition, CallChipMoveDuration)
-                .SetEase(Ease.OutQuad)
-                .OnComplete(() => CompleteCallChipMove(movingChip));
+            if (!HasValidActiveCallChips())
+            {
+                FailCallChipMove();
+                return;
+            }
+
+            completedCallMoveCount = 0;
+
+            for (int index = 0; index < activeCallChips.Length; index++)
+            {
+                Transform movingChip = activeCallChips[index];
+                movingChip.SetParent(null, true);
+                Tween moveTween = movingChip
+                    .DOMove(
+                        callPotTargetPositions[index],
+                        CallChipMoveDuration)
+                    .SetEase(Ease.OutQuad)
+                    .OnComplete(CompleteCallChipMove);
+                callMoveTweens.Add(moveTween);
+            }
+
             return;
         }
 
@@ -190,46 +244,99 @@ public class DealerAnimationController : MonoBehaviour
         FailCallChipMove();
     }
 
-    private void CompleteCallChipMove(Transform completedChip)
+    private void CompleteCallChipMove()
     {
-        if (completedChip == null || completedChip != activeCallChip)
+        if (activeCallChips == null)
         {
             return;
         }
 
-        GameObject completedChipObject = completedChip.gameObject;
-        Action<GameObject> completedCallback = callMoveCompleted;
+        completedCallMoveCount++;
+
+        if (completedCallMoveCount < activeCallChips.Length)
+        {
+            return;
+        }
+
+        GameObject[] completedChips = GetActiveCallChipObjects();
+        Action<GameObject[]> completedCallback = callMoveCompleted;
         ClearCallChipState(false);
-        completedCallback?.Invoke(completedChipObject);
+        completedCallback?.Invoke(completedChips);
     }
 
     private void FailCallChipMove()
     {
-        if (activeCallChip == null && callMoveFailed == null)
+        if (activeCallChips == null && callMoveFailed == null)
         {
             return;
         }
 
-        GameObject failedChipObject = activeCallChip != null
-            ? activeCallChip.gameObject
-            : null;
-        Action<GameObject> failedCallback = callMoveFailed;
-        RestoreCallChip();
-        ClearCallChipState(true);
-        failedCallback?.Invoke(failedChipObject);
+        GameObject[] failedChips = GetActiveCallChipObjects();
+        Action<GameObject[]> failedCallback = callMoveFailed;
+        KillCallMoveTweens();
+        RestoreCallChips();
+        ClearCallChipState(false);
+        failedCallback?.Invoke(failedChips);
     }
 
-    private void RestoreCallChip()
+    private bool HasValidActiveCallChips()
     {
-        if (activeCallChip == null)
+        if (activeCallChips == null || activeCallChips.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < activeCallChips.Length; index++)
+        {
+            if (activeCallChips[index] == null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void RestoreCallChips()
+    {
+        if (activeCallChips == null)
         {
             return;
         }
 
-        activeCallChip.SetParent(originalChipParent, false);
-        activeCallChip.localPosition = originalChipLocalPosition;
-        activeCallChip.localRotation = originalChipLocalRotation;
-        activeCallChip.localScale = originalChipLocalScale;
+        for (int index = 0; index < activeCallChips.Length; index++)
+        {
+            Transform chip = activeCallChips[index];
+
+            if (chip == null)
+            {
+                continue;
+            }
+
+            chip.SetParent(originalChipParents[index], false);
+            chip.localPosition = originalChipLocalPositions[index];
+            chip.localRotation = originalChipLocalRotations[index];
+            chip.localScale = originalChipLocalScales[index];
+        }
+    }
+
+    private GameObject[] GetActiveCallChipObjects()
+    {
+        if (activeCallChips == null)
+        {
+            return null;
+        }
+
+        GameObject[] chips = new GameObject[activeCallChips.Length];
+
+        for (int index = 0; index < activeCallChips.Length; index++)
+        {
+            chips[index] = activeCallChips[index] != null
+                ? activeCallChips[index].gameObject
+                : null;
+        }
+
+        return chips;
     }
 
     private void ClearCallChipState(bool killTween)
@@ -240,16 +347,31 @@ public class DealerAnimationController : MonoBehaviour
             callTimeoutCoroutine = null;
         }
 
-        if (killTween && callMoveTween != null)
+        if (killTween)
         {
-            callMoveTween.Kill(false);
+            KillCallMoveTweens();
         }
 
-        callMoveTween = null;
-        activeCallChip = null;
-        originalChipParent = null;
+        callMoveTweens.Clear();
+        completedCallMoveCount = 0;
+        activeCallChips = null;
+        originalChipParents = null;
+        originalChipLocalPositions = null;
+        originalChipLocalRotations = null;
+        originalChipLocalScales = null;
+        callPotTargetPositions = null;
         callMoveCompleted = null;
         callMoveFailed = null;
+    }
+
+    private void KillCallMoveTweens()
+    {
+        for (int index = 0; index < callMoveTweens.Count; index++)
+        {
+            callMoveTweens[index]?.Kill(false);
+        }
+
+        callMoveTweens.Clear();
     }
 
     private void OnDisable()

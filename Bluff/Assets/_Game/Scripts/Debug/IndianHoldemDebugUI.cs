@@ -396,8 +396,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             {
                 bool callAnimationStarted =
                     decision == DealerDecision.Call &&
-                    dealerCallAmount == 1 &&
-                    TryStartCallAnimation();
+                    dealerCallAmount > 0 &&
+                    TryStartCallAnimation(dealerCallAmount);
 
                 if (!callAnimationStarted)
                 {
@@ -423,24 +423,25 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
     }
 
-    private bool TryStartCallAnimation()
+    private bool TryStartCallAnimation(int chipCount)
     {
         if (chipVisualController == null ||
             dealerAnimationController == null ||
             !chipVisualController.TryBeginDealerBet(
-                out GameObject chip,
-                out Vector3 potTargetPosition))
+                chipCount,
+                out GameObject[] chips,
+                out Vector3[] potTargetPositions))
         {
             return false;
         }
 
         isCallAnimating = true;
 
-        if (dealerAnimationController.TryPlayCallChip(
-                chip,
-                potTargetPosition,
-                OnCallChipMoved,
-                OnCallChipMoveFailed))
+        if (dealerAnimationController.TryPlayCallChips(
+                chips,
+                potTargetPositions,
+                OnCallChipsMoved,
+                OnCallChipsMoveFailed))
         {
             return true;
         }
@@ -450,11 +451,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return false;
     }
 
-    private void OnCallChipMoved(GameObject chip)
+    private void OnCallChipsMoved(GameObject[] chips)
     {
         bool moveCompleted =
             chipVisualController != null &&
-            chipVisualController.CompleteDealerBet(chip);
+            chipVisualController.CompleteDealerBet(chips);
 
         isCallAnimating = false;
 
@@ -467,7 +468,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RefreshView();
     }
 
-    private void OnCallChipMoveFailed(GameObject chip)
+    private void OnCallChipsMoveFailed(GameObject[] chips)
     {
         isCallAnimating = false;
 
