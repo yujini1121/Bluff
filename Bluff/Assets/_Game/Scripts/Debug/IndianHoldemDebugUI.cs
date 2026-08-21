@@ -262,10 +262,22 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return;
             }
 
-            RefreshChipsIfChanged(
-                playerChipsBefore,
-                dealerChipsBefore,
-                potBefore);
+            int potIncrease = gameState.Pot.Amount - potBefore;
+            int playerChipDecrease =
+                playerChipsBefore - gameState.PlayerChips.Count;
+            bool playerBetAnimationStarted =
+                potIncrease > 0 &&
+                playerChipDecrease == potIncrease &&
+                TryStartPlayerBetAnimation(potIncrease);
+
+            if (!playerBetAnimationStarted)
+            {
+                RefreshChipsIfChanged(
+                    playerChipsBefore,
+                    dealerChipsBefore,
+                    potBefore);
+            }
+
             AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
             AddBettingResultLog();
         }
@@ -334,6 +346,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void TryScheduleDealerAction()
     {
         if (isActionProcessing ||
+            isChipAnimating ||
             dealerActionCoroutine != null ||
             gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
@@ -371,7 +384,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         yield return new WaitForSeconds(Mathf.Max(0f, dealerActionDelay));
 
-        if (gameState.Phase != GamePhase.Betting ||
+        if (isChipAnimating ||
+            gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
         {
             dealerActionCoroutine = null;
@@ -429,6 +443,57 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             dealerActionCoroutine = null;
             RefreshView();
         }
+    }
+
+    private bool TryStartPlayerBetAnimation(int chipCount)
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginPlayerBet(
+                chipCount,
+                OnPlayerBetChipsMoved,
+                OnPlayerBetChipsMoveFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnPlayerBetChipsMoved(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompletePlayerBet(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelPlayerBet();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private void OnPlayerBetChipsMoveFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelPlayerBet();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
     }
 
     private bool TryStartBetAnimation(
