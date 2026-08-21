@@ -376,13 +376,23 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        dealerAnimationController?.StopThink();
         StopCoroutine(dealerActionCoroutine);
         dealerActionCoroutine = null;
     }
 
     private IEnumerator PerformDealerActionAfterDelay()
     {
+        bool thinkStarted =
+            dealerAnimationController != null &&
+            dealerAnimationController.TryPlayThink();
+
         yield return new WaitForSeconds(Mathf.Max(0f, dealerActionDelay));
+
+        if (thinkStarted && dealerAnimationController != null)
+        {
+            dealerAnimationController.StopThink();
+        }
 
         if (isChipAnimating ||
             gameState.Phase != GamePhase.Betting ||

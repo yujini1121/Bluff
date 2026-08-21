@@ -12,6 +12,10 @@ public class DealerAnimationController : MonoBehaviour
     private const string CallTrigger = "Call";
     private const string AllInTrigger = "All-In";
     private const string CollectTrigger = "Collect";
+    private const string ThinkTrigger = "Think";
+    private const string ThinkLayerName = "UpperBody Layer";
+    private const string ThinkIdleState = "UpperBody Layer.Empty";
+    private const float ThinkExitDuration = 0.1f;
 
     [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
@@ -38,6 +42,7 @@ public class DealerAnimationController : MonoBehaviour
     private Coroutine betTimeoutCoroutine;
     private readonly List<Tween> betMoveTweens = new List<Tween>();
     private int completedBetMoveCount;
+    private bool isApplicationQuitting;
 
     public bool TryPlayCallChips(
         GameObject[] chips,
@@ -152,7 +157,39 @@ public class DealerAnimationController : MonoBehaviour
 
     public void PlayThink()
     {
-        TrySetTrigger("Think");
+        TryPlayThink();
+    }
+
+    public bool TryPlayThink()
+    {
+        return TrySetTrigger(ThinkTrigger);
+    }
+
+    public void StopThink()
+    {
+        if (!isActiveAndEnabled ||
+            animator == null ||
+            !animator.enabled ||
+            !animator.gameObject.activeInHierarchy ||
+            animator.runtimeAnimatorController == null)
+        {
+            return;
+        }
+
+        animator.ResetTrigger(ThinkTrigger);
+        int thinkLayerIndex = animator.GetLayerIndex(ThinkLayerName);
+        int idleStateHash = Animator.StringToHash(ThinkIdleState);
+
+        if (thinkLayerIndex < 0 ||
+            !animator.HasState(thinkLayerIndex, idleStateHash))
+        {
+            return;
+        }
+
+        animator.CrossFade(
+            idleStateHash,
+            ThinkExitDuration,
+            thinkLayerIndex);
     }
 
     public void GrabChip()
@@ -358,15 +395,19 @@ public class DealerAnimationController : MonoBehaviour
         completedCallback?.Invoke(completedChips);
     }
 
-    private void FailBetChipMove()
+    private void FailBetChipMove(bool notifyFailure = true)
     {
         if (activeBetChips == null && betMoveFailed == null)
         {
             return;
         }
 
-        GameObject[] failedChips = GetActiveBetChipObjects();
-        Action<GameObject[]> failedCallback = betMoveFailed;
+        GameObject[] failedChips = notifyFailure
+            ? GetActiveBetChipObjects()
+            : null;
+        Action<GameObject[]> failedCallback = notifyFailure
+            ? betMoveFailed
+            : null;
         isFollowingChipSocket = false;
         KillBetMoveTweens();
         RestoreBetChips();
@@ -408,7 +449,10 @@ public class DealerAnimationController : MonoBehaviour
                 continue;
             }
 
-            chip.SetParent(originalChipParents[index], false);
+            Transform originalParent = originalChipParents[index];
+            chip.SetParent(
+                originalParent != null ? originalParent : null,
+                false);
             chip.localPosition = originalChipLocalPositions[index];
             chip.localRotation = originalChipLocalRotations[index];
             chip.localScale = originalChipLocalScales[index];
@@ -477,7 +521,17 @@ public class DealerAnimationController : MonoBehaviour
 
     private void OnDisable()
     {
-        FailBetChipMove();
+        bool notifyFailure =
+            !isApplicationQuitting &&
+            Application.isPlaying &&
+            gameObject.scene.IsValid() &&
+            gameObject.scene.isLoaded;
+        FailBetChipMove(notifyFailure);
+    }
+
+    private void OnApplicationQuit()
+    {
+        isApplicationQuitting = true;
     }
 
     private void LateUpdate()

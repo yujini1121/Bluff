@@ -50,6 +50,7 @@ public sealed class ChipVisualController : MonoBehaviour
     private Coroutine playerMoveTimeoutCoroutine;
     private Action<GameObject[]> playerMoveCompleted;
     private Action<GameObject[]> playerMoveFailed;
+    private bool isApplicationQuitting;
 
     public void Initialize(GameState state)
     {
@@ -623,19 +624,30 @@ public sealed class ChipVisualController : MonoBehaviour
         completedCallback?.Invoke(completedChips);
     }
 
-    private void FailPlayerChipMove()
+    private void FailPlayerChipMove(bool notifyFailure = true)
     {
-        if ((!isPlayerBetPending && !isPlayerCollectPending) ||
+        if (!isPlayerBetPending &&
+            !isPlayerCollectPending &&
             playerMoveFailed == null)
         {
             return;
         }
 
-        GameObject[] failedChips = pendingChips.ToArray();
-        Action<GameObject[]> failedCallback = playerMoveFailed;
+        GameObject[] failedChips = notifyFailure
+            ? pendingChips.ToArray()
+            : null;
+        Action<GameObject[]> failedCallback = notifyFailure
+            ? playerMoveFailed
+            : null;
         KillPlayerChipMoveTweens();
         RestorePendingChips();
         ClearPlayerChipMoveState();
+
+        if (!notifyFailure)
+        {
+            ClearPendingChipMove();
+        }
+
         failedCallback?.Invoke(failedChips);
     }
 
@@ -650,7 +662,10 @@ public sealed class ChipVisualController : MonoBehaviour
                 continue;
             }
 
-            chip.transform.SetParent(pendingParents[index], false);
+            Transform pendingParent = pendingParents[index];
+            chip.transform.SetParent(
+                pendingParent != null ? pendingParent : null,
+                false);
             chip.transform.localPosition = pendingLocalPositions[index];
             chip.transform.localRotation = pendingRotations[index];
             chip.transform.localScale = pendingScales[index];
@@ -695,7 +710,17 @@ public sealed class ChipVisualController : MonoBehaviour
 
     private void OnDisable()
     {
-        FailPlayerChipMove();
+        bool notifyFailure =
+            !isApplicationQuitting &&
+            Application.isPlaying &&
+            gameObject.scene.IsValid() &&
+            gameObject.scene.isLoaded;
+        FailPlayerChipMove(notifyFailure);
+    }
+
+    private void OnApplicationQuit()
+    {
+        isApplicationQuitting = true;
     }
 
     private void MatchChipCount(
