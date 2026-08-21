@@ -2,14 +2,12 @@ using UnityEngine;
 
 public sealed class CardVisualController : MonoBehaviour
 {
-    [Header("커뮤니티 카드 Visual")]
+    [Header("Community Card")]
     [SerializeField] private CardVisual communityCardVisual1;
     [SerializeField] private CardVisual communityCardVisual2;
 
-    [Header("딜러 카드 Visual (선택)")]
-    [SerializeField]
-    [Tooltip("향후 딜러의 Head/Forehead Transform 아래에 배치한 CardVisual을 연결합니다.")]
-    private CardVisual dealerCardVisual;
+    [Header("Dealer Card")]
+    [SerializeField] private CardVisual dealerCardVisual;
 
     private GameState gameState;
 

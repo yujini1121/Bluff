@@ -25,6 +25,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [Header("3D 카드 표시")]
     [SerializeField] private CardVisualController cardVisualController;
 
+    [Header("3D 칩 표시")]
+    [SerializeField] private ChipVisualController chipVisualController;
+
     [Header("메인 게임 화면")]
     [SerializeField] private TMP_Text phaseText;
     [SerializeField] private TMP_Text turnText;
@@ -194,6 +197,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             cardVisualController.Initialize(gameState);
         }
 
+        if (chipVisualController != null)
+        {
+            chipVisualController.Initialize(gameState);
+        }
+
         ResetDisplayedRoundResult();
         StartRound();
     }
@@ -211,6 +219,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         cardVisualController?.RefreshCards();
+        chipVisualController?.RefreshChips();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
     }
@@ -239,6 +248,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         isActionProcessing = true;
+        int playerChipsBefore = gameState.PlayerChips.Count;
+        int dealerChipsBefore = gameState.DealerChips.Count;
+        int potBefore = gameState.Pot.Amount;
 
         try
         {
@@ -248,6 +260,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return;
             }
 
+            RefreshChipsIfChanged(
+                playerChipsBefore,
+                dealerChipsBefore,
+                potBefore);
             AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
             AddBettingResultLog();
         }
@@ -365,9 +381,16 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             int randomRoll = UnityEngine.Random.Range(0, 100);
             DealerDecision decision = dealerAi.Decide(gameState, randomRoll);
+            int playerChipsBefore = gameState.PlayerChips.Count;
+            int dealerChipsBefore = gameState.DealerChips.Count;
+            int potBefore = gameState.Pot.Amount;
 
             if (dealerAi.TryExecute(gameState, decision))
             {
+                RefreshChipsIfChanged(
+                    playerChipsBefore,
+                    dealerChipsBefore,
+                    potBefore);
                 AddLog($"DEALER {DealerDecisionText(decision)}");
                 AddBettingResultLog();
             }
@@ -388,6 +411,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         gameState.TryGetHandRank(TurnOwner.Player, out playerHandRank);
         gameState.TryGetHandRank(TurnOwner.Dealer, out dealerHandRank);
+        int playerChipsBefore = gameState.PlayerChips.Count;
+        int dealerChipsBefore = gameState.DealerChips.Count;
         int potBeforeSettlement = gameState.Pot.Amount;
 
         if (!gameState.TrySettleShowdown(out roundWinner))
@@ -396,6 +421,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        RefreshChipsIfChanged(
+            playerChipsBefore,
+            dealerChipsBefore,
+            potBeforeSettlement);
         AddLog(
             $"플레이어 {HandRankText(playerHandRank)} / " +
             $"딜러 {HandRankText(dealerHandRank)}");
@@ -408,6 +437,22 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
         }
+    }
+
+    private void RefreshChipsIfChanged(
+        int playerChipsBefore,
+        int dealerChipsBefore,
+        int potBefore)
+    {
+        if (chipVisualController == null ||
+            (playerChipsBefore == gameState.PlayerChips.Count &&
+             dealerChipsBefore == gameState.DealerChips.Count &&
+             potBefore == gameState.Pot.Amount))
+        {
+            return;
+        }
+
+        chipVisualController.RefreshChips();
     }
 
     private void UpdateVisibleHandRanks()

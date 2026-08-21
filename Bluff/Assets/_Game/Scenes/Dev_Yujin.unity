@@ -488,6 +488,7 @@ MonoBehaviour:
   uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
   itemSystem: {fileID: 0}
   cardVisualController: {fileID: 1964738050}
+  chipVisualController: {fileID: 1964738051}
   phaseText: {fileID: 696463238}
   turnText: {fileID: 1495789816}
   dealerCardText: {fileID: 1825356190}
@@ -9488,8 +9489,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1964738049}
   - component: {fileID: 1964738050}
+  - component: {fileID: 1964738051}
   m_Layer: 0
-  m_Name: Card Visual Controller
+  m_Name: Game Visual Controller
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9525,6 +9527,28 @@ MonoBehaviour:
   communityCardVisual1: {fileID: 1513922318}
   communityCardVisual2: {fileID: 1561027692}
   dealerCardVisual: {fileID: 1539737635}
+--- !u!114 &1964738051
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1964738048}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da98e6bc3ab840389a590f0c5645f609, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerChipArea: {fileID: 2129271955}
+  dealerChipArea: {fileID: 2021626255}
+  potArea: {fileID: 1518883193}
+  chipPrefabs:
+  - {fileID: 578201442985853710, guid: d0b67f5d790e61d47b6c0183660a40bf, type: 3}
+  - {fileID: 578201442985853710, guid: e3c606cb5659b40439361d4855ccaeee, type: 3}
+  - {fileID: 578201442985853710, guid: b7cc0848739da3e4f9bcbe935c849eff, type: 3}
+  maxChipsPerStack: 10
+  stackSpacing: 0.08
+  chipHeightSpacing: 0.015
 --- !u!1 &1982044782
 GameObject:
   m_ObjectHideFlags: 0
@@ -9684,7 +9708,7 @@ Transform:
   m_GameObject: {fileID: 2021626254}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.5, y: 1.15, z: -0.35}
+  m_LocalPosition: {x: 0.25, y: 1.15, z: -0.35}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -9961,7 +9985,7 @@ Transform:
   m_GameObject: {fileID: 2129271954}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.5, y: 1.15, z: -1.15}
+  m_LocalPosition: {x: -0.25, y: 1.15, z: -1.15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -9977,7 +10001,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 578201442985853710, guid: d0b67f5d790e61d47b6c0183660a40bf, type: 3}
       propertyPath: m_Name
-      value: PF_Chip_Red
+      value: PF_Chip_Red_01
       objectReference: {fileID: 0}
     - target: {fileID: 578201442985853710, guid: d0b67f5d790e61d47b6c0183660a40bf, type: 3}
       propertyPath: m_IsActive
@@ -10278,67 +10302,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 919132147638486597}
   m_Mesh: {fileID: 1857916439425390961, guid: 6a640f9d10874cb49abc1bcee957481e, type: 3}
---- !u!1001 &7532015482315668865
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0.09900001
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 1.15
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.492
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 2315519809798887311, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3058397544950546621, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_Name
-      value: PF_Chip_Black
-      objectReference: {fileID: 0}
-    - target: {fileID: 3058397544950546621, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 7d07d9b56b09684439fd191b6462e5a5, type: 3}
 --- !u!1001 &8881511701278695831
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10413,7 +10376,6 @@ SceneRoots:
   - {fileID: 1529938299}
   - {fileID: 8881511701278695831}
   - {fileID: 315134112414906309}
-  - {fileID: 7532015482315668865}
   - {fileID: 1596446151}
   - {fileID: 579709450}
   - {fileID: 543450651670668810}
