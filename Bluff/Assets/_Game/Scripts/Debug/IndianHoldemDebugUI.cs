@@ -451,6 +451,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 bool betAnimationStarted =
                     !isDealerFold &&
                     (decision == DealerDecision.Call ||
+                     decision == DealerDecision.Raise ||
                      decision == DealerDecision.AllIn) &&
                     movedChipCount > 0 &&
                     TryStartBetAnimation(
@@ -1247,6 +1248,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return "CHECK";
             case DealerDecision.Call:
                 return "CALL";
+            case DealerDecision.Raise:
+                return "RAISE";
             case DealerDecision.Fold:
                 return "FOLD";
             case DealerDecision.AllIn:
