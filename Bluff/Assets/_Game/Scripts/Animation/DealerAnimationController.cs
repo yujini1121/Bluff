@@ -1,75 +1,260 @@
+using System;
+using System.Collections;
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class DealerAnimationController : MonoBehaviour
 {
-    [SerializeField] private Animator animator;
+    private const float CallChipMoveDuration = 0.25f;
+    private const float CallAnimationTimeout = 4f;
+    private const string CallTrigger = "Call";
 
-    [SerializeField] private Transform chip;
+    [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
     [SerializeField] private Transform potPoint;
     [SerializeField] private Transform dealerChipPoint;
+    [FormerlySerializedAs("chip")]
+    [FormerlySerializedAs("collectChip")]
+    [SerializeField] private Transform testChip;
 
-    // Call Animation에서 
-    // Grab : 22프레임 (칩을 손에 붙이는 순간)
-    // Release : 44프레임 (손에서 완전히 분리한 순간)
+    private Transform activeCallChip;
+    private Transform originalChipParent;
+    private Vector3 originalChipLocalPosition;
+    private Quaternion originalChipLocalRotation;
+    private Vector3 originalChipLocalScale;
+    private Vector3 callPotTargetPosition;
+    private Action<GameObject> callMoveCompleted;
+    private Action<GameObject> callMoveFailed;
+    private Coroutine callTimeoutCoroutine;
+    private Tween callMoveTween;
 
-    // All-In Animation에서
-    // Grab : 20프레임
-    // Release : 50프레임
+    public bool TryPlayCallChip(
+        GameObject chip,
+        Vector3 potTargetPosition,
+        Action<GameObject> onMoveCompleted,
+        Action<GameObject> onMoveFailed)
+    {
+        if (chip == null ||
+            activeCallChip != null ||
+            chipSocket == null ||
+            !CanSetTrigger(CallTrigger))
+        {
+            return false;
+        }
 
-    // Collect Animation에서
-    // Grab : 12프레임
-    // Release : 29프레임
+        activeCallChip = chip.transform;
+        originalChipParent = activeCallChip.parent;
+        originalChipLocalPosition = activeCallChip.localPosition;
+        originalChipLocalRotation = activeCallChip.localRotation;
+        originalChipLocalScale = activeCallChip.localScale;
+        callPotTargetPosition = potTargetPosition;
+        callMoveCompleted = onMoveCompleted;
+        callMoveFailed = onMoveFailed;
+
+        animator.SetTrigger(CallTrigger);
+        callTimeoutCoroutine = StartCoroutine(CallAnimationTimeoutRoutine());
+        return true;
+    }
 
     public void PlayCall()
     {
-        animator.SetTrigger("Call");
+        TrySetTrigger(CallTrigger);
     }
 
     public void PlayAllIn()
     {
-        animator.SetTrigger("All-In");
+        TrySetTrigger("All-In");
     }
 
     public void PlayCollect()
     {
-        animator.SetTrigger("Collect");
+        TrySetTrigger("Collect");
     }
 
     public void PlayThink()
     {
-        animator.SetTrigger("Think");
+        TrySetTrigger("Think");
     }
 
     public void GrabChip()
     {
-        chip.SetParent(chipSocket);
+        if (chipSocket == null)
+        {
+            return;
+        }
 
-        chip.localPosition = Vector3.zero;
-        chip.localRotation = Quaternion.identity;
+        if (activeCallChip != null)
+        {
+            activeCallChip.SetParent(chipSocket, false);
+            activeCallChip.localPosition = Vector3.zero;
+            activeCallChip.localRotation = Quaternion.identity;
+            return;
+        }
 
-        Debug.Log("Chip Grab!!!");
+        if (testChip != null)
+        {
+            testChip.SetParent(chipSocket);
+            testChip.localPosition = Vector3.zero;
+            testChip.localRotation = Quaternion.identity;
+        }
     }
 
     public void ReleaseChip()
     {
-        chip.SetParent(null);
+        if (activeCallChip != null)
+        {
+            if (callMoveTween != null)
+            {
+                return;
+            }
 
-        chip
-            .DOMove(potPoint.position, 0.25f)
+            Transform movingChip = activeCallChip;
+            movingChip.SetParent(null, true);
+            callMoveTween = movingChip
+                .DOMove(callPotTargetPosition, CallChipMoveDuration)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(() => CompleteCallChipMove(movingChip));
+            return;
+        }
+
+        if (testChip == null || potPoint == null)
+        {
+            return;
+        }
+
+        testChip.SetParent(null);
+        testChip
+            .DOMove(potPoint.position, CallChipMoveDuration)
             .SetEase(Ease.OutQuad);
-
-        Debug.Log("Chip Release!!!");
     }
 
     public void ReleaseCollectChip()
     {
-        chip.SetParent(null);
+        if (testChip == null || dealerChipPoint == null)
+        {
+            return;
+        }
 
-        chip
-            .DOMove(dealerChipPoint.position, 0.25f)
+        testChip.SetParent(null);
+        testChip
+            .DOMove(dealerChipPoint.position, CallChipMoveDuration)
             .SetEase(Ease.OutQuad);
+    }
+
+    public void CancelCallChipAnimation()
+    {
+        FailCallChipMove();
+    }
+
+    private bool TrySetTrigger(string triggerName)
+    {
+        if (!CanSetTrigger(triggerName))
+        {
+            return false;
+        }
+
+        animator.SetTrigger(triggerName);
+        return true;
+    }
+
+    private bool CanSetTrigger(string triggerName)
+    {
+        if (!isActiveAndEnabled ||
+            animator == null ||
+            !animator.enabled ||
+            !animator.gameObject.activeInHierarchy ||
+            animator.runtimeAnimatorController == null)
+        {
+            return false;
+        }
+
+        AnimatorControllerParameter[] parameters = animator.parameters;
+
+        for (int index = 0; index < parameters.Length; index++)
+        {
+            if (parameters[index].type == AnimatorControllerParameterType.Trigger &&
+                parameters[index].name == triggerName)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private IEnumerator CallAnimationTimeoutRoutine()
+    {
+        yield return new WaitForSeconds(CallAnimationTimeout);
+        callTimeoutCoroutine = null;
+        FailCallChipMove();
+    }
+
+    private void CompleteCallChipMove(Transform completedChip)
+    {
+        if (completedChip == null || completedChip != activeCallChip)
+        {
+            return;
+        }
+
+        GameObject completedChipObject = completedChip.gameObject;
+        Action<GameObject> completedCallback = callMoveCompleted;
+        ClearCallChipState(false);
+        completedCallback?.Invoke(completedChipObject);
+    }
+
+    private void FailCallChipMove()
+    {
+        if (activeCallChip == null && callMoveFailed == null)
+        {
+            return;
+        }
+
+        GameObject failedChipObject = activeCallChip != null
+            ? activeCallChip.gameObject
+            : null;
+        Action<GameObject> failedCallback = callMoveFailed;
+        RestoreCallChip();
+        ClearCallChipState(true);
+        failedCallback?.Invoke(failedChipObject);
+    }
+
+    private void RestoreCallChip()
+    {
+        if (activeCallChip == null)
+        {
+            return;
+        }
+
+        activeCallChip.SetParent(originalChipParent, false);
+        activeCallChip.localPosition = originalChipLocalPosition;
+        activeCallChip.localRotation = originalChipLocalRotation;
+        activeCallChip.localScale = originalChipLocalScale;
+    }
+
+    private void ClearCallChipState(bool killTween)
+    {
+        if (callTimeoutCoroutine != null)
+        {
+            StopCoroutine(callTimeoutCoroutine);
+            callTimeoutCoroutine = null;
+        }
+
+        if (killTween && callMoveTween != null)
+        {
+            callMoveTween.Kill(false);
+        }
+
+        callMoveTween = null;
+        activeCallChip = null;
+        originalChipParent = null;
+        callMoveCompleted = null;
+        callMoveFailed = null;
+    }
+
+    private void OnDisable()
+    {
+        FailCallChipMove();
     }
 
     private void Update()

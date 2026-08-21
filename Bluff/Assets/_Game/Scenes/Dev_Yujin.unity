@@ -489,6 +489,7 @@ MonoBehaviour:
   itemSystem: {fileID: 0}
   cardVisualController: {fileID: 1964738050}
   chipVisualController: {fileID: 1964738051}
+  dealerAnimationController: {fileID: 1705455214}
   phaseText: {fileID: 696463238}
   turnText: {fileID: 1495789816}
   dealerCardText: {fileID: 1825356190}
@@ -2299,7 +2300,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!136 &579709447
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -3420,6 +3421,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 832575519}
+  - component: {fileID: 832575520}
   m_Layer: 0
   m_Name: Global Volume
   m_TagString: Untagged
@@ -3442,6 +3444,23 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &832575520
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 832575517}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_IsGlobal: 1
+  priority: 0
+  blendDistance: 0
+  weight: 1
+  sharedProfile: {fileID: 0}
 --- !u!4 &846880868 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2677033715632870582, guid: 75656e877e149f2488080d88d246bbf8, type: 3}
@@ -6583,7 +6602,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1518883193}
   m_Layer: 0
-  m_Name: Pot
+  m_Name: Pot Area
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6731,7 +6750,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.x
@@ -6739,7 +6758,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.z
@@ -6751,7 +6770,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
+      value: 180
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
@@ -7050,7 +7069,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!136 &1596446148
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -7781,6 +7800,17 @@ RectTransform:
   m_AnchoredPosition: {x: -320, y: 0}
   m_SizeDelta: {x: 190, y: 130}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1705455214 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6057442317528937865, guid: 75656e877e149f2488080d88d246bbf8, type: 3}
+  m_PrefabInstance: {fileID: 1148647570620518706}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5dda5fb7fe4ce034580fd408992ea110, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1736125620
 GameObject:
   m_ObjectHideFlags: 0
@@ -10005,7 +10035,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 578201442985853710, guid: d0b67f5d790e61d47b6c0183660a40bf, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6434335576100366830, guid: d0b67f5d790e61d47b6c0183660a40bf, type: 3}
       propertyPath: m_LocalPosition.x
@@ -10184,9 +10214,17 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1596446151}
     - target: {fileID: 6057442317528937865, guid: 75656e877e149f2488080d88d246bbf8, type: 3}
+      propertyPath: testChip
+      value: 
+      objectReference: {fileID: 543450653255526970}
+    - target: {fileID: 6057442317528937865, guid: 75656e877e149f2488080d88d246bbf8, type: 3}
       propertyPath: chipSocket
       value: 
       objectReference: {fileID: 1295641187}
+    - target: {fileID: 6057442317528937865, guid: 75656e877e149f2488080d88d246bbf8, type: 3}
+      propertyPath: collectChip
+      value: 
+      objectReference: {fileID: 543450653255526970}
     - target: {fileID: 6057442317528937865, guid: 75656e877e149f2488080d88d246bbf8, type: 3}
       propertyPath: dealerChipPoint
       value: 

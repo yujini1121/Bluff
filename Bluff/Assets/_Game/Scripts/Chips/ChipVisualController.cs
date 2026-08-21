@@ -25,6 +25,9 @@ public sealed class ChipVisualController : MonoBehaviour
     private readonly System.Random prefabRandom = new System.Random();
 
     private GameState gameState;
+    private GameObject pendingChip;
+    private Quaternion pendingRotation;
+    private Vector3 pendingScale;
 
     public void Initialize(GameState state)
     {
@@ -34,6 +37,11 @@ public sealed class ChipVisualController : MonoBehaviour
 
     public void RefreshChips()
     {
+        if (pendingChip != null)
+        {
+            return;
+        }
+
         int playerChipCount = gameState?.PlayerChips.Count ?? 0;
         int dealerChipCount = gameState?.DealerChips.Count ?? 0;
         int potChipCount = gameState?.Pot.Amount ?? 0;
@@ -53,6 +61,63 @@ public sealed class ChipVisualController : MonoBehaviour
             potChipCount,
             potArea,
             chipPrefabs);
+    }
+
+    public bool TryBeginDealerBet(
+        out GameObject chip,
+        out Vector3 potTargetPosition)
+    {
+        chip = null;
+        potTargetPosition = default;
+
+        RemoveMissingInstances(dealerChipInstances);
+        RemoveMissingInstances(potChipInstances);
+
+        if (gameState == null ||
+            pendingChip != null ||
+            dealerChipArea == null ||
+            potArea == null ||
+            dealerChipInstances.Count == 0 ||
+            dealerChipInstances.Count != gameState.DealerChips.Count + 1 ||
+            potChipInstances.Count + 1 != gameState.Pot.Amount)
+        {
+            return false;
+        }
+
+        pendingChip =
+            dealerChipInstances[dealerChipInstances.Count - 1];
+        pendingRotation = pendingChip.transform.localRotation;
+        pendingScale = pendingChip.transform.localScale;
+        chip = pendingChip;
+        potTargetPosition = potArea.TransformPoint(
+            GetChipLocalPosition(potChipInstances.Count));
+        return true;
+    }
+
+    public bool CompleteDealerBet(GameObject chip)
+    {
+        if (chip == null ||
+            chip != pendingChip ||
+            potArea == null ||
+            !dealerChipInstances.Remove(chip))
+        {
+            return false;
+        }
+
+        chip.transform.SetParent(potArea, true);
+        chip.transform.localRotation = pendingRotation;
+        chip.transform.localScale = pendingScale;
+        potChipInstances.Add(chip);
+        pendingChip = null;
+        ArrangeChips(dealerChipInstances);
+        ArrangeChips(potChipInstances);
+        RefreshChips();
+        return true;
+    }
+
+    public void CancelDealerBet()
+    {
+        pendingChip = null;
     }
 
     private void MatchChipCount(
@@ -173,19 +238,22 @@ public sealed class ChipVisualController : MonoBehaviour
 
     private void ArrangeChips(List<GameObject> instances)
     {
-        int stackSize = Mathf.Max(1, maxChipsPerStack);
-        float xSpacing = Mathf.Max(0f, stackSpacing);
-        float ySpacing = Mathf.Max(0f, chipHeightSpacing);
-
         for (int index = 0; index < instances.Count; index++)
         {
-            int stackIndex = index / stackSize;
-            int heightIndex = index % stackSize;
-
-            instances[index].transform.localPosition = new Vector3(
-                stackIndex * xSpacing,
-                heightIndex * ySpacing,
-                0f);
+            instances[index].transform.localPosition =
+                GetChipLocalPosition(index);
         }
+    }
+
+    private Vector3 GetChipLocalPosition(int index)
+    {
+        int stackSize = Mathf.Max(1, maxChipsPerStack);
+        int stackIndex = index / stackSize;
+        int heightIndex = index % stackSize;
+
+        return new Vector3(
+            stackIndex * Mathf.Max(0f, stackSpacing),
+            heightIndex * Mathf.Max(0f, chipHeightSpacing),
+            0f);
     }
 }
