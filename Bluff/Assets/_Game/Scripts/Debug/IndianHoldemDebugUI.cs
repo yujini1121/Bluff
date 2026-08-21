@@ -83,7 +83,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
     private bool isActionProcessing;
-    private bool isBetAnimating;
+    private bool isChipAnimating;
 
     private void Awake()
     {
@@ -300,7 +300,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         return gameState != null &&
                !isActionProcessing &&
-               !isBetAnimating &&
+               !isChipAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == GamePhase.Betting &&
                gameState.CurrentTurn == TurnOwner.Player;
@@ -310,7 +310,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         return gameState != null &&
                !isActionProcessing &&
-               !isBetAnimating &&
+               !isChipAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == requiredPhase;
     }
@@ -445,7 +445,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return false;
         }
 
-        isBetAnimating = true;
+        isChipAnimating = true;
         bool animationStarted = useAllInAnimation
             ? dealerAnimationController.TryPlayAllInChips(
                 chips,
@@ -463,7 +463,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return true;
         }
 
-        isBetAnimating = false;
+        isChipAnimating = false;
         chipVisualController.CancelDealerBet();
         return false;
     }
@@ -474,7 +474,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             chipVisualController != null &&
             chipVisualController.CompleteDealerBet(chips);
 
-        isBetAnimating = false;
+        isChipAnimating = false;
 
         if (!moveCompleted && chipVisualController != null)
         {
@@ -487,11 +487,69 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void OnBetChipsMoveFailed(GameObject[] chips)
     {
-        isBetAnimating = false;
+        isChipAnimating = false;
 
         if (chipVisualController != null)
         {
             chipVisualController.CancelDealerBet();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private bool TryStartDealerCollectAnimation(int chipCount)
+    {
+        if (chipVisualController == null ||
+            dealerAnimationController == null ||
+            !chipVisualController.TryBeginDealerCollect(
+                chipCount,
+                out GameObject[] chips,
+                out Vector3[] dealerTargetPositions))
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (dealerAnimationController.TryPlayCollectChips(
+                chips,
+                dealerTargetPositions,
+                OnDealerCollectCompleted,
+                OnDealerCollectFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        chipVisualController.CancelDealerCollect();
+        return false;
+    }
+
+    private void OnDealerCollectCompleted(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompleteDealerCollect(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelDealerCollect();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private void OnDealerCollectFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelDealerCollect();
             chipVisualController.RefreshChips();
         }
 
@@ -512,10 +570,18 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        RefreshChipsIfChanged(
-            playerChipsBefore,
-            dealerChipsBefore,
-            potBeforeSettlement);
+        bool collectAnimationStarted =
+            roundWinner == RoundWinner.Dealer &&
+            potBeforeSettlement > 0 &&
+            TryStartDealerCollectAnimation(potBeforeSettlement);
+
+        if (!collectAnimationStarted)
+        {
+            RefreshChipsIfChanged(
+                playerChipsBefore,
+                dealerChipsBefore,
+                potBeforeSettlement);
+        }
         AddLog(
             $"플레이어 {HandRankText(playerHandRank)} / " +
             $"딜러 {HandRankText(dealerHandRank)}");

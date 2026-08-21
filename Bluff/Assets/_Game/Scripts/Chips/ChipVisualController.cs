@@ -31,6 +31,7 @@ public sealed class ChipVisualController : MonoBehaviour
         new List<Quaternion>();
     private readonly List<Vector3> pendingScales =
         new List<Vector3>();
+    private bool isDealerCollectPending;
 
     public void Initialize(GameState state)
     {
@@ -151,7 +152,7 @@ public sealed class ChipVisualController : MonoBehaviour
             potChipInstances.Add(chip);
         }
 
-        ClearPendingDealerBet();
+        ClearPendingDealerMove();
         ArrangeChips(dealerChipInstances);
         ArrangeChips(potChipInstances);
         RefreshChips();
@@ -160,7 +161,84 @@ public sealed class ChipVisualController : MonoBehaviour
 
     public void CancelDealerBet()
     {
-        ClearPendingDealerBet();
+        ClearPendingDealerMove();
+    }
+
+    public bool TryBeginDealerCollect(
+        int chipCount,
+        out GameObject[] chips,
+        out Vector3[] dealerTargetPositions)
+    {
+        chips = null;
+        dealerTargetPositions = null;
+
+        RemoveMissingInstances(dealerChipInstances);
+        RemoveMissingInstances(potChipInstances);
+
+        if (gameState == null ||
+            chipCount <= 0 ||
+            pendingChips.Count > 0 ||
+            dealerChipArea == null ||
+            potArea == null ||
+            potChipInstances.Count < chipCount ||
+            dealerChipInstances.Count + chipCount !=
+                gameState.DealerChips.Count ||
+            potChipInstances.Count != gameState.Pot.Amount + chipCount)
+        {
+            return false;
+        }
+
+        chips = new GameObject[chipCount];
+        dealerTargetPositions = new Vector3[chipCount];
+
+        for (int index = 0; index < chipCount; index++)
+        {
+            GameObject chip = potChipInstances[
+                potChipInstances.Count - 1 - index];
+
+            pendingChips.Add(chip);
+            pendingRotations.Add(chip.transform.localRotation);
+            pendingScales.Add(chip.transform.localScale);
+            chips[index] = chip;
+            dealerTargetPositions[index] = dealerChipArea.TransformPoint(
+                GetChipLocalPosition(dealerChipInstances.Count + index));
+        }
+
+        isDealerCollectPending = true;
+        return true;
+    }
+
+    public bool CompleteDealerCollect(GameObject[] chips)
+    {
+        if (!CanCompleteDealerCollect(chips))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            potChipInstances.Remove(pendingChips[index]);
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            GameObject chip = pendingChips[index];
+            chip.transform.SetParent(dealerChipArea, true);
+            chip.transform.localRotation = pendingRotations[index];
+            chip.transform.localScale = pendingScales[index];
+            dealerChipInstances.Add(chip);
+        }
+
+        ClearPendingDealerMove();
+        ArrangeChips(potChipInstances);
+        ArrangeChips(dealerChipInstances);
+        RefreshChips();
+        return true;
+    }
+
+    public void CancelDealerCollect()
+    {
+        ClearPendingDealerMove();
     }
 
     private bool CanCompleteDealerBet(GameObject[] chips)
@@ -168,6 +246,7 @@ public sealed class ChipVisualController : MonoBehaviour
         if (chips == null ||
             chips.Length == 0 ||
             chips.Length != pendingChips.Count ||
+            isDealerCollectPending ||
             potArea == null)
         {
             return false;
@@ -186,11 +265,36 @@ public sealed class ChipVisualController : MonoBehaviour
         return true;
     }
 
-    private void ClearPendingDealerBet()
+    private bool CanCompleteDealerCollect(GameObject[] chips)
+    {
+        if (chips == null ||
+            chips.Length == 0 ||
+            chips.Length != pendingChips.Count ||
+            !isDealerCollectPending ||
+            dealerChipArea == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            if (chips[index] == null ||
+                chips[index] != pendingChips[index] ||
+                !potChipInstances.Contains(chips[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void ClearPendingDealerMove()
     {
         pendingChips.Clear();
         pendingRotations.Clear();
         pendingScales.Clear();
+        isDealerCollectPending = false;
     }
 
     private void MatchChipCount(

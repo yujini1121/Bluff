@@ -11,6 +11,7 @@ public class DealerAnimationController : MonoBehaviour
     private const float BetAnimationTimeout = 4f;
     private const string CallTrigger = "Call";
     private const string AllInTrigger = "All-In";
+    private const string CollectTrigger = "Collect";
 
     [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
@@ -29,6 +30,7 @@ public class DealerAnimationController : MonoBehaviour
     private Quaternion[] chipWorldRotationsAtGrab;
     private float[] chipWorldYAtGrab;
     private bool keepChipWorldY;
+    private bool isCollectMove;
     private bool isFollowingChipSocket;
     private Vector3[] betPotTargetPositions;
     private Action<GameObject[]> betMoveCompleted;
@@ -43,7 +45,7 @@ public class DealerAnimationController : MonoBehaviour
         Action<GameObject[]> onMoveCompleted,
         Action<GameObject[]> onMoveFailed)
     {
-        return TryPlayBetChips(
+        return TryPlayChipMove(
             CallTrigger,
             chips,
             potTargetPositions,
@@ -57,7 +59,7 @@ public class DealerAnimationController : MonoBehaviour
         Action<GameObject[]> onMoveCompleted,
         Action<GameObject[]> onMoveFailed)
     {
-        return TryPlayBetChips(
+        return TryPlayChipMove(
             AllInTrigger,
             chips,
             potTargetPositions,
@@ -65,7 +67,21 @@ public class DealerAnimationController : MonoBehaviour
             onMoveFailed);
     }
 
-    private bool TryPlayBetChips(
+    public bool TryPlayCollectChips(
+        GameObject[] chips,
+        Vector3[] dealerTargetPositions,
+        Action<GameObject[]> onMoveCompleted,
+        Action<GameObject[]> onMoveFailed)
+    {
+        return TryPlayChipMove(
+            CollectTrigger,
+            chips,
+            dealerTargetPositions,
+            onMoveCompleted,
+            onMoveFailed);
+    }
+
+    private bool TryPlayChipMove(
         string triggerName,
         GameObject[] chips,
         Vector3[] potTargetPositions,
@@ -112,6 +128,7 @@ public class DealerAnimationController : MonoBehaviour
         betMoveCompleted = onMoveCompleted;
         betMoveFailed = onMoveFailed;
         keepChipWorldY = triggerName == AllInTrigger;
+        isCollectMove = triggerName == CollectTrigger;
 
         animator.SetTrigger(triggerName);
         betTimeoutCoroutine = StartCoroutine(BetAnimationTimeoutRoutine());
@@ -130,7 +147,7 @@ public class DealerAnimationController : MonoBehaviour
 
     public void PlayCollect()
     {
-        TrySetTrigger("Collect");
+        TrySetTrigger(CollectTrigger);
     }
 
     public void PlayThink()
@@ -147,6 +164,11 @@ public class DealerAnimationController : MonoBehaviour
 
         if (activeBetChips != null)
         {
+            if (isCollectMove)
+            {
+                return;
+            }
+
             if (isFollowingChipSocket)
             {
                 return;
@@ -193,34 +215,12 @@ public class DealerAnimationController : MonoBehaviour
     {
         if (activeBetChips != null)
         {
-            isFollowingChipSocket = false;
-
-            if (betMoveTweens.Count > 0)
+            if (isCollectMove)
             {
                 return;
             }
 
-            if (!HasValidActiveBetChips())
-            {
-                FailBetChipMove();
-                return;
-            }
-
-            completedBetMoveCount = 0;
-
-            for (int index = 0; index < activeBetChips.Length; index++)
-            {
-                Transform movingChip = activeBetChips[index];
-                movingChip.SetParent(null, true);
-                Tween moveTween = movingChip
-                    .DOMove(
-                        betPotTargetPositions[index],
-                        BetChipMoveDuration)
-                    .SetEase(Ease.OutQuad)
-                    .OnComplete(CompleteBetChipMove);
-                betMoveTweens.Add(moveTween);
-            }
-
+            StartChipMove();
             return;
         }
 
@@ -237,6 +237,17 @@ public class DealerAnimationController : MonoBehaviour
 
     public void ReleaseCollectChip()
     {
+        if (activeBetChips != null)
+        {
+            if (!isCollectMove)
+            {
+                return;
+            }
+
+            StartChipMove();
+            return;
+        }
+
         if (testChip == null || dealerChipPoint == null)
         {
             return;
@@ -246,6 +257,37 @@ public class DealerAnimationController : MonoBehaviour
         testChip
             .DOMove(dealerChipPoint.position, BetChipMoveDuration)
             .SetEase(Ease.OutQuad);
+    }
+
+    private void StartChipMove()
+    {
+        isFollowingChipSocket = false;
+
+        if (betMoveTweens.Count > 0)
+        {
+            return;
+        }
+
+        if (!HasValidActiveBetChips())
+        {
+            FailBetChipMove();
+            return;
+        }
+
+        completedBetMoveCount = 0;
+
+        for (int index = 0; index < activeBetChips.Length; index++)
+        {
+            Transform movingChip = activeBetChips[index];
+            movingChip.SetParent(null, true);
+            Tween moveTween = movingChip
+                .DOMove(
+                    betPotTargetPositions[index],
+                    BetChipMoveDuration)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(CompleteBetChipMove);
+            betMoveTweens.Add(moveTween);
+        }
     }
 
     public void CancelBetChipAnimation()
@@ -416,6 +458,7 @@ public class DealerAnimationController : MonoBehaviour
         chipWorldRotationsAtGrab = null;
         chipWorldYAtGrab = null;
         keepChipWorldY = false;
+        isCollectMove = false;
         isFollowingChipSocket = false;
         betPotTargetPositions = null;
         betMoveCompleted = null;
