@@ -434,9 +434,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
                     gameState.FoldedBy == TurnOwner.Dealer;
-                bool foldSettlementStarted =
+                bool foldPresentationStarted =
                     isDealerFold &&
-                    TryStartFoldSettlement(
+                    TryStartDealerFoldPresentation(
                         TurnOwner.Dealer,
                         potBefore,
                         gameState.FoldPenaltyAmount);
@@ -458,7 +458,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                         movedChipCount,
                         useAllInAnimation);
 
-                if (!foldSettlementStarted && !betAnimationStarted)
+                if (!foldPresentationStarted && !betAnimationStarted)
                 {
                     RefreshChipsIfChanged(
                         playerChipsBefore,
@@ -643,6 +643,51 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         isChipAnimating = false;
         return false;
+    }
+
+    private bool TryStartDealerFoldPresentation(
+        TurnOwner foldedBy,
+        int potChipCount,
+        int penaltyChipCount)
+    {
+        isChipAnimating = true;
+
+        if (dealerAnimationController != null &&
+            dealerAnimationController.TryPlayFold(
+                () => OnDealerFoldAnimationFinished(
+                    foldedBy,
+                    potChipCount,
+                    penaltyChipCount),
+                () => OnDealerFoldAnimationFinished(
+                    foldedBy,
+                    potChipCount,
+                    penaltyChipCount)))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return TryStartFoldSettlement(
+            foldedBy,
+            potChipCount,
+            penaltyChipCount);
+    }
+
+    private void OnDealerFoldAnimationFinished(
+        TurnOwner foldedBy,
+        int potChipCount,
+        int penaltyChipCount)
+    {
+        isChipAnimating = false;
+
+        if (!TryStartFoldSettlement(
+                foldedBy,
+                potChipCount,
+                penaltyChipCount))
+        {
+            chipVisualController?.RefreshChips();
+            RefreshView();
+        }
     }
 
     private void OnFoldSettlementCompleted()

@@ -9,9 +9,11 @@ public class DealerAnimationController : MonoBehaviour
 {
     private const float BetChipMoveDuration = 0.25f;
     private const float BetAnimationTimeout = 4f;
+    private const float FoldAnimationTimeout = 4f;
     private const string CallTrigger = "Call";
     private const string AllInTrigger = "All-In";
     private const string CollectTrigger = "Collect";
+    private const string FoldTrigger = "Fold";
     private const string ThinkTrigger = "Think";
     private const string ThinkLayerName = "UpperBody Layer";
     private const string ThinkIdleState = "UpperBody Layer.Empty";
@@ -40,8 +42,11 @@ public class DealerAnimationController : MonoBehaviour
     private Action<GameObject[]> betMoveCompleted;
     private Action<GameObject[]> betMoveFailed;
     private Coroutine betTimeoutCoroutine;
+    private Coroutine foldTimeoutCoroutine;
     private readonly List<Tween> betMoveTweens = new List<Tween>();
     private int completedBetMoveCount;
+    private Action foldAnimationCompleted;
+    private Action foldAnimationFailed;
     private bool isApplicationQuitting;
 
     public bool TryPlayCallChips(
@@ -84,6 +89,28 @@ public class DealerAnimationController : MonoBehaviour
             dealerTargetPositions,
             onMoveCompleted,
             onMoveFailed);
+    }
+
+    public bool TryPlayFold(
+        Action onCompleted,
+        Action onFailed)
+    {
+        if (onCompleted == null ||
+            onFailed == null ||
+            activeBetChips != null ||
+            foldAnimationCompleted != null ||
+            foldAnimationFailed != null ||
+            !CanSetTrigger(FoldTrigger))
+        {
+            return false;
+        }
+
+        foldAnimationCompleted = onCompleted;
+        foldAnimationFailed = onFailed;
+        animator.SetTrigger(FoldTrigger);
+        foldTimeoutCoroutine =
+            StartCoroutine(FoldAnimationTimeoutRoutine());
+        return true;
     }
 
     private bool TryPlayChipMove(
@@ -296,6 +323,19 @@ public class DealerAnimationController : MonoBehaviour
             .SetEase(Ease.OutQuad);
     }
 
+    public void CompleteFoldAnimation()
+    {
+        if (foldAnimationCompleted == null &&
+            foldAnimationFailed == null)
+        {
+            return;
+        }
+
+        Action completedCallback = foldAnimationCompleted;
+        ClearFoldAnimationState();
+        completedCallback?.Invoke();
+    }
+
     private void StartChipMove()
     {
         isFollowingChipSocket = false;
@@ -375,6 +415,13 @@ public class DealerAnimationController : MonoBehaviour
         FailBetChipMove();
     }
 
+    private IEnumerator FoldAnimationTimeoutRoutine()
+    {
+        yield return new WaitForSeconds(FoldAnimationTimeout);
+        foldTimeoutCoroutine = null;
+        FailFoldAnimation();
+    }
+
     private void CompleteBetChipMove()
     {
         if (activeBetChips == null)
@@ -413,6 +460,21 @@ public class DealerAnimationController : MonoBehaviour
         RestoreBetChips();
         ClearBetChipState(false);
         failedCallback?.Invoke(failedChips);
+    }
+
+    private void FailFoldAnimation(bool notifyFailure = true)
+    {
+        if (foldAnimationCompleted == null &&
+            foldAnimationFailed == null)
+        {
+            return;
+        }
+
+        Action failedCallback = notifyFailure
+            ? foldAnimationFailed
+            : null;
+        ClearFoldAnimationState();
+        failedCallback?.Invoke();
     }
 
     private bool HasValidActiveBetChips()
@@ -519,6 +581,18 @@ public class DealerAnimationController : MonoBehaviour
         betMoveTweens.Clear();
     }
 
+    private void ClearFoldAnimationState()
+    {
+        if (foldTimeoutCoroutine != null)
+        {
+            StopCoroutine(foldTimeoutCoroutine);
+            foldTimeoutCoroutine = null;
+        }
+
+        foldAnimationCompleted = null;
+        foldAnimationFailed = null;
+    }
+
     private void OnDisable()
     {
         bool notifyFailure =
@@ -527,6 +601,7 @@ public class DealerAnimationController : MonoBehaviour
             gameObject.scene.IsValid() &&
             gameObject.scene.isLoaded;
         FailBetChipMove(notifyFailure);
+        FailFoldAnimation(notifyFailure);
     }
 
     private void OnApplicationQuit()
