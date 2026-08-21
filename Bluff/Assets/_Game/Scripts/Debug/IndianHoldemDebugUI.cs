@@ -496,6 +496,57 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RefreshView();
     }
 
+    private bool TryStartPlayerCollect(int chipCount)
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginPlayerCollect(
+                chipCount,
+                OnPlayerCollectCompleted,
+                OnPlayerCollectFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnPlayerCollectCompleted(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompletePlayerCollect(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelPlayerCollect();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private void OnPlayerCollectFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelPlayerCollect();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
     private bool TryStartBetAnimation(
         int chipCount,
         bool useAllInAnimation)
@@ -635,10 +686,21 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        bool collectAnimationStarted =
-            roundWinner == RoundWinner.Dealer &&
-            potBeforeSettlement > 0 &&
-            TryStartDealerCollectAnimation(potBeforeSettlement);
+        bool collectAnimationStarted = false;
+
+        if (potBeforeSettlement > 0)
+        {
+            if (roundWinner == RoundWinner.Player)
+            {
+                collectAnimationStarted =
+                    TryStartPlayerCollect(potBeforeSettlement);
+            }
+            else if (roundWinner == RoundWinner.Dealer)
+            {
+                collectAnimationStarted =
+                    TryStartDealerCollectAnimation(potBeforeSettlement);
+            }
+        }
 
         if (!collectAnimationStarted)
         {

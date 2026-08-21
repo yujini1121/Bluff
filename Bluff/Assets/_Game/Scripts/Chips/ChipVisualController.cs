@@ -6,8 +6,8 @@ using UnityEngine;
 
 public sealed class ChipVisualController : MonoBehaviour
 {
-    private const float PlayerBetMoveDuration = 0.25f;
-    private const float PlayerBetMoveTimeout = 4f;
+    private const float PlayerChipMoveDuration = 0.25f;
+    private const float PlayerChipMoveTimeout = 4f;
 
     [Header("Chip")]
     [SerializeField] private Transform playerChipArea;
@@ -41,14 +41,15 @@ public sealed class ChipVisualController : MonoBehaviour
         new List<Transform>();
     private readonly List<Vector3> pendingLocalPositions =
         new List<Vector3>();
-    private readonly List<Tween> playerBetTweens =
+    private readonly List<Tween> playerMoveTweens =
         new List<Tween>();
     private bool isDealerCollectPending;
     private bool isPlayerBetPending;
-    private int completedPlayerBetTweenCount;
-    private Coroutine playerBetTimeoutCoroutine;
-    private Action<GameObject[]> playerBetMoveCompleted;
-    private Action<GameObject[]> playerBetMoveFailed;
+    private bool isPlayerCollectPending;
+    private int completedPlayerMoveTweenCount;
+    private Coroutine playerMoveTimeoutCoroutine;
+    private Action<GameObject[]> playerMoveCompleted;
+    private Action<GameObject[]> playerMoveFailed;
 
     public void Initialize(GameState state)
     {
@@ -316,26 +317,10 @@ public sealed class ChipVisualController : MonoBehaviour
         }
 
         isPlayerBetPending = true;
-        playerBetMoveCompleted = onMoveCompleted;
-        playerBetMoveFailed = onMoveFailed;
-        completedPlayerBetTweenCount = 0;
-
-        for (int index = 0; index < pendingChips.Count; index++)
-        {
-            Transform chip = pendingChips[index].transform;
-            chip.SetParent(null, true);
-            Tween moveTween = chip
-                .DOMove(
-                    potTargetPositions[index],
-                    PlayerBetMoveDuration)
-                .SetEase(Ease.OutQuad)
-                .OnComplete(CompletePlayerBetTween);
-            playerBetTweens.Add(moveTween);
-        }
-
-        playerBetTimeoutCoroutine =
-            StartCoroutine(PlayerBetMoveTimeoutRoutine());
-        return true;
+        return StartPlayerChipMove(
+            potTargetPositions,
+            onMoveCompleted,
+            onMoveFailed);
     }
 
     public bool CompletePlayerBet(GameObject[] chips)
@@ -368,9 +353,102 @@ public sealed class ChipVisualController : MonoBehaviour
 
     public void CancelPlayerBet()
     {
-        KillPlayerBetTweens();
+        KillPlayerChipMoveTweens();
         RestorePendingChips();
-        ClearPlayerBetAnimationState();
+        ClearPlayerChipMoveState();
+        ClearPendingChipMove();
+    }
+
+    public bool TryBeginPlayerCollect(
+        int chipCount,
+        Action<GameObject[]> onMoveCompleted,
+        Action<GameObject[]> onMoveFailed)
+    {
+        if (gameState == null ||
+            chipCount <= 0 ||
+            pendingChips.Count > 0 ||
+            playerChipArea == null ||
+            potArea == null ||
+            !isActiveAndEnabled ||
+            onMoveCompleted == null ||
+            onMoveFailed == null)
+        {
+            return false;
+        }
+
+        RemoveMissingInstances(playerChipInstances);
+        RemoveMissingInstances(potChipInstances);
+
+        if (potChipInstances.Count < chipCount ||
+            playerChipInstances.Count + chipCount !=
+                gameState.PlayerChips.Count ||
+            potChipInstances.Count != gameState.Pot.Amount + chipCount)
+        {
+            return false;
+        }
+
+        Vector3[] playerTargetPositions = new Vector3[chipCount];
+
+        for (int index = 0; index < chipCount; index++)
+        {
+            GameObject chip = potChipInstances[
+                potChipInstances.Count - 1 - index];
+
+            if (chip == null || !chip.activeInHierarchy)
+            {
+                ClearPendingChipMove();
+                return false;
+            }
+
+            pendingChips.Add(chip);
+            pendingParents.Add(chip.transform.parent);
+            pendingLocalPositions.Add(chip.transform.localPosition);
+            pendingRotations.Add(chip.transform.localRotation);
+            pendingScales.Add(chip.transform.localScale);
+            playerTargetPositions[index] = playerChipArea.TransformPoint(
+                GetChipLocalPosition(playerChipInstances.Count + index));
+        }
+
+        isPlayerCollectPending = true;
+        return StartPlayerChipMove(
+            playerTargetPositions,
+            onMoveCompleted,
+            onMoveFailed);
+    }
+
+    public bool CompletePlayerCollect(GameObject[] chips)
+    {
+        if (!CanCompletePlayerCollect(chips))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            potChipInstances.Remove(pendingChips[index]);
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            GameObject chip = pendingChips[index];
+            chip.transform.SetParent(playerChipArea, true);
+            chip.transform.localRotation = pendingRotations[index];
+            chip.transform.localScale = pendingScales[index];
+            playerChipInstances.Add(chip);
+        }
+
+        ClearPendingChipMove();
+        ArrangeChips(potChipInstances);
+        ArrangeChips(playerChipInstances);
+        RefreshChips();
+        return true;
+    }
+
+    public void CancelPlayerCollect()
+    {
+        KillPlayerChipMoveTweens();
+        RestorePendingChips();
+        ClearPlayerChipMoveState();
         ClearPendingChipMove();
     }
 
@@ -381,6 +459,7 @@ public sealed class ChipVisualController : MonoBehaviour
             chips.Length != pendingChips.Count ||
             isDealerCollectPending ||
             isPlayerBetPending ||
+            isPlayerCollectPending ||
             potArea == null)
         {
             return false;
@@ -405,6 +484,7 @@ public sealed class ChipVisualController : MonoBehaviour
             chips.Length == 0 ||
             chips.Length != pendingChips.Count ||
             !isPlayerBetPending ||
+            isPlayerCollectPending ||
             potArea == null)
         {
             return false;
@@ -415,6 +495,31 @@ public sealed class ChipVisualController : MonoBehaviour
             if (chips[index] == null ||
                 chips[index] != pendingChips[index] ||
                 !playerChipInstances.Contains(chips[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool CanCompletePlayerCollect(GameObject[] chips)
+    {
+        if (chips == null ||
+            chips.Length == 0 ||
+            chips.Length != pendingChips.Count ||
+            !isPlayerCollectPending ||
+            isPlayerBetPending ||
+            playerChipArea == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            if (chips[index] == null ||
+                chips[index] != pendingChips[index] ||
+                !potChipInstances.Contains(chips[index]))
             {
                 return false;
             }
@@ -447,23 +552,57 @@ public sealed class ChipVisualController : MonoBehaviour
         return true;
     }
 
-    private IEnumerator PlayerBetMoveTimeoutRoutine()
+    private bool StartPlayerChipMove(
+        Vector3[] targetPositions,
+        Action<GameObject[]> onMoveCompleted,
+        Action<GameObject[]> onMoveFailed)
     {
-        yield return new WaitForSeconds(PlayerBetMoveTimeout);
-        playerBetTimeoutCoroutine = null;
-        FailPlayerBetMove();
+        if (targetPositions == null ||
+            targetPositions.Length != pendingChips.Count)
+        {
+            ClearPendingChipMove();
+            return false;
+        }
+
+        playerMoveCompleted = onMoveCompleted;
+        playerMoveFailed = onMoveFailed;
+        completedPlayerMoveTweenCount = 0;
+
+        for (int index = 0; index < pendingChips.Count; index++)
+        {
+            Transform chip = pendingChips[index].transform;
+            chip.SetParent(null, true);
+            Tween moveTween = chip
+                .DOMove(
+                    targetPositions[index],
+                    PlayerChipMoveDuration)
+                .SetEase(Ease.OutQuad)
+                .OnComplete(CompletePlayerChipMoveTween);
+            playerMoveTweens.Add(moveTween);
+        }
+
+        playerMoveTimeoutCoroutine =
+            StartCoroutine(PlayerChipMoveTimeoutRoutine());
+        return true;
     }
 
-    private void CompletePlayerBetTween()
+    private IEnumerator PlayerChipMoveTimeoutRoutine()
     {
-        if (!isPlayerBetPending)
+        yield return new WaitForSeconds(PlayerChipMoveTimeout);
+        playerMoveTimeoutCoroutine = null;
+        FailPlayerChipMove();
+    }
+
+    private void CompletePlayerChipMoveTween()
+    {
+        if (!isPlayerBetPending && !isPlayerCollectPending)
         {
             return;
         }
 
-        completedPlayerBetTweenCount++;
+        completedPlayerMoveTweenCount++;
 
-        if (completedPlayerBetTweenCount < pendingChips.Count)
+        if (completedPlayerMoveTweenCount < pendingChips.Count)
         {
             return;
         }
@@ -473,29 +612,30 @@ public sealed class ChipVisualController : MonoBehaviour
             if (pendingChips[index] == null ||
                 !pendingChips[index].activeInHierarchy)
             {
-                FailPlayerBetMove();
+                FailPlayerChipMove();
                 return;
             }
         }
 
         GameObject[] completedChips = pendingChips.ToArray();
-        Action<GameObject[]> completedCallback = playerBetMoveCompleted;
-        ClearPlayerBetAnimationState();
+        Action<GameObject[]> completedCallback = playerMoveCompleted;
+        ClearPlayerChipMoveState();
         completedCallback?.Invoke(completedChips);
     }
 
-    private void FailPlayerBetMove()
+    private void FailPlayerChipMove()
     {
-        if (!isPlayerBetPending && playerBetMoveFailed == null)
+        if ((!isPlayerBetPending && !isPlayerCollectPending) ||
+            playerMoveFailed == null)
         {
             return;
         }
 
         GameObject[] failedChips = pendingChips.ToArray();
-        Action<GameObject[]> failedCallback = playerBetMoveFailed;
-        KillPlayerBetTweens();
+        Action<GameObject[]> failedCallback = playerMoveFailed;
+        KillPlayerChipMoveTweens();
         RestorePendingChips();
-        ClearPlayerBetAnimationState();
+        ClearPlayerChipMoveState();
         failedCallback?.Invoke(failedChips);
     }
 
@@ -517,28 +657,28 @@ public sealed class ChipVisualController : MonoBehaviour
         }
     }
 
-    private void ClearPlayerBetAnimationState()
+    private void ClearPlayerChipMoveState()
     {
-        if (playerBetTimeoutCoroutine != null)
+        if (playerMoveTimeoutCoroutine != null)
         {
-            StopCoroutine(playerBetTimeoutCoroutine);
-            playerBetTimeoutCoroutine = null;
+            StopCoroutine(playerMoveTimeoutCoroutine);
+            playerMoveTimeoutCoroutine = null;
         }
 
-        playerBetTweens.Clear();
-        completedPlayerBetTweenCount = 0;
-        playerBetMoveCompleted = null;
-        playerBetMoveFailed = null;
+        playerMoveTweens.Clear();
+        completedPlayerMoveTweenCount = 0;
+        playerMoveCompleted = null;
+        playerMoveFailed = null;
     }
 
-    private void KillPlayerBetTweens()
+    private void KillPlayerChipMoveTweens()
     {
-        for (int index = 0; index < playerBetTweens.Count; index++)
+        for (int index = 0; index < playerMoveTweens.Count; index++)
         {
-            playerBetTweens[index]?.Kill(false);
+            playerMoveTweens[index]?.Kill(false);
         }
 
-        playerBetTweens.Clear();
+        playerMoveTweens.Clear();
     }
 
     private void ClearPendingChipMove()
@@ -550,11 +690,12 @@ public sealed class ChipVisualController : MonoBehaviour
         pendingScales.Clear();
         isDealerCollectPending = false;
         isPlayerBetPending = false;
+        isPlayerCollectPending = false;
     }
 
     private void OnDisable()
     {
-        FailPlayerBetMove();
+        FailPlayerChipMove();
     }
 
     private void MatchChipCount(
