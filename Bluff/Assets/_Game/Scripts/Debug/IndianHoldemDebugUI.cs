@@ -184,7 +184,19 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             Mathf.Max(0, playerStartingChips),
             Mathf.Max(0, dealerStartingChips),
             deck);
-        //itemSystem.Initialize(new ItemGameApi(gameState));
+
+        if (itemSystem == null)
+        {
+            itemSystem = FindObjectOfType<ItemSystem>();
+
+            if (itemSystem == null)
+            {
+                Debug.LogError("[IndianHoldemDebugUI] itemSystem is NULL");
+                return;
+            }
+        }
+
+        itemSystem.Initialize(new ItemGameApi(gameState));
 
         ResetDisplayedRoundResult();
         StartRound();

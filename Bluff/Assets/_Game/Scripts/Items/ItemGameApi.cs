@@ -9,6 +9,11 @@ public sealed class ItemGameApi
         this.gameState = gameState ?? throw new ArgumentNullException(nameof(gameState));
     }
 
+    public GamePhase GetCurrentPhase()
+    {
+        return gameState.Phase;
+    }
+
     public bool TryGiveChips(TurnOwner target, int amount)
     {
         switch (target)

@@ -45,8 +45,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   itemList:
-  - {fileID: 1811321922272366952, guid: c9004ff355dafd546a99ece1d2711539, type: 3}
-  - {fileID: 6007390844061336342, guid: ea3f1f036d32d194badd323d20b6556a, type: 3}
-  - {fileID: 5346070539156453286, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
-  - {fileID: 4721433412386800710, guid: 443ad5786f4de564aa65e170b157400c, type: 3}
-  itemInventory: []
+  - {fileID: 7499053325944441585, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
+  playerItemInventory: []
+  dealerItemInventory: []

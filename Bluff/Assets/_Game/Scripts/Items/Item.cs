@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Item : MonoBehaviour
 {
-    [SerializeField] private ItemSystem itemSystem;
+    [SerializeField] public ItemSystem itemSystem;
     [SerializeField] public ItemData itemData;
 
     private void OnMouseDown()
@@ -14,9 +14,9 @@ public class Item : MonoBehaviour
 
     public void Use()
     {
-        if (itemSystem.UseItem(itemData))
+        if (itemSystem.UseItem(TurnOwner.Player, gameObject))
         {
-            Destroy(gameObject);
+            Destroy(gameObject); // 아이템 사용 후 제거
         }
     }
 }
