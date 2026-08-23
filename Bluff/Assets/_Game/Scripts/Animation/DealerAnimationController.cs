@@ -10,10 +10,12 @@ public class DealerAnimationController : MonoBehaviour
     private const float BetChipMoveDuration = 0.25f;
     private const float BetAnimationTimeout = 4f;
     private const float FoldAnimationTimeout = 4f;
+    private const float CheckAnimationTimeout = 4f;
     private const string CallTrigger = "Call";
     private const string AllInTrigger = "All-In";
     private const string CollectTrigger = "Collect";
     private const string FoldTrigger = "Fold";
+    private const string CheckTrigger = "Check";
     private const string ThinkTrigger = "Think";
     private const string ThinkLayerName = "UpperBody Layer";
     private const string ThinkIdleState = "UpperBody Layer.Empty";
@@ -43,10 +45,13 @@ public class DealerAnimationController : MonoBehaviour
     private Action<GameObject[]> betMoveFailed;
     private Coroutine betTimeoutCoroutine;
     private Coroutine foldTimeoutCoroutine;
+    private Coroutine checkTimeoutCoroutine;
     private readonly List<Tween> betMoveTweens = new List<Tween>();
     private int completedBetMoveCount;
     private Action foldAnimationCompleted;
     private Action foldAnimationFailed;
+    private Action checkAnimationCompleted;
+    private Action checkAnimationFailed;
     private bool isApplicationQuitting;
 
     public bool TryPlayCallChips(
@@ -110,6 +115,28 @@ public class DealerAnimationController : MonoBehaviour
         animator.SetTrigger(FoldTrigger);
         foldTimeoutCoroutine =
             StartCoroutine(FoldAnimationTimeoutRoutine());
+        return true;
+    }
+
+    public bool TryPlayCheck(
+        Action onCompleted,
+        Action onFailed)
+    {
+        if (onCompleted == null ||
+            onFailed == null ||
+            activeBetChips != null ||
+            checkAnimationCompleted != null ||
+            checkAnimationFailed != null ||
+            !CanSetTrigger(CheckTrigger))
+        {
+            return false;
+        }
+
+        checkAnimationCompleted = onCompleted;
+        checkAnimationFailed = onFailed;
+        animator.SetTrigger(CheckTrigger);
+        checkTimeoutCoroutine =
+            StartCoroutine(CheckAnimationTimeoutRoutine());
         return true;
     }
 
@@ -336,6 +363,19 @@ public class DealerAnimationController : MonoBehaviour
         completedCallback?.Invoke();
     }
 
+    public void CompleteCheckAnimation()
+    {
+        if (checkAnimationCompleted == null &&
+            checkAnimationFailed == null)
+        {
+            return;
+        }
+
+        Action completedCallback = checkAnimationCompleted;
+        ClearCheckAnimationState();
+        completedCallback?.Invoke();
+    }
+
     private void StartChipMove()
     {
         isFollowingChipSocket = false;
@@ -422,6 +462,13 @@ public class DealerAnimationController : MonoBehaviour
         FailFoldAnimation();
     }
 
+    private IEnumerator CheckAnimationTimeoutRoutine()
+    {
+        yield return new WaitForSeconds(CheckAnimationTimeout);
+        checkTimeoutCoroutine = null;
+        FailCheckAnimation();
+    }
+
     private void CompleteBetChipMove()
     {
         if (activeBetChips == null)
@@ -474,6 +521,21 @@ public class DealerAnimationController : MonoBehaviour
             ? foldAnimationFailed
             : null;
         ClearFoldAnimationState();
+        failedCallback?.Invoke();
+    }
+
+    private void FailCheckAnimation(bool notifyFailure = true)
+    {
+        if (checkAnimationCompleted == null &&
+            checkAnimationFailed == null)
+        {
+            return;
+        }
+
+        Action failedCallback = notifyFailure
+            ? checkAnimationFailed
+            : null;
+        ClearCheckAnimationState();
         failedCallback?.Invoke();
     }
 
@@ -593,6 +655,18 @@ public class DealerAnimationController : MonoBehaviour
         foldAnimationFailed = null;
     }
 
+    private void ClearCheckAnimationState()
+    {
+        if (checkTimeoutCoroutine != null)
+        {
+            StopCoroutine(checkTimeoutCoroutine);
+            checkTimeoutCoroutine = null;
+        }
+
+        checkAnimationCompleted = null;
+        checkAnimationFailed = null;
+    }
+
     private void OnDisable()
     {
         bool notifyFailure =
@@ -602,6 +676,7 @@ public class DealerAnimationController : MonoBehaviour
             gameObject.scene.isLoaded;
         FailBetChipMove(notifyFailure);
         FailFoldAnimation(notifyFailure);
+        FailCheckAnimation(notifyFailure);
     }
 
     private void OnApplicationQuit()

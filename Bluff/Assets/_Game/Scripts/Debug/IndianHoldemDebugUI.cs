@@ -429,7 +429,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
 
-            if (dealerAi.TryExecute(gameState, decision))
+            bool checkPresentationStarted =
+                decision == DealerDecision.Check &&
+                TryStartDealerCheckPresentation();
+
+            if (checkPresentationStarted)
+            {
+                // 실제 Check 결과는 Animation 완료 Callback에서 기록한다.
+            }
+            else if (dealerAi.TryExecute(gameState, decision))
             {
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
@@ -671,6 +679,44 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             foldedBy,
             potChipCount,
             penaltyChipCount);
+    }
+
+    private bool TryStartDealerCheckPresentation()
+    {
+        if (dealerAnimationController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (dealerAnimationController.TryPlayCheck(
+                OnDealerCheckAnimationFinished,
+                OnDealerCheckAnimationFinished))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnDealerCheckAnimationFinished()
+    {
+        isChipAnimating = false;
+
+        if (gameState != null &&
+            dealerAi.TryExecute(gameState, DealerDecision.Check))
+        {
+            AddLog("DEALER CHECK");
+            AddBettingResultLog();
+        }
+        else
+        {
+            AddLog("DEALER CHECK 실패");
+        }
+
+        RefreshView();
     }
 
     private void OnDealerFoldAnimationFinished(
