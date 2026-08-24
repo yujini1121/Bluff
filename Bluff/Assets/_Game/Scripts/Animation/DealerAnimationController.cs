@@ -23,6 +23,7 @@ public class DealerAnimationController : MonoBehaviour
 
     [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
+    [SerializeField] private Vector3 allInChipOffset;
     [SerializeField] private Transform potPoint;
     [SerializeField] private Transform dealerChipPoint;
     [FormerlySerializedAs("chip")]
@@ -37,6 +38,7 @@ public class DealerAnimationController : MonoBehaviour
     private Vector3[] chipOffsetsAtGrab;
     private Quaternion[] chipWorldRotationsAtGrab;
     private float[] chipWorldYAtGrab;
+    private float allInLockedFollowX;
     private bool keepChipWorldY;
     private bool isCollectMove;
     private bool isFollowingChipSocket;
@@ -248,11 +250,6 @@ public class DealerAnimationController : MonoBehaviour
 
     public void GrabChip()
     {
-        if (chipSocket == null)
-        {
-            return;
-        }
-
         if (activeBetChips != null)
         {
             if (isCollectMove)
@@ -271,14 +268,18 @@ public class DealerAnimationController : MonoBehaviour
                 return;
             }
 
+            if (chipSocket == null)
+            {
+                FailBetChipMove();
+                return;
+            }
+
             chipOffsetsAtGrab =
                 new Vector3[activeBetChips.Length];
             chipWorldRotationsAtGrab =
                 new Quaternion[activeBetChips.Length];
             chipWorldYAtGrab = new float[activeBetChips.Length];
-            Vector3 offsetOrigin = keepChipWorldY
-                ? chipSocket.position
-                : GetBetChipCenter();
+            Vector3 offsetOrigin = GetBetChipCenter();
 
             for (int index = 0; index < activeBetChips.Length; index++)
             {
@@ -289,12 +290,18 @@ public class DealerAnimationController : MonoBehaviour
                 chipWorldYAtGrab[index] = chip.position.y;
             }
 
+            if (keepChipWorldY)
+            {
+                allInLockedFollowX =
+                    GetAllInFollowPosition().x;
+            }
+
             isFollowingChipSocket = true;
             UpdateFollowedBetChips();
             return;
         }
 
-        if (testChip != null)
+        if (testChip != null && chipSocket != null)
         {
             testChip.SetParent(chipSocket);
             testChip.localPosition = Vector3.zero;
@@ -625,6 +632,7 @@ public class DealerAnimationController : MonoBehaviour
         chipOffsetsAtGrab = null;
         chipWorldRotationsAtGrab = null;
         chipWorldYAtGrab = null;
+        allInLockedFollowX = 0f;
         keepChipWorldY = false;
         isCollectMove = false;
         isFollowingChipSocket = false;
@@ -706,20 +714,37 @@ public class DealerAnimationController : MonoBehaviour
 
     private void UpdateFollowedBetChips()
     {
+        Vector3 allInFollowPosition = keepChipWorldY
+            ? GetAllInFollowPosition()
+            : chipSocket.position;
+
         for (int index = 0; index < activeBetChips.Length; index++)
         {
             Transform chip = activeBetChips[index];
             Vector3 followedPosition =
-                chipSocket.position + chipOffsetsAtGrab[index];
+                allInFollowPosition +
+                chipOffsetsAtGrab[index];
 
             if (keepChipWorldY)
             {
+                followedPosition.x =
+                    allInLockedFollowX +
+                    chipOffsetsAtGrab[index].x;
                 followedPosition.y = chipWorldYAtGrab[index];
             }
 
             chip.position = followedPosition;
             chip.rotation = chipWorldRotationsAtGrab[index];
         }
+    }
+
+    private Vector3 GetAllInFollowPosition()
+    {
+        Vector3 localOffset = new Vector3(
+            allInChipOffset.x,
+            0f,
+            allInChipOffset.z);
+        return chipSocket.TransformPoint(localOffset);
     }
 
     private Vector3 GetBetChipCenter()
