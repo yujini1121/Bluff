@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public sealed class IndianHoldemDebugUI : MonoBehaviour
@@ -58,6 +59,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private GameObject resultOverlay;
     [SerializeField] private TMP_Text resultTitleText;
     [SerializeField] private TMP_Text resultDetailText;
+    [SerializeField] private Button restartButton;
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
 
@@ -90,6 +92,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool isCardAnimating;
     private bool isShowdownResultVisible;
     private bool isShuttingDown;
+    private bool isRestarting;
     private bool recoverShowdownPresentationOnEnable;
 
     private void OnEnable()
@@ -216,6 +219,35 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     public void OnNextRoundClicked()
     {
         RunProgressAction(GamePhase.RoundEnd, PrepareAndStartNextRound);
+    }
+
+    public void OnRestartClicked()
+    {
+        if (!CanRestartGame())
+        {
+            return;
+        }
+
+        Scene currentScene = SceneManager.GetActiveScene();
+        int buildIndex = currentScene.buildIndex;
+
+        if (!currentScene.IsValid() ||
+            !currentScene.isLoaded ||
+            buildIndex < 0 ||
+            buildIndex >= SceneManager.sceneCountInBuildSettings)
+        {
+            Debug.LogError(
+                "현재 활성 Scene이 Build Settings에 등록되지 않아 " +
+                "게임을 Restart할 수 없습니다.",
+                this);
+            return;
+        }
+
+        isRestarting = true;
+        isActionProcessing = true;
+        restartButton.interactable = false;
+        CancelDealerAction();
+        SceneManager.LoadScene(buildIndex);
     }
 
     public void OnDebugToggleClicked()
@@ -379,6 +411,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool CanAcceptPlayerBettingInput()
     {
         return gameState != null &&
+               !isRestarting &&
                !isActionProcessing &&
                !isChipAnimating &&
                !isCardAnimating &&
@@ -390,11 +423,38 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool CanAcceptProgressInput(GamePhase requiredPhase)
     {
         return gameState != null &&
+               !isRestarting &&
                !isActionProcessing &&
                !isChipAnimating &&
                !isCardAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == requiredPhase;
+    }
+
+    private bool CanRestartGame()
+    {
+        if (gameState == null ||
+            isRestarting ||
+            isShuttingDown ||
+            !isActiveAndEnabled ||
+            !gameObject.scene.IsValid() ||
+            !gameObject.scene.isLoaded ||
+            gameState.Phase != GamePhase.GameOver ||
+            gameState.FinalWinner == GameWinner.None ||
+            isActionProcessing ||
+            isChipAnimating ||
+            isCardAnimating ||
+            dealerActionCoroutine != null ||
+            showdownPresentationCoroutine != null)
+        {
+            return false;
+        }
+
+        bool hasSettledShowdown =
+            gameState.RoundEndReason == RoundEndReason.Showdown &&
+            roundWinner != RoundWinner.None;
+
+        return !hasSettledShowdown || isShowdownResultVisible;
     }
 
     private void AddBettingResultLog()
@@ -415,7 +475,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void TryScheduleDealerAction()
     {
-        if (isActionProcessing ||
+        if (isRestarting ||
+            isActionProcessing ||
             isChipAnimating ||
             isCardAnimating ||
             dealerActionCoroutine != null ||
@@ -1345,6 +1406,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         bool shouldShow = isGameOver || isShowdownResult || isFoldResult;
 
         resultOverlay.SetActive(shouldShow);
+        restartButton.gameObject.SetActive(isGameOver);
+        restartButton.interactable = isGameOver && CanRestartGame();
 
         if (!shouldShow)
         {
@@ -1469,7 +1532,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                contextActionArea != null &&
                HasAllBettingActionButtons() &&
                resolveShowdownButton != null &&
-               nextRoundButton != null;
+               nextRoundButton != null &&
+               restartButton != null;
     }
 
     private bool HasAllBettingActionButtons()

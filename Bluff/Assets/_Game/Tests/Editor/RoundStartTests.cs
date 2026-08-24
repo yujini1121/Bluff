@@ -41,6 +41,131 @@ public sealed class RoundStartTests
     }
 
     [Test]
+    public void StartRound_CarriedPotAndOneSideCannotPay_SkipsBothAntes()
+    {
+        var gameState = new GameState(1, 0, CreateDeck(6));
+        Assert.That(gameState.Pot.TryAdd(39), Is.True);
+
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(1));
+        Assert.That(gameState.DealerChips.Count, Is.Zero);
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(39));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
+        Assert.That(gameState.PlayerCard, Is.Not.Null);
+        Assert.That(gameState.DealerCard, Is.Not.Null);
+        Assert.That(gameState.CommunityCard1, Is.Not.Null);
+        Assert.That(gameState.CommunityCard2, Is.Not.Null);
+    }
+
+    [Test]
+    public void StartRound_CarriedPotAndBothSidesHaveNoChips_AllowsCheckShowdown()
+    {
+        var gameState = new GameState(
+            0,
+            0,
+            CreateDeckForRound(9, 9, 4, 7));
+        Assert.That(gameState.Pot.TryAdd(40), Is.True);
+
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(gameState.PlayerChips.Count, Is.Zero);
+        Assert.That(gameState.DealerChips.Count, Is.Zero);
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(40));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
+    }
+
+    [Test]
+    public void StartRound_CarriedPotDraw_AllowsAnotherAnteFreeRound()
+    {
+        var deck = new Deck(new[]
+        {
+            new Card(6),
+            new Card(3),
+            new Card(8),
+            new Card(8),
+            new Card(7),
+            new Card(4),
+            new Card(9),
+            new Card(9)
+        });
+        var gameState = new GameState(1, 0, deck);
+        Assert.That(gameState.Pot.TryAdd(39), Is.True);
+
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(
+            gameState.TrySettleShowdown(out RoundWinner winner),
+            Is.True);
+        Assert.That(winner, Is.EqualTo(RoundWinner.Draw));
+        Assert.That(gameState.TryPrepareNextRound(), Is.True);
+
+        Assert.That(gameState.TryStartRound(TurnOwner.Dealer), Is.True);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(1));
+        Assert.That(gameState.DealerChips.Count, Is.Zero);
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(39));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
+    }
+
+    [Test]
+    public void StartRound_CarriedPotWinner_SettlesPotAndEvaluatesGameOver()
+    {
+        var gameState = new GameState(
+            1,
+            0,
+            CreateDeckForRound(6, 4, 4, 5));
+        Assert.That(gameState.Pot.TryAdd(39), Is.True);
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+
+        Assert.That(
+            gameState.TrySettleShowdown(out RoundWinner winner),
+            Is.True);
+
+        Assert.That(winner, Is.EqualTo(RoundWinner.Player));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(40));
+        Assert.That(gameState.DealerChips.Count, Is.Zero);
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Player));
+    }
+
+    [Test]
+    public void StartRound_CarriedPotDealerWinner_SettlesPotAndCanContinue()
+    {
+        var gameState = new GameState(
+            1,
+            0,
+            CreateDeckForRound(9, 4, 4, 7));
+        Assert.That(gameState.Pot.TryAdd(39), Is.True);
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TryCheck(), Is.True);
+
+        Assert.That(
+            gameState.TrySettleShowdown(out RoundWinner winner),
+            Is.True);
+
+        Assert.That(winner, Is.EqualTo(RoundWinner.Dealer));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(1));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(39));
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.None));
+    }
+
+    [Test]
     public void StartRound_FailsWhenPlayerCannotPayAnteWithoutChangingState()
     {
         var gameState = new GameState(0, 10, CreateDeck(6));
@@ -163,5 +288,20 @@ public sealed class RoundStartTests
         }
 
         return new Deck(cards);
+    }
+
+    private static Deck CreateDeckForRound(
+        int playerRank,
+        int dealerRank,
+        int communityRank1,
+        int communityRank2)
+    {
+        return new Deck(new[]
+        {
+            new Card(communityRank2),
+            new Card(communityRank1),
+            new Card(dealerRank),
+            new Card(playerRank)
+        });
     }
 }

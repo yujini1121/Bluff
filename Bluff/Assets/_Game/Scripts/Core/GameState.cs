@@ -98,6 +98,11 @@ public sealed class GameState
 
     public bool TryStartRound(TurnOwner firstTurn)
     {
+        bool bothCanPayAnte =
+            PlayerChips.Count >= AnteAmount &&
+            DealerChips.Count >= AnteAmount;
+        bool shouldSkipAnte = Pot.Amount > 0 && !bothCanPayAnte;
+
         if (Phase != GamePhase.Setup ||
             !IsActiveTurn(firstTurn) ||
             PlayerCard != null ||
@@ -105,11 +110,11 @@ public sealed class GameState
             CommunityCard1 != null ||
             CommunityCard2 != null ||
             Deck.RemainingCount < 4 ||
-            PlayerChips.Count < AnteAmount ||
-            DealerChips.Count < AnteAmount ||
-            Pot.Amount > int.MaxValue - TotalAnteAmount ||
-            !Betting.CanAddToTotalBet(TurnOwner.Player, AnteAmount) ||
-            !Betting.CanAddToTotalBet(TurnOwner.Dealer, AnteAmount))
+            (!shouldSkipAnte &&
+             (!bothCanPayAnte ||
+              Pot.Amount > int.MaxValue - TotalAnteAmount ||
+              !Betting.CanAddToTotalBet(TurnOwner.Player, AnteAmount) ||
+              !Betting.CanAddToTotalBet(TurnOwner.Dealer, AnteAmount))))
         {
             return false;
         }
@@ -124,11 +129,16 @@ public sealed class GameState
         CommunityCard1 = communityCard1;
         CommunityCard2 = communityCard2;
         Betting.Reset();
-        PlayerChips.TrySpend(AnteAmount);
-        DealerChips.TrySpend(AnteAmount);
-        Pot.TryAdd(TotalAnteAmount);
-        Betting.TryAddToTotalBet(TurnOwner.Player, AnteAmount);
-        Betting.TryAddToTotalBet(TurnOwner.Dealer, AnteAmount);
+
+        if (!shouldSkipAnte)
+        {
+            PlayerChips.TrySpend(AnteAmount);
+            DealerChips.TrySpend(AnteAmount);
+            Pot.TryAdd(TotalAnteAmount);
+            Betting.TryAddToTotalBet(TurnOwner.Player, AnteAmount);
+            Betting.TryAddToTotalBet(TurnOwner.Dealer, AnteAmount);
+        }
+
         ResetRoundResult();
         Turn.TrySet(firstTurn);
         Phase = GamePhase.Betting;
