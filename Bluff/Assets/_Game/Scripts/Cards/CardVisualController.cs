@@ -21,6 +21,7 @@ public sealed class CardVisualController : MonoBehaviour
     [SerializeField] private Transform playerShowdownCardPoint;
     [FormerlySerializedAs("playerRevealDuration")]
     [SerializeField, Min(0f)] private float showdownRevealDuration = 0.3f;
+    [SerializeField, Min(0f)] private float showdownCardInterval = 0.2f;
 
     [Header("Deal")]
     [SerializeField] private Transform cardDealPoint;
@@ -99,18 +100,6 @@ public sealed class CardVisualController : MonoBehaviour
 
         showdownRevealSequence = DOTween.Sequence();
         showdownRevealSequence.Append(
-            playerTransform
-                .DOMove(
-                    playerShowdownCardPoint.position,
-                    Mathf.Max(0f, showdownRevealDuration))
-                .SetEase(Ease.OutQuad));
-        showdownRevealSequence.Join(
-            playerTransform
-                .DORotateQuaternion(
-                    playerShowdownCardPoint.rotation,
-                    Mathf.Max(0f, showdownRevealDuration))
-                .SetEase(Ease.OutQuad));
-        showdownRevealSequence.Join(
             dealerTransform
                 .DOMove(
                     dealerShowdownCardPoint.position,
@@ -120,6 +109,20 @@ public sealed class CardVisualController : MonoBehaviour
             dealerTransform
                 .DORotateQuaternion(
                     dealerShowdownCardPoint.rotation,
+                    Mathf.Max(0f, showdownRevealDuration))
+                .SetEase(Ease.OutQuad));
+        showdownRevealSequence.AppendInterval(
+            Mathf.Max(0f, showdownCardInterval));
+        showdownRevealSequence.Append(
+            playerTransform
+                .DOMove(
+                    playerShowdownCardPoint.position,
+                    Mathf.Max(0f, showdownRevealDuration))
+                .SetEase(Ease.OutQuad));
+        showdownRevealSequence.Join(
+            playerTransform
+                .DORotateQuaternion(
+                    playerShowdownCardPoint.rotation,
                     Mathf.Max(0f, showdownRevealDuration))
                 .SetEase(Ease.OutQuad));
         showdownRevealSequence
