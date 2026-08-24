@@ -58,6 +58,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private GameObject resultOverlay;
     [SerializeField] private TMP_Text resultTitleText;
     [SerializeField] private TMP_Text resultDetailText;
+    [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
+    private float showdownResultDelay = 1f;
 
     [Header("디버그 패널")]
     [SerializeField] private GameObject debugPanel;
@@ -78,6 +80,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private GameState gameState;
     private DealerAi dealerAi;
     private Coroutine dealerActionCoroutine;
+    private Coroutine showdownPresentationCoroutine;
     private HandRank playerHandRank;
     private HandRank dealerHandRank;
     private RoundWinner roundWinner;
@@ -85,6 +88,30 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool isActionProcessing;
     private bool isChipAnimating;
     private bool isCardAnimating;
+    private bool isShowdownResultVisible;
+    private bool isShuttingDown;
+    private bool recoverShowdownPresentationOnEnable;
+
+    private void OnEnable()
+    {
+        isShuttingDown = false;
+
+        if (!recoverShowdownPresentationOnEnable ||
+            gameState == null ||
+            gameState.RoundEndReason != RoundEndReason.Showdown ||
+            roundWinner == RoundWinner.None ||
+            (gameState.Phase != GamePhase.RoundEnd &&
+             gameState.Phase != GamePhase.GameOver))
+        {
+            return;
+        }
+
+        recoverShowdownPresentationOnEnable = false;
+        isCardAnimating = false;
+        isShowdownResultVisible = true;
+        cardVisualController?.ShowShowdownCardsImmediately();
+        chipVisualController?.RefreshChips();
+    }
 
     private void Awake()
     {
@@ -127,8 +154,21 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void OnDisable()
     {
+        recoverShowdownPresentationOnEnable =
+            isCardAnimating &&
+            gameState != null &&
+            gameState.RoundEndReason == RoundEndReason.Showdown &&
+            roundWinner != RoundWinner.None;
+        isShuttingDown = true;
         isActionProcessing = false;
+        isCardAnimating = false;
         CancelDealerAction();
+
+        if (showdownPresentationCoroutine != null)
+        {
+            StopCoroutine(showdownPresentationCoroutine);
+            showdownPresentationCoroutine = null;
+        }
     }
 
     public void OnCallClicked()
@@ -905,6 +945,80 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        isShowdownResultVisible = false;
+        isCardAnimating = true;
+
+        Action continuePresentation = () =>
+            ContinueShowdownAfterReveal(
+                playerChipsBefore,
+                dealerChipsBefore,
+                potBeforeSettlement);
+
+        bool revealStarted =
+            cardVisualController != null &&
+            cardVisualController.TryPlayShowdownReveal(
+                continuePresentation,
+                () =>
+                {
+                    cardVisualController?.ShowShowdownCardsImmediately();
+                    continuePresentation();
+                });
+
+        if (!revealStarted)
+        {
+            cardVisualController?.ShowShowdownCardsImmediately();
+            continuePresentation();
+        }
+    }
+
+    private void ContinueShowdownAfterReveal(
+        int playerChipsBefore,
+        int dealerChipsBefore,
+        int potBeforeSettlement)
+    {
+        if (!CanHandlePresentationCallback())
+        {
+            return;
+        }
+
+        isShowdownResultVisible = true;
+        AddLog(
+            $"플레이어 {HandRankText(playerHandRank)} / " +
+            $"딜러 {HandRankText(dealerHandRank)}");
+        AddLog($"라운드 승자 - {RoundWinnerText(roundWinner)}");
+        AddLog(roundWinner == RoundWinner.Draw
+            ? $"무승부 - 팟 {gameState.Pot.Amount} 이월"
+            : $"팟 {potBeforeSettlement} 정산 예정");
+
+        if (gameState.Phase == GamePhase.GameOver)
+        {
+            AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
+        }
+
+        RefreshView();
+        showdownPresentationCoroutine = StartCoroutine(
+            ContinueShowdownAfterResultDelay(
+                playerChipsBefore,
+                dealerChipsBefore,
+                potBeforeSettlement));
+    }
+
+    private IEnumerator ContinueShowdownAfterResultDelay(
+        int playerChipsBefore,
+        int dealerChipsBefore,
+        int potBeforeSettlement)
+    {
+        yield return new WaitForSeconds(
+            Mathf.Max(0f, showdownResultDelay));
+
+        showdownPresentationCoroutine = null;
+
+        if (!CanHandlePresentationCallback())
+        {
+            yield break;
+        }
+
+        isCardAnimating = false;
         bool collectAnimationStarted = false;
 
         if (potBeforeSettlement > 0)
@@ -928,18 +1042,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 dealerChipsBefore,
                 potBeforeSettlement);
         }
-        AddLog(
-            $"플레이어 {HandRankText(playerHandRank)} / " +
-            $"딜러 {HandRankText(dealerHandRank)}");
-        AddLog($"라운드 승자 - {RoundWinnerText(roundWinner)}");
-        AddLog(roundWinner == RoundWinner.Draw
-            ? $"무승부 - 팟 {gameState.Pot.Amount} 이월"
-            : $"팟 {potBeforeSettlement} 정산 완료");
 
-        if (gameState.Phase == GamePhase.GameOver)
-        {
-            AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
-        }
+        RefreshView();
+    }
+
+    private bool CanHandlePresentationCallback()
+    {
+        return this != null &&
+               !isShuttingDown &&
+               isActiveAndEnabled &&
+               gameObject.scene.IsValid() &&
+               gameObject.scene.isLoaded;
     }
 
     private void RefreshChipsIfChanged(
@@ -1093,11 +1206,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void RefreshResultOverlay()
     {
+        bool hasSettledShowdown =
+            gameState.RoundEndReason == RoundEndReason.Showdown &&
+            roundWinner != RoundWinner.None &&
+            (gameState.Phase == GamePhase.RoundEnd ||
+             gameState.Phase == GamePhase.GameOver);
         bool isGameOver = gameState.Phase == GamePhase.GameOver &&
-                          gameState.FinalWinner != GameWinner.None;
-        bool isShowdownResult = roundWinner != RoundWinner.None &&
-                                (gameState.Phase == GamePhase.RoundEnd ||
-                                 gameState.Phase == GamePhase.GameOver);
+                          gameState.FinalWinner != GameWinner.None &&
+                          (!hasSettledShowdown ||
+                           isShowdownResultVisible);
+        bool isShowdownResult = hasSettledShowdown &&
+                                isShowdownResultVisible;
         bool isFoldResult = gameState.RoundEndReason == RoundEndReason.Fold &&
                             (gameState.Phase == GamePhase.RoundEnd ||
                              gameState.Phase == GamePhase.GameOver);
@@ -1269,6 +1388,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         playerHandRank = HandRank.None;
         dealerHandRank = HandRank.None;
         roundWinner = RoundWinner.None;
+        isShowdownResultVisible = false;
     }
 
     private void AddLog(string message)
