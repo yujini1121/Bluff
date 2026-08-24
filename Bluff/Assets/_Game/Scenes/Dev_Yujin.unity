@@ -1912,6 +1912,38 @@ MonoBehaviour:
   m_EffectColor: {r: 0.73333335, g: 0.6901961, b: 0.58431375, a: 1}
   m_EffectDistance: {x: 2, y: -2}
   m_UseGraphicAlpha: 1
+--- !u!1 &425829123
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 425829124}
+  m_Layer: 0
+  m_Name: Player Card Root
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &425829124
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 425829123}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1444088590}
+  m_Father: {fileID: 2047245798}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &453150125
 GameObject:
   m_ObjectHideFlags: 0
@@ -4014,7 +4046,7 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 2047245798}
+    m_TransformParent: {fileID: 1951881984}
     m_Modifications:
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4038,7 +4070,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.z
@@ -6078,7 +6110,7 @@ PrefabInstance:
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 2047245798}
+    m_TransformParent: {fileID: 425829124}
     m_Modifications:
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6102,7 +6134,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 6882584917384914298, guid: e47fffba3c65e2b4397f017d48bdb314, type: 3}
       propertyPath: m_LocalRotation.z
@@ -9799,6 +9831,38 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!1 &1951881983
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1951881984}
+  m_Layer: 0
+  m_Name: Dealer Card Root
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1951881984
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1951881983}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1048253660}
+  m_Father: {fileID: 2047245798}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1964738048
 GameObject:
   m_ObjectHideFlags: 0
@@ -9847,13 +9911,18 @@ MonoBehaviour:
   communityCardVisual1: {fileID: 1513922318}
   communityCardVisual2: {fileID: 1561027692}
   dealerCardVisual: {fileID: 1048253661}
+  dealerCardRoot: {fileID: 1951881984}
   dealerCardPoint: {fileID: 1365583703}
   dealerShowdownCardPoint: {fileID: 544324701}
   playerCardVisual: {fileID: 1444088591}
+  playerCardRoot: {fileID: 425829124}
   playerCardPoint: {fileID: 1982585728}
   playerShowdownCardPoint: {fileID: 590688189}
   showdownRevealDuration: 0.3
   showdownCardInterval: 0.2
+  dealerNormalCardScale: {x: 0.5, y: 0.5, z: 0.5}
+  playerNormalCardScale: {x: 1, y: 1, z: 1}
+  showdownCardScale: {x: 1, y: 1, z: 1}
   cardDealPoint: {fileID: 1048253660}
   dealDuration: 0.2
   dealInterval: 0.05
@@ -10216,8 +10285,8 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 1444088590}
-  - {fileID: 1048253660}
+  - {fileID: 1951881984}
+  - {fileID: 425829124}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2049942321
