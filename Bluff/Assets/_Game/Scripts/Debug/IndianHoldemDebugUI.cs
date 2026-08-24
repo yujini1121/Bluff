@@ -274,10 +274,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        chipVisualController?.RefreshChips();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
-        TryStartCardDeal();
+
+        if (!TryStartRoundAnteAnimation())
+        {
+            chipVisualController?.RefreshChips();
+            TryStartCardDeal();
+        }
     }
 
     private void PrepareAndStartNextRound()
@@ -563,6 +567,58 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         cardVisualController.RefreshCards();
     }
 
+    private bool TryStartRoundAnteAnimation()
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginRoundAnte(
+                OnRoundAnteChipsMoved,
+                OnRoundAnteChipsMoveFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnRoundAnteChipsMoved(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompleteRoundAnte(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelRoundAnte();
+            chipVisualController.RefreshChips();
+        }
+
+        TryStartCardDeal();
+        RefreshView();
+    }
+
+    private void OnRoundAnteChipsMoveFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelRoundAnte();
+            chipVisualController.RefreshChips();
+        }
+
+        TryStartCardDeal();
+        RefreshView();
+    }
+
     private void OnCardDealCompleted()
     {
         isCardAnimating = false;
@@ -673,6 +729,56 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         if (chipVisualController != null)
         {
             chipVisualController.CancelPlayerCollect();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private bool TryStartDrawSettlement()
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginDrawSettlement(
+                OnDrawSettlementCompleted,
+                OnDrawSettlementFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnDrawSettlementCompleted(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompleteDrawSettlement(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelDrawSettlement();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private void OnDrawSettlementFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelDrawSettlement();
             chipVisualController.RefreshChips();
         }
 
@@ -827,7 +933,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             !chipVisualController.TryBeginDealerBet(
                 chipCount,
                 out GameObject[] chips,
-                out Vector3[] potTargetPositions))
+                out Vector3[] betAreaTargetPositions))
         {
             return false;
         }
@@ -836,12 +942,12 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         bool animationStarted = useAllInAnimation
             ? dealerAnimationController.TryPlayAllInChips(
                 chips,
-                potTargetPositions,
+                betAreaTargetPositions,
                 OnBetChipsMoved,
                 OnBetChipsMoveFailed)
             : dealerAnimationController.TryPlayCallChips(
                 chips,
-                potTargetPositions,
+                betAreaTargetPositions,
                 OnBetChipsMoved,
                 OnBetChipsMoveFailed);
 
@@ -1044,6 +1150,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             {
                 collectAnimationStarted =
                     TryStartDealerCollectAnimation(potBeforeSettlement);
+            }
+            else if (roundWinner == RoundWinner.Draw)
+            {
+                collectAnimationStarted = TryStartDrawSettlement();
             }
         }
 
