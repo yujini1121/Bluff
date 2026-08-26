@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
+using UnityEngine.Animations.Rigging;
 using UnityEngine.Serialization;
 
 public class DealerAnimationController : MonoBehaviour
@@ -24,6 +25,11 @@ public class DealerAnimationController : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
     [SerializeField] private Vector3 allInChipOffset;
+    [SerializeField] private TwoBoneIKConstraint rightArmIK;
+    [SerializeField] private Transform rightHandIKTarget;
+    [SerializeField] private Transform callGrabIKPoint;
+    [SerializeField] private Transform callPlaceIKPoint;
+    [SerializeField, Min(0f)] private float handIkBlendDuration = 0.1f;
     [SerializeField] private Transform potPoint;
     [SerializeField] private Transform dealerChipPoint;
     [FormerlySerializedAs("chip")]
@@ -40,6 +46,7 @@ public class DealerAnimationController : MonoBehaviour
     private float[] chipWorldYAtGrab;
     private float allInLockedFollowX;
     private bool keepChipWorldY;
+    private bool isCallMove;
     private bool isCollectMove;
     private bool isFollowingChipSocket;
     private Vector3[] betPotTargetPositions;
@@ -49,6 +56,7 @@ public class DealerAnimationController : MonoBehaviour
     private Coroutine foldTimeoutCoroutine;
     private Coroutine checkTimeoutCoroutine;
     private readonly List<Tween> betMoveTweens = new List<Tween>();
+    private Tween handIkWeightTween;
     private int completedBetMoveCount;
     private Action foldAnimationCompleted;
     private Action foldAnimationFailed;
@@ -189,7 +197,13 @@ public class DealerAnimationController : MonoBehaviour
         betMoveCompleted = onMoveCompleted;
         betMoveFailed = onMoveFailed;
         keepChipWorldY = triggerName == AllInTrigger;
+        isCallMove = triggerName == CallTrigger;
         isCollectMove = triggerName == CollectTrigger;
+
+        if (isCallMove)
+        {
+            ResetCallHandIK();
+        }
 
         animator.SetTrigger(triggerName);
         betTimeoutCoroutine = StartCoroutine(BetAnimationTimeoutRoutine());
@@ -248,6 +262,16 @@ public class DealerAnimationController : MonoBehaviour
             thinkLayerIndex);
     }
 
+    public void BeginCallGrabIK()
+    {
+        BeginCallHandIK(callGrabIKPoint);
+    }
+
+    public void BeginCallPlaceIK()
+    {
+        BeginCallHandIK(callPlaceIKPoint);
+    }
+
     public void GrabChip()
     {
         if (activeBetChips != null)
@@ -298,6 +322,12 @@ public class DealerAnimationController : MonoBehaviour
 
             isFollowingChipSocket = true;
             UpdateFollowedBetChips();
+
+            if (isCallMove)
+            {
+                BlendCallHandIK(0f);
+            }
+
             return;
         }
 
@@ -319,6 +349,12 @@ public class DealerAnimationController : MonoBehaviour
             }
 
             StartChipMove();
+
+            if (isCallMove)
+            {
+                BlendCallHandIK(0f);
+            }
+
             return;
         }
 
@@ -634,6 +670,13 @@ public class DealerAnimationController : MonoBehaviour
         chipWorldYAtGrab = null;
         allInLockedFollowX = 0f;
         keepChipWorldY = false;
+
+        if (isCallMove)
+        {
+            ResetCallHandIK();
+        }
+
+        isCallMove = false;
         isCollectMove = false;
         isFollowingChipSocket = false;
         betPotTargetPositions = null;
@@ -685,6 +728,7 @@ public class DealerAnimationController : MonoBehaviour
         FailBetChipMove(notifyFailure);
         FailFoldAnimation(notifyFailure);
         FailCheckAnimation(notifyFailure);
+        ResetCallHandIK();
     }
 
     private void OnApplicationQuit()
@@ -757,6 +801,78 @@ public class DealerAnimationController : MonoBehaviour
         }
 
         return center / activeBetChips.Length;
+    }
+
+    private void BeginCallHandIK(Transform targetPoint)
+    {
+        if (!isCallMove ||
+            rightArmIK == null ||
+            rightHandIKTarget == null ||
+            targetPoint == null)
+        {
+            return;
+        }
+
+        KillCallHandIKTween();
+        rightHandIKTarget.SetPositionAndRotation(
+            targetPoint.position,
+            targetPoint.rotation);
+        BlendCallHandIK(1f);
+    }
+
+    private void BlendCallHandIK(float targetWeight)
+    {
+        KillCallHandIKTween();
+
+        if (rightArmIK == null)
+        {
+            return;
+        }
+
+        float duration = Mathf.Max(0f, handIkBlendDuration);
+
+        if (duration <= 0f)
+        {
+            rightArmIK.weight = targetWeight;
+            return;
+        }
+
+        handIkWeightTween = DOTween
+            .To(
+                () => rightArmIK != null
+                    ? rightArmIK.weight
+                    : 0f,
+                value =>
+                {
+                    if (rightArmIK != null)
+                    {
+                        rightArmIK.weight = value;
+                    }
+                },
+                targetWeight,
+                duration)
+            .SetEase(Ease.OutQuad);
+    }
+
+    private void ResetCallHandIK()
+    {
+        KillCallHandIKTween();
+
+        if (rightArmIK != null)
+        {
+            rightArmIK.weight = 0f;
+        }
+    }
+
+    private void KillCallHandIKTween()
+    {
+        if (handIkWeightTween == null)
+        {
+            return;
+        }
+
+        handIkWeightTween.Kill(false);
+        handIkWeightTween = null;
     }
 
     private void Update()
