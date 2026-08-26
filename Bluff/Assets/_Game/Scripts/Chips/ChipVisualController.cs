@@ -409,7 +409,9 @@ public sealed class ChipVisualController : MonoBehaviour
 
             chips[index] = chip;
             dealerTargetPositions[index] = dealerChipArea.TransformPoint(
-                GetChipLocalPosition(dealerChipInstances.Count + index));
+                GetChipLocalPosition(
+                    dealerChipInstances.Count + index,
+                    true));
         }
 
         isDealerCollectPending = true;
@@ -760,6 +762,8 @@ public sealed class ChipVisualController : MonoBehaviour
         List<GameObject> winnerChipInstances = foldedBy == TurnOwner.Player
             ? dealerChipInstances
             : playerChipInstances;
+        bool stackWinnerChipsFromRight =
+            winnerChipInstances == dealerChipInstances;
         Transform winnerChipArea = foldedBy == TurnOwner.Player
             ? dealerChipArea
             : playerChipArea;
@@ -797,7 +801,9 @@ public sealed class ChipVisualController : MonoBehaviour
             }
 
             targetPositions[index] = winnerChipArea.TransformPoint(
-                GetChipLocalPosition(winnerChipInstances.Count + index));
+                GetChipLocalPosition(
+                    winnerChipInstances.Count + index,
+                    stackWinnerChipsFromRight));
         }
 
         for (int index = 0; index < penaltyChipCount; index++)
@@ -814,7 +820,8 @@ public sealed class ChipVisualController : MonoBehaviour
 
             targetPositions[targetIndex] = winnerChipArea.TransformPoint(
                 GetChipLocalPosition(
-                    winnerChipInstances.Count + targetIndex));
+                    winnerChipInstances.Count + targetIndex,
+                    stackWinnerChipsFromRight));
         }
 
         isFoldSettlementPending = true;
@@ -1513,21 +1520,26 @@ public sealed class ChipVisualController : MonoBehaviour
 
     private void ArrangeChips(List<GameObject> instances)
     {
+        bool stackFromRight = instances == dealerChipInstances;
+
         for (int index = 0; index < instances.Count; index++)
         {
             instances[index].transform.localPosition =
-                GetChipLocalPosition(index);
+                GetChipLocalPosition(index, stackFromRight);
         }
     }
 
-    private Vector3 GetChipLocalPosition(int index)
+    private Vector3 GetChipLocalPosition(
+        int index,
+        bool stackFromRight = false)
     {
         int stackSize = Mathf.Max(1, maxChipsPerStack);
         int stackIndex = index / stackSize;
         int heightIndex = index % stackSize;
+        float stackDirection = stackFromRight ? -1f : 1f;
 
         return new Vector3(
-            stackIndex * Mathf.Max(0f, stackSpacing),
+            stackIndex * Mathf.Max(0f, stackSpacing) * stackDirection,
             heightIndex * Mathf.Max(0f, chipHeightSpacing),
             0f);
     }

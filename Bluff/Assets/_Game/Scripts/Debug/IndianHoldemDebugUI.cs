@@ -508,7 +508,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        dealerAnimationController?.StopThink();
+        if (dealerAnimationController != null)
+        {
+            dealerAnimationController.StopThink();
+        }
+
         StopCoroutine(dealerActionCoroutine);
         dealerActionCoroutine = null;
     }
