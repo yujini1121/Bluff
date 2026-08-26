@@ -5,6 +5,10 @@ using static UnityEditor.Progress;
 
 public class ItemSystem : MonoBehaviour
 {
+    private const int AnteAmount = 1;
+    private const int TotalAnteAmount = AnteAmount * 2;
+    private const int MaximumFoldPenaltyAmount = 10;
+
     private ItemGameApi itemGameApi;
 
     public List<GameObject> itemList = new List<GameObject>(); // 전체 아이템 목록
@@ -115,7 +119,18 @@ public class ItemSystem : MonoBehaviour
         switch (ItemType)
         {
             case ItemType.refreshCard:
-                // 새로고침 카드 사용 가능 여부 확인 로직 구현
+                // Betting Phase에서만 사용 가능
+                if (itemGameApi.GetCurrentPhase() != GamePhase.Betting)
+                {
+                    Debug.LogWarning("'새로고침 카드' 아이템은 Betting Phase에서만 사용 가능합니다.");
+                    return false;
+                }
+                // Betting된 칩이 없을 경우에만 사용 가능
+                if (itemGameApi.GetPot() != TotalAnteAmount) // 전 라운드가 무승부였을 때도 진행 가능하게 재구성해야함
+                {
+                    Debug.LogWarning("'새로고침 카드' 아이템은 베팅이 진행되기 전에 사용 가능합니다.");
+                    return false;
+                }
                 break;
             case ItemType.prizmChip:
                 // 프리즘 칩 사용 가능 여부 확인 로직 구현
@@ -142,9 +157,10 @@ public class ItemSystem : MonoBehaviour
     // 아이템 효과
     private void RefreshCard()
     {
-        // 1. Player & AI & Seed Card Reset
-        // 2. Deck Shuffle
-        // 3. Player & AI & Seed Card Draw
+        itemGameApi.TryReplaceCard(CardTarget.Player);
+        itemGameApi.TryReplaceCard(CardTarget.Dealer);
+        itemGameApi.TryReplaceCard(CardTarget.CommunityCard1);
+        itemGameApi.TryReplaceCard(CardTarget.CommunityCard2);
     }
 
     private void PrizmChip()

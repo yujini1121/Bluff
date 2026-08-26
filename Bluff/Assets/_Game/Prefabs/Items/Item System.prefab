@@ -45,6 +45,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   itemList:
-  - {fileID: 7499053325944441585, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
+  - {fileID: 4266628273308215506, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
+  - {fileID: 9109885737611708634, guid: 988b413a0a059fc46990422995127199, type: 3}
   playerItemInventory: []
   dealerItemInventory: []
+  chipPocketAmount: 2

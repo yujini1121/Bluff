@@ -5833,6 +5833,9 @@ MonoBehaviour:
   dealerActionDelay: 2
   uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
   itemSystem: {fileID: 0}
+  cardVisualController: {fileID: 0}
+  chipVisualController: {fileID: 0}
+  dealerAnimationController: {fileID: 0}
   phaseText: {fileID: 1625103350}
   turnText: {fileID: 2004717289}
   dealerCardText: {fileID: 677522193}
@@ -5854,6 +5857,7 @@ MonoBehaviour:
   resultOverlay: {fileID: 718214425}
   resultTitleText: {fileID: 909359381}
   resultDetailText: {fileID: 2147120347}
+  showdownResultDelay: 1
   debugPanel: {fileID: 1224250665}
   debugInfoText: {fileID: 1431586625}
   messageText: {fileID: 1511991287}

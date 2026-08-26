@@ -14,6 +14,11 @@ public sealed class ItemGameApi
         return gameState.Phase;
     }
 
+    public int GetPot()
+    {
+        return gameState.Pot.Amount;
+    }
+
     public bool TryGiveChips(TurnOwner target, int amount)
     {
         switch (target)
@@ -29,11 +34,15 @@ public sealed class ItemGameApi
 
     public bool TryReplaceCard(CardTarget target)
     {
+        // Check : 카드 재설정이 가능한 상태인가?
         if (!CanReplaceCard(target) || gameState.Deck.RemainingCount == 0)
         {
             return false;
         }
 
+        // 기존 카드를 덱에 다시 넣음
+
+        // 카드를 뽑음
         if (!gameState.Deck.TryDraw(out Card card))
         {
             return false;
