@@ -115,16 +115,24 @@ public class ItemSystem : MonoBehaviour
 
     private bool CanUseItem(ItemType ItemType)
     {
-        // 아이템 사용 가능 여부 확인
+        // 아이템은 Betting Phase에서만 사용 가능
+        if (itemGameApi.GetCurrentPhase() != GamePhase.Betting)
+        {
+            Debug.LogWarning("아이템은 Betting Phase에서만 사용 가능합니다.");
+            return false;
+        }
+
+        // 아이템은 내 턴일 때만 사용 가능
+        if (itemGameApi.GetCurrentTurn() != TurnOwner.Player)
+        {
+            Debug.LogWarning("아이템은 내 차례일 때만 사용할 수 있습니다.");
+            return false;
+        }
+
+        // 개별 아이템 사용 조건 확인
         switch (ItemType)
         {
             case ItemType.refreshCard:
-                // Betting Phase에서만 사용 가능
-                if (itemGameApi.GetCurrentPhase() != GamePhase.Betting)
-                {
-                    Debug.LogWarning("'새로고침 카드' 아이템은 Betting Phase에서만 사용 가능합니다.");
-                    return false;
-                }
                 // Betting된 칩이 없을 경우에만 사용 가능
                 if (itemGameApi.GetPot() != TotalAnteAmount) // 전 라운드가 무승부였을 때도 진행 가능하게 재구성해야함
                 {
@@ -133,18 +141,18 @@ public class ItemSystem : MonoBehaviour
                 }
                 break;
             case ItemType.prizmChip:
-                // 프리즘 칩 사용 가능 여부 확인 로직 구현
+                // 다른 조건 없음
                 break;
             case ItemType.chipPocket:
-                // Betting Phase에서만 사용 가능
-                if (itemGameApi.GetCurrentPhase() != GamePhase.Betting)
-                {
-                    Debug.LogWarning("'칩 포켓' 아이템은 Betting Phase에서만 사용 가능합니다.");
-                    return false;
-                }
+                // 다른 조건 없음
                 break;
             case ItemType.checker:
-                // 체커 사용 가능 여부 확인 로직 구현
+                // Betting된 칩이 있을 경우에만 사용 가능
+                if (itemGameApi.GetPot() == TotalAnteAmount)
+                {
+                    Debug.LogWarning("'체커' 아이템은 베팅이 진행된 후에 사용 가능합니다.");
+                    return false;
+                }
                 break;
             default:
                 Debug.LogWarning("잘못된 아이템 타입입니다.");
@@ -165,7 +173,7 @@ public class ItemSystem : MonoBehaviour
 
     private void PrizmChip()
     {
-        // 패널티 칩을 반납하지 않는 로직 구현
+        itemGameApi.TryFoldWithoutPenalty();
     }
 
     private void ChipPocket()
@@ -175,6 +183,6 @@ public class ItemSystem : MonoBehaviour
 
     private void Checker()
     {
-        // 베팅을 강제 종료하는 로직 구현
+        
     }
 }

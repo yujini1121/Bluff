@@ -9,6 +9,11 @@ public sealed class ItemGameApi
         this.gameState = gameState ?? throw new ArgumentNullException(nameof(gameState));
     }
 
+    public TurnOwner GetCurrentTurn()
+    {
+        return gameState.CurrentTurn;
+    }
+
     public GamePhase GetCurrentPhase()
     {
         return gameState.Phase;
