@@ -82,17 +82,16 @@ public class ItemSystem : MonoBehaviour
         switch (type)
         {
             case ItemType.refreshCard:
-                Debug.Log("'새로고침 카드' 아이템이 사용되었습니다. 시드 카드와 각 플레이어의 카드를 재설정합니다.");
+                RefreshCard();
                 break;
             case ItemType.prizmChip:
-                Debug.Log("'프리즘 칩' 아이템이 사용되었습니다. 패널티 칩을 반납하지 않습니다.");
+                PrizmChip();
                 break;
             case ItemType.chipPocket:
-                Debug.Log("'칩 포켓' 아이템이 사용되었습니다. 일정량의 칩을 얻습니다.");
-                itemGameApi.TryGiveChips(target, chipPocketAmount);
+                ChipPocket();
                 break;
             case ItemType.checker:
-                Debug.Log("'체커' 아이템이 사용되었습니다. 베팅을 강제 종료합니다.");
+                Checker();
                 break;
             default:
                 Debug.LogWarning("아이템이 사용되지 않았습니다.");
@@ -169,20 +168,30 @@ public class ItemSystem : MonoBehaviour
         itemGameApi.TryReplaceCard(CardTarget.Dealer);
         itemGameApi.TryReplaceCard(CardTarget.CommunityCard1);
         itemGameApi.TryReplaceCard(CardTarget.CommunityCard2);
+
+        // 새로고침 후 기존 카드가 삭제되는 현상 수정 필요
+
+        Debug.Log("'새로고침 카드' 아이템이 사용되었습니다. 시드 카드와 각 플레이어의 카드를 재설정합니다.");
     }
 
-    private void PrizmChip()
+    private void PrizmChip() // 작동 확인
     {
         itemGameApi.TryFoldWithoutPenalty();
+        Debug.Log("'프리즘 칩' 아이템이 사용되었습니다. 라운드를 포기합니다. 발생한 페널티를 무시합니다.");
     }
 
-    private void ChipPocket()
+    private void ChipPocket() // 작동 확인
     {
         itemGameApi.TryGiveChips(TurnOwner.Player, chipPocketAmount);
+        Debug.Log("'칩 포켓' 아이템이 사용되었습니다. 일정량의 칩을 얻습니다.");
     }
 
     private void Checker()
     {
-        
+        itemGameApi.TryCall();
+
+        // 콜 할때 칩 소모되는 현상 수정 필요
+
+        Debug.Log("'체커' 아이템이 사용되었습니다. 베팅을 강제 종료합니다.");
     }
 }
