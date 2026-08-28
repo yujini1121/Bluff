@@ -164,12 +164,7 @@ public class ItemSystem : MonoBehaviour
     // 아이템 효과
     private void RefreshCard()
     {
-        itemGameApi.TryReplaceCard(CardTarget.Player);
-        itemGameApi.TryReplaceCard(CardTarget.Dealer);
-        itemGameApi.TryReplaceCard(CardTarget.CommunityCard1);
-        itemGameApi.TryReplaceCard(CardTarget.CommunityCard2);
-
-        // 새로고침 후 기존 카드가 삭제되는 현상 수정 필요
+        itemGameApi.TryReplaceCard();
 
         Debug.Log("'새로고침 카드' 아이템이 사용되었습니다. 시드 카드와 각 플레이어의 카드를 재설정합니다.");
     }

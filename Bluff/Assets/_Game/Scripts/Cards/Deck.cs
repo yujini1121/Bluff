@@ -49,6 +49,11 @@ public sealed class Deck
         return new Deck(cards);
     }
 
+    public void AddCard(Card card)
+    {
+        cards.Add(card);
+    }
+
     public void Shuffle()
     {
         for (int index = cards.Count - 1; index > 0; index--)
