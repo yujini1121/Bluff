@@ -77,6 +77,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private Button resolveShowdownButton;
     [SerializeField] private Button nextRoundButton;
 
+    [Header("Player Raise 선택")]
+    [SerializeField] private Button raiseDecreaseButton;
+    [SerializeField] private TMP_Text raiseAmountText;
+    [SerializeField] private Button raiseIncreaseButton;
+    [SerializeField] private Button raiseMaxButton;
+    [SerializeField] private Button raiseExecuteButton;
+    [SerializeField] private TMP_Text raiseExecuteText;
+
     private readonly List<string> logs = new List<string>();
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
@@ -95,6 +103,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool isShuttingDown;
     private bool isRestarting;
     private bool recoverShowdownPresentationOnEnable;
+    private int selectedRaiseBy = 1;
 
     private void OnEnable()
     {
@@ -194,12 +203,76 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     public void OnRaiseOneClicked()
     {
-        RunPlayerBettingAction("레이즈 +1", () => gameState.TryRaise(1));
+        OnRaiseDecreaseClicked();
     }
 
     public void OnRaiseFiveClicked()
     {
-        RunPlayerBettingAction("레이즈 +7", () => gameState.TryRaise(7));
+        OnRaiseIncreaseClicked();
+    }
+
+    public void OnRaiseDecreaseClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        ClampSelectedRaiseBy(maxRaiseBy);
+        selectedRaiseBy = Mathf.Max(1, selectedRaiseBy - 1);
+        RefreshView();
+    }
+
+    public void OnRaiseIncreaseClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        ClampSelectedRaiseBy(maxRaiseBy);
+        selectedRaiseBy = Mathf.Min(maxRaiseBy, selectedRaiseBy + 1);
+        RefreshView();
+    }
+
+    public void OnRaiseMaxClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        selectedRaiseBy = maxRaiseBy;
+        RefreshView();
+    }
+
+    public void OnRaiseClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        ClampSelectedRaiseBy(maxRaiseBy);
+        int raiseBy = selectedRaiseBy;
+        bool isAllIn = raiseBy == maxRaiseBy;
+        string actionName = isAllIn ? "올인" : $"레이즈 +{raiseBy}";
+
+        RunPlayerBettingAction(
+            actionName,
+            () =>
+            {
+                bool succeeded = isAllIn
+                    ? gameState.TryAllIn()
+                    : gameState.TryRaise(raiseBy);
+
+                if (succeeded)
+                {
+                    selectedRaiseBy = 1;
+                }
+
+                return succeeded;
+            });
     }
 
     public void OnAllInClicked()
@@ -1269,6 +1342,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             callActionButtons[index].interactable = canCall;
         }
 
+        RefreshRaiseSelection(canAcceptPlayerBettingInput);
+
         RefreshTurnHighlight(dealerTurn, playerTurn);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
@@ -1364,6 +1439,54 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         int callAmount =
             gameState.Betting.GetCallAmount(TurnOwner.Player);
         return callAmount > gameState.PlayerChips.Count;
+    }
+
+    private void RefreshRaiseSelection(bool canAcceptPlayerBettingInput)
+    {
+        int maxRaiseBy = GetMaxPlayerRaiseBy();
+        ClampSelectedRaiseBy(maxRaiseBy);
+        bool canRaise = canAcceptPlayerBettingInput && maxRaiseBy > 0;
+
+        raiseDecreaseButton.interactable =
+            canRaise && selectedRaiseBy > 1;
+        raiseIncreaseButton.interactable =
+            canRaise && selectedRaiseBy < maxRaiseBy;
+        raiseMaxButton.interactable =
+            canRaise && selectedRaiseBy < maxRaiseBy;
+        raiseExecuteButton.interactable = canRaise;
+
+        raiseAmountText.text = maxRaiseBy > 0
+            ? $"+{selectedRaiseBy}"
+            : "+0";
+        raiseExecuteText.text = maxRaiseBy > 0 &&
+                                selectedRaiseBy == maxRaiseBy
+            ? "ALL IN"
+            : "RAISE";
+    }
+
+    private bool CanSelectPlayerRaise(out int maxRaiseBy)
+    {
+        maxRaiseBy = GetMaxPlayerRaiseBy();
+        return CanAcceptPlayerBettingInput() && maxRaiseBy > 0;
+    }
+
+    private int GetMaxPlayerRaiseBy()
+    {
+        if (gameState == null)
+        {
+            return 0;
+        }
+
+        int callAmount =
+            gameState.Betting.GetCallAmount(TurnOwner.Player);
+        return gameState.PlayerChips.Count - callAmount;
+    }
+
+    private void ClampSelectedRaiseBy(int maxRaiseBy)
+    {
+        selectedRaiseBy = maxRaiseBy > 0
+            ? Mathf.Clamp(selectedRaiseBy, 1, maxRaiseBy)
+            : 1;
     }
 
     private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
@@ -1531,6 +1654,12 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                playerActionBar != null &&
                contextActionArea != null &&
                HasAllBettingActionButtons() &&
+               raiseDecreaseButton != null &&
+               raiseAmountText != null &&
+               raiseIncreaseButton != null &&
+               raiseMaxButton != null &&
+               raiseExecuteButton != null &&
+               raiseExecuteText != null &&
                resolveShowdownButton != null &&
                nextRoundButton != null &&
                restartButton != null;
