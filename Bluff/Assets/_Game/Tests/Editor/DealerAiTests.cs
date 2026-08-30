@@ -3,7 +3,7 @@ using NUnit.Framework;
 public sealed class DealerAiTests
 {
     [Test]
-    public void Decide_WithNoCallAmount_SelectsCheck()
+    public void Decide_WithNoCallAmount_SelectsRaiseWhenRaiseIsPossible()
     {
         GameState gameState = CreateDealerTurnGame(
             10,
@@ -16,7 +16,7 @@ public sealed class DealerAiTests
 
         DealerDecision decision = dealerAi.Decide(gameState, 50);
 
-        Assert.That(decision, Is.EqualTo(DealerDecision.Check));
+        Assert.That(decision, Is.EqualTo(DealerDecision.Raise));
     }
 
     [TestCase(1, 4, 7, 5, DealerDecision.Fold)]
@@ -97,14 +97,14 @@ public sealed class DealerAiTests
     }
 
     [Test]
-    public void Decide_WithNoCallAmountChecksOutsideRaiseChance()
+    public void Decide_WithNoCallAmountIgnoresPreviousRaiseChance()
     {
         GameState gameState = CreateDealerTurnGame(10, 10, 1, 2, 4, 7);
         var dealerAi = new DealerAi();
 
         DealerDecision decision = dealerAi.Decide(gameState, 35);
 
-        Assert.That(decision, Is.EqualTo(DealerDecision.Check));
+        Assert.That(decision, Is.EqualTo(DealerDecision.Raise));
     }
 
     [Test]
@@ -126,7 +126,7 @@ public sealed class DealerAiTests
 
         DealerDecision decision = dealerAi.Decide(gameState, 0);
 
-        Assert.That(decision, Is.EqualTo(DealerDecision.Check));
+        Assert.That(decision, Is.EqualTo(DealerDecision.Fold));
     }
 
     [Test]
@@ -168,7 +168,7 @@ public sealed class DealerAiTests
     }
 
     [Test]
-    public void Execute_CheckUsesGameStateWithoutMovingChips()
+    public void Execute_RaiseAtEqualBetsReturnsTurnToPlayer()
     {
         GameState gameState = CreateDealerTurnGame(10, 10, 1, 2, 4, 7);
         var dealerAi = new DealerAi();
@@ -177,9 +177,9 @@ public sealed class DealerAiTests
         Assert.That(dealerAi.TryExecute(gameState, decision), Is.True);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(10));
-        Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
-        Assert.That(gameState.Pot.Amount, Is.Zero);
-        Assert.That(gameState.Betting.PendingCheckBy, Is.EqualTo(TurnOwner.Dealer));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(9));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(1));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(1));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
     }
@@ -191,7 +191,7 @@ public sealed class DealerAiTests
         var dealerAi = new DealerAi();
 
         Assert.That(
-            dealerAi.TryExecute(gameState, DealerDecision.Check),
+            dealerAi.TryExecute(gameState, DealerDecision.Fold),
             Is.True);
 
         int playerChips = gameState.PlayerChips.Count;
@@ -199,15 +199,15 @@ public sealed class DealerAiTests
         int potAmount = gameState.Pot.Amount;
 
         Assert.That(
-            dealerAi.TryExecute(gameState, DealerDecision.Check),
+            dealerAi.TryExecute(gameState, DealerDecision.Fold),
             Is.False);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(playerChips));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(dealerChips));
         Assert.That(gameState.Pot.Amount, Is.EqualTo(potAmount));
-        Assert.That(gameState.Betting.PendingCheckBy, Is.EqualTo(TurnOwner.Dealer));
-        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
-        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+        Assert.That(gameState.FoldedBy, Is.EqualTo(TurnOwner.Dealer));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
     }
 
     [Test]
@@ -295,13 +295,12 @@ public sealed class DealerAiTests
         var dealerAi = new DealerAi();
 
         Assert.That(
-            dealerAi.TryExecute(gameState, DealerDecision.Check),
+            dealerAi.TryExecute(gameState, DealerDecision.Fold),
             Is.False);
 
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(10));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
         Assert.That(gameState.Pot.Amount, Is.Zero);
-        Assert.That(gameState.Betting.PendingCheckBy, Is.EqualTo(TurnOwner.None));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
     }

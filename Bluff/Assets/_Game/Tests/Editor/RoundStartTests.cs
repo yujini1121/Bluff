@@ -62,7 +62,7 @@ public sealed class RoundStartTests
     }
 
     [Test]
-    public void StartRound_CarriedPotAndBothSidesHaveNoChips_AllowsCheckShowdown()
+    public void StartRound_CarriedPotAndBothSidesHaveNoChips_AllowsFold()
     {
         var gameState = new GameState(
             0,
@@ -71,13 +71,13 @@ public sealed class RoundStartTests
         Assert.That(gameState.Pot.TryAdd(40), Is.True);
 
         Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TryFold(), Is.True);
 
-        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Dealer));
         Assert.That(gameState.PlayerChips.Count, Is.Zero);
-        Assert.That(gameState.DealerChips.Count, Is.Zero);
-        Assert.That(gameState.Pot.Amount, Is.EqualTo(40));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(40));
+        Assert.That(gameState.Pot.Amount, Is.Zero);
         Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
         Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
     }
@@ -100,8 +100,7 @@ public sealed class RoundStartTests
         Assert.That(gameState.Pot.TryAdd(39), Is.True);
 
         Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
         Assert.That(
             gameState.TrySettleShowdown(out RoundWinner winner),
             Is.True);
@@ -126,8 +125,7 @@ public sealed class RoundStartTests
             CreateDeckForRound(6, 4, 4, 5));
         Assert.That(gameState.Pot.TryAdd(39), Is.True);
         Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
 
         Assert.That(
             gameState.TrySettleShowdown(out RoundWinner winner),
@@ -150,8 +148,7 @@ public sealed class RoundStartTests
             CreateDeckForRound(9, 4, 4, 7));
         Assert.That(gameState.Pot.TryAdd(39), Is.True);
         Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
-        Assert.That(gameState.TryCheck(), Is.True);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
 
         Assert.That(
             gameState.TrySettleShowdown(out RoundWinner winner),

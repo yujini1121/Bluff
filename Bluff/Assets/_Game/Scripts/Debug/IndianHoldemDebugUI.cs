@@ -79,6 +79,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private readonly List<string> logs = new List<string>();
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
+    private readonly List<Button> callActionButtons = new List<Button>();
     private GameState gameState;
     private DealerAi dealerAi;
     private Coroutine dealerActionCoroutine;
@@ -133,6 +134,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         debugPanelOpen = false;
         dealerAi = new DealerAi();
         CacheCallActionTexts();
+        HideStandaloneAllInActions();
         CreateDebugGame();
         RefreshView();
     }
@@ -176,19 +178,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     public void OnCallClicked()
     {
-        if (gameState == null)
+        if (IsPlayerShortAllInRequired())
         {
+            RunPlayerBettingAction("올인", () => gameState.TryAllIn());
             return;
         }
 
-        if (gameState.Betting.GetCallAmount(TurnOwner.Player) == 0)
-        {
-            RunPlayerBettingAction("체크", gameState.TryCheck);
-        }
-        else
-        {
-            RunPlayerBettingAction("콜", gameState.TryCall);
-        }
+        RunPlayerBettingAction("콜", () => gameState.TryCall());
     }
 
     public void OnFoldClicked()
@@ -306,6 +302,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        cardVisualController?.RefreshDeckStack();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
@@ -550,15 +547,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
 
-            bool checkPresentationStarted =
-                decision == DealerDecision.Check &&
-                TryStartDealerCheckPresentation();
-
-            if (checkPresentationStarted)
-            {
-                // 실제 Check 결과는 Animation 완료 Callback에서 기록한다.
-            }
-            else if (dealerAi.TryExecute(gameState, decision))
+            if (dealerAi.TryExecute(gameState, decision))
             {
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
@@ -902,44 +891,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             foldedBy,
             potChipCount,
             penaltyChipCount);
-    }
-
-    private bool TryStartDealerCheckPresentation()
-    {
-        if (dealerAnimationController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (dealerAnimationController.TryPlayCheck(
-                OnDealerCheckAnimationFinished,
-                OnDealerCheckAnimationFinished))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private void OnDealerCheckAnimationFinished()
-    {
-        isChipAnimating = false;
-
-        if (gameState != null &&
-            dealerAi.TryExecute(gameState, DealerDecision.Check))
-        {
-            AddLog("DEALER CHECK");
-            AddBettingResultLog();
-        }
-        else
-        {
-            AddLog("DEALER CHECK 실패");
-        }
-
-        RefreshView();
     }
 
     private void OnDealerFoldAnimationFinished(
@@ -1309,6 +1260,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 canAcceptPlayerBettingInput;
         }
 
+        bool canCall =
+            canAcceptPlayerBettingInput &&
+            gameState.Betting.GetCallAmount(TurnOwner.Player) > 0;
+
+        for (int index = 0; index < callActionButtons.Count; index++)
+        {
+            callActionButtons[index].interactable = canCall;
+        }
+
         RefreshTurnHighlight(dealerTurn, playerTurn);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
@@ -1327,6 +1287,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void CacheCallActionTexts()
     {
         callActionTexts.Clear();
+        callActionButtons.Clear();
 
         for (int buttonIndex = 0;
              buttonIndex < bettingActionButtons.Length;
@@ -1352,22 +1313,57 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                     callActionTexts.Add(actionText);
                 }
 
+                callActionButtons.Add(button);
+
                 break;
+            }
+        }
+    }
+
+    private void HideStandaloneAllInActions()
+    {
+        for (int buttonIndex = 0;
+             buttonIndex < bettingActionButtons.Length;
+             buttonIndex++)
+        {
+            Button button = bettingActionButtons[buttonIndex];
+
+            for (int eventIndex = 0;
+                 eventIndex < button.onClick.GetPersistentEventCount();
+                 eventIndex++)
+            {
+                if (button.onClick.GetPersistentMethodName(eventIndex) ==
+                    nameof(OnAllInClicked))
+                {
+                    button.gameObject.SetActive(false);
+                    break;
+                }
             }
         }
     }
 
     private void RefreshCallActionTexts()
     {
-        string actionText =
-            gameState.Betting.GetCallAmount(gameState.CurrentTurn) == 0
-                ? "CHECK"
-                : "CALL";
+        string actionText = IsPlayerShortAllInRequired()
+            ? "ALL IN"
+            : "CALL";
 
         for (int index = 0; index < callActionTexts.Count; index++)
         {
             callActionTexts[index].text = actionText;
         }
+    }
+
+    private bool IsPlayerShortAllInRequired()
+    {
+        if (gameState == null)
+        {
+            return false;
+        }
+
+        int callAmount =
+            gameState.Betting.GetCallAmount(TurnOwner.Player);
+        return callAmount > gameState.PlayerChips.Count;
     }
 
     private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
@@ -1645,8 +1641,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         switch (decision)
         {
-            case DealerDecision.Check:
-                return "CHECK";
             case DealerDecision.Call:
                 return "CALL";
             case DealerDecision.Raise:

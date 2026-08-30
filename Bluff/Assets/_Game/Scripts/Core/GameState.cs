@@ -387,27 +387,6 @@ public sealed class GameState
         ownerChips.TrySpend(amount);
         Pot.TryAdd(amount);
         Betting.TryAddToTotalBet(CurrentTurn, amount);
-        Betting.ResetPendingCheck();
-    }
-
-    public bool TryCheck()
-    {
-        if (Phase != GamePhase.Betting ||
-            !IsActiveTurn(CurrentTurn) ||
-            Betting.GetCallAmount(CurrentTurn) != 0)
-        {
-            return false;
-        }
-
-        if (Betting.PendingCheckBy == GetOpponent(CurrentTurn))
-        {
-            FinishBetting();
-            return true;
-        }
-
-        Betting.RecordCheck(CurrentTurn);
-        Turn.TrySwitch();
-        return true;
     }
 
     public bool TryCall()
@@ -512,7 +491,6 @@ public sealed class GameState
 
     private void FinishBetting()
     {
-        Betting.ResetPendingCheck();
         Phase = GamePhase.Showdown;
         Turn.Reset();
     }

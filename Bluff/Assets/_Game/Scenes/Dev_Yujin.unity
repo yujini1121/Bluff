@@ -475,8 +475,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd1ee89ee7f143828d69078fd93b6b5f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerStartingChips: 12
-  dealerStartingChips: 12
+  playerStartingChips: 2
+  dealerStartingChips: 10
   firstTurn: 2
   maxLogLines: 8
   dealerActionDelay: 2
@@ -10270,6 +10270,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   communityCardVisual1: {fileID: 1513922318}
   communityCardVisual2: {fileID: 1561027692}
+  deckStackVisual: {fileID: 0}
   dealerCardVisual: {fileID: 1048253661}
   dealerCardRoot: {fileID: 1951881984}
   dealerCardPoint: {fileID: 1365583703}

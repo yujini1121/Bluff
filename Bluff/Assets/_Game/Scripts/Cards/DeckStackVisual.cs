@@ -21,11 +21,6 @@ public class DeckStackVisual : MonoBehaviour
         SetCardCount(maxCardCount);
     }
 
-    private void Start()
-    {
-        SetCardCount(32);
-    }
-
     private void BuildDeck()
     {
         if (cards.Count > 0)

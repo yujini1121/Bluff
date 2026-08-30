@@ -3,7 +3,6 @@ using System;
 public enum DealerDecision
 {
     None,
-    Check,
     Call,
     Raise,
     Fold,
@@ -40,23 +39,22 @@ public sealed class DealerAi
             return DealerDecision.AllIn;
         }
 
-        if (!gameState.TryGetVisiblePlayerHandRank(out HandRank playerHandRank))
-        {
-            return callAmount == 0
-                ? DealerDecision.Check
-                : DealerDecision.Call;
-        }
-
-        int normalizedRoll = Math.Max(0, Math.Min(99, randomRoll));
-        int raiseChance = GetRaiseChance(playerHandRank);
         bool canRaise = CanRaise(gameState, callAmount);
 
         if (callAmount == 0)
         {
-            return canRaise && normalizedRoll < raiseChance
+            return canRaise
                 ? DealerDecision.Raise
-                : DealerDecision.Check;
+                : DealerDecision.Fold;
         }
+
+        if (!gameState.TryGetVisiblePlayerHandRank(out HandRank playerHandRank))
+        {
+            return DealerDecision.Call;
+        }
+
+        int normalizedRoll = Math.Max(0, Math.Min(99, randomRoll));
+        int raiseChance = GetRaiseChance(playerHandRank);
 
         int foldChance = GetFoldChance(playerHandRank);
 
@@ -88,8 +86,6 @@ public sealed class DealerAi
 
         switch (decision)
         {
-            case DealerDecision.Check:
-                return gameState.TryCheck();
             case DealerDecision.Call:
                 return gameState.TryCall();
             case DealerDecision.Raise:

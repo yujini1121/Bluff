@@ -9,6 +9,9 @@ public sealed class CardVisualController : MonoBehaviour
     [SerializeField] private CardVisual communityCardVisual1;
     [SerializeField] private CardVisual communityCardVisual2;
 
+    [Header("Deck Stack")]
+    [SerializeField] private DeckStackVisual deckStackVisual;
+
     [Header("Dealer Card")]
     [SerializeField] private CardVisual dealerCardVisual;
     [SerializeField] private Transform dealerCardRoot;
@@ -60,7 +63,18 @@ public sealed class CardVisualController : MonoBehaviour
     public void Initialize(GameState state)
     {
         gameState = state;
+
+        if (deckStackVisual == null)
+        {
+            deckStackVisual = FindObjectOfType<DeckStackVisual>();
+        }
+
         RefreshCards();
+    }
+
+    private void Start()
+    {
+        RefreshDeckStack();
     }
 
     public void RefreshCards()
@@ -68,6 +82,15 @@ public sealed class CardVisualController : MonoBehaviour
         SetCard(communityCardVisual1, gameState?.CommunityCard1);
         SetCard(communityCardVisual2, gameState?.CommunityCard2);
         ResetPrivateCardVisuals();
+        RefreshDeckStack();
+    }
+
+    public void RefreshDeckStack()
+    {
+        if (gameState != null && deckStackVisual != null)
+        {
+            deckStackVisual.SetCardCount(gameState.Deck.RemainingCount);
+        }
     }
 
     public bool TryPlayShowdownReveal(
