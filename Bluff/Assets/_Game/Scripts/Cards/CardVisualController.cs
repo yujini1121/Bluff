@@ -72,11 +72,6 @@ public sealed class CardVisualController : MonoBehaviour
         RefreshCards();
     }
 
-    private void Start()
-    {
-        RefreshDeckStack();
-    }
-
     public void RefreshCards()
     {
         SetCard(communityCardVisual1, gameState?.CommunityCard1);
@@ -318,7 +313,11 @@ public sealed class CardVisualController : MonoBehaviour
         for (int index = 0; index < activeDealVisuals.Length; index++)
         {
             int dealIndex = index;
-            dealSequence.AppendCallback(() => ShowDealCard(dealIndex));
+            dealSequence.AppendCallback(() =>
+            {
+                deckStackVisual?.ConsumeOneVisualCard();
+                ShowDealCard(dealIndex);
+            });
 
             if (index < 2)
             {
@@ -413,6 +412,7 @@ public sealed class CardVisualController : MonoBehaviour
         RestoreFinalTransforms();
         RestorePrivateCardStartTransforms();
         ClearDealState();
+        RefreshDeckStack();
         completedCallback?.Invoke();
     }
 

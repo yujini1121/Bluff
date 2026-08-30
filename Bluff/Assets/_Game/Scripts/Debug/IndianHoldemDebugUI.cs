@@ -164,6 +164,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RefreshView();
     }
 
+    private void Start()
+    {
+        if (gameState != null && itemSystem != null)
+        {
+            StartRound();
+        }
+    }
+
     private void OnValidate()
     {
         ApplyUiFont();
@@ -380,7 +388,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         ResetDisplayedRoundResult();
-        StartRound();
     }
 
     private void StartRound()
@@ -396,7 +403,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        cardVisualController?.RefreshDeckStack();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 

@@ -10303,8 +10303,8 @@ MonoBehaviour:
   playerNormalCardScale: {x: 1, y: 1, z: 1}
   showdownCardScale: {x: 1, y: 1, z: 1}
   cardDealPoint: {fileID: 1238106023}
-  dealDuration: 0.2
-  dealInterval: 0.05
+  dealDuration: 0.3
+  dealInterval: 0.1
 --- !u!114 &1964738051
 MonoBehaviour:
   m_ObjectHideFlags: 0

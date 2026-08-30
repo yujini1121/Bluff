@@ -14,6 +14,7 @@ public class DeckStackVisual : MonoBehaviour
     [SerializeField] private Vector3 stackOffset = new Vector3(0f, 0.001f, 0f);
 
     private readonly List<GameObject> cards = new();
+    private int currentCardCount;
 
     private void Awake()
     {
@@ -40,10 +41,19 @@ public class DeckStackVisual : MonoBehaviour
     public void SetCardCount(int count)
     {
         count = Mathf.Clamp(count, 0, maxCardCount);
+        currentCardCount = count;
 
         for (int i = 0; i < cards.Count; i++)
         {
             cards[i].SetActive(i < count);
+        }
+    }
+
+    public void ConsumeOneVisualCard()
+    {
+        if (currentCardCount > 0)
+        {
+            SetCardCount(currentCardCount - 1);
         }
     }
 
