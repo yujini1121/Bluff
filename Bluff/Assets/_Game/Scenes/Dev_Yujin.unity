@@ -475,9 +475,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd1ee89ee7f143828d69078fd93b6b5f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerStartingChips: 2
-  dealerStartingChips: 10
-  firstTurn: 2
+  playerStartingChips: 1
+  dealerStartingChips: 1
+  firstTurn: 1
   maxLogLines: 8
   dealerActionDelay: 2
   uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
@@ -5504,6 +5504,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
   m_PrefabInstance: {fileID: 2015889676265715993}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1238106024 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 119892517876458347, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+  m_PrefabInstance: {fileID: 2015889676265715993}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 208955761d972f442aa83149797d26b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1252183276
 GameObject:
   m_ObjectHideFlags: 0
@@ -10270,7 +10281,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   communityCardVisual1: {fileID: 1513922318}
   communityCardVisual2: {fileID: 1561027692}
-  deckStackVisual: {fileID: 0}
+  deckStackVisual: {fileID: 1238106024}
   dealerCardVisual: {fileID: 1048253661}
   dealerCardRoot: {fileID: 1951881984}
   dealerCardPoint: {fileID: 1365583703}

@@ -140,6 +140,14 @@ public sealed class GameState
         }
 
         ResetRoundResult();
+
+        if (PlayerChips.Count == 0 || DealerChips.Count == 0)
+        {
+            Turn.Reset();
+            Phase = GamePhase.Showdown;
+            return true;
+        }
+
         Turn.TrySet(firstTurn);
         Phase = GamePhase.Betting;
         return true;
