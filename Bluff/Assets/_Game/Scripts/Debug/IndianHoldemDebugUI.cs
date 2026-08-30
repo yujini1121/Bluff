@@ -100,14 +100,30 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool isChipAnimating;
     private bool isCardAnimating;
     private bool isShowdownResultVisible;
+    private bool isFoldResultVisible;
     private bool isShuttingDown;
     private bool isRestarting;
     private bool recoverShowdownPresentationOnEnable;
+    private bool recoverFoldPresentationOnEnable;
     private int selectedRaiseBy = 1;
 
     private void OnEnable()
     {
         isShuttingDown = false;
+
+        if (recoverFoldPresentationOnEnable &&
+            gameState != null &&
+            gameState.RoundEndReason == RoundEndReason.Fold &&
+            (gameState.Phase == GamePhase.RoundEnd ||
+             gameState.Phase == GamePhase.GameOver))
+        {
+            recoverFoldPresentationOnEnable = false;
+            isCardAnimating = false;
+            isFoldResultVisible = true;
+            cardVisualController?.ShowShowdownCardsImmediately();
+            chipVisualController?.RefreshChips();
+            return;
+        }
 
         if (!recoverShowdownPresentationOnEnable ||
             gameState == null ||
@@ -168,6 +184,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void OnDisable()
     {
+        recoverFoldPresentationOnEnable =
+            isCardAnimating &&
+            gameState != null &&
+            gameState.RoundEndReason == RoundEndReason.Fold &&
+            !isFoldResultVisible;
         recoverShowdownPresentationOnEnable =
             isCardAnimating &&
             gameState != null &&
@@ -448,6 +469,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                     potBefore);
             }
 
+            if (isPlayerFold && !foldSettlementStarted)
+            {
+                StartFoldCardReveal();
+            }
+
             AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
             AddBettingResultLog();
         }
@@ -655,6 +681,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                         playerChipsBefore,
                         dealerChipsBefore,
                         potBefore);
+                }
+
+                if (isDealerFold && !foldPresentationStarted)
+                {
+                    StartFoldCardReveal();
                 }
 
                 AddLog($"DEALER {DealerDecisionText(decision)}");
@@ -979,7 +1010,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 penaltyChipCount))
         {
             chipVisualController?.RefreshChips();
-            RefreshView();
+            StartFoldCardReveal();
         }
     }
 
@@ -997,7 +1028,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             chipVisualController.RefreshChips();
         }
 
-        RefreshView();
+        StartFoldCardReveal();
     }
 
     private void OnFoldSettlementFailed()
@@ -1010,6 +1041,51 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             chipVisualController.RefreshChips();
         }
 
+        StartFoldCardReveal();
+    }
+
+    private void StartFoldCardReveal()
+    {
+        if (gameState == null ||
+            gameState.RoundEndReason != RoundEndReason.Fold ||
+            isFoldResultVisible ||
+            isCardAnimating)
+        {
+            return;
+        }
+
+        isFoldResultVisible = false;
+        isCardAnimating = true;
+
+        bool revealStarted =
+            cardVisualController != null &&
+            cardVisualController.TryPlayShowdownReveal(
+                CompleteFoldCardReveal,
+                () =>
+                {
+                    cardVisualController?.ShowShowdownCardsImmediately();
+                    CompleteFoldCardReveal();
+                });
+
+        if (!revealStarted)
+        {
+            cardVisualController?.ShowShowdownCardsImmediately();
+            CompleteFoldCardReveal();
+            return;
+        }
+
+        RefreshView();
+    }
+
+    private void CompleteFoldCardReveal()
+    {
+        if (!CanHandlePresentationCallback())
+        {
+            return;
+        }
+
+        isCardAnimating = false;
+        isFoldResultVisible = true;
         RefreshView();
     }
 
@@ -1517,15 +1593,18 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             roundWinner != RoundWinner.None &&
             (gameState.Phase == GamePhase.RoundEnd ||
              gameState.Phase == GamePhase.GameOver);
+        bool hasFoldResult =
+            gameState.RoundEndReason == RoundEndReason.Fold &&
+            (gameState.Phase == GamePhase.RoundEnd ||
+             gameState.Phase == GamePhase.GameOver);
         bool isGameOver = gameState.Phase == GamePhase.GameOver &&
-                          gameState.FinalWinner != GameWinner.None &&
-                          (!hasSettledShowdown ||
-                           isShowdownResultVisible);
+                           gameState.FinalWinner != GameWinner.None &&
+                           (!hasSettledShowdown ||
+                            isShowdownResultVisible) &&
+                          (!hasFoldResult || isFoldResultVisible);
         bool isShowdownResult = hasSettledShowdown &&
-                                isShowdownResultVisible;
-        bool isFoldResult = gameState.RoundEndReason == RoundEndReason.Fold &&
-                            (gameState.Phase == GamePhase.RoundEnd ||
-                             gameState.Phase == GamePhase.GameOver);
+                                 isShowdownResultVisible;
+        bool isFoldResult = hasFoldResult && isFoldResultVisible;
         bool shouldShow = isGameOver || isShowdownResult || isFoldResult;
 
         resultOverlay.SetActive(shouldShow);
@@ -1704,6 +1783,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         dealerHandRank = HandRank.None;
         roundWinner = RoundWinner.None;
         isShowdownResultVisible = false;
+        isFoldResultVisible = false;
     }
 
     private void AddLog(string message)
