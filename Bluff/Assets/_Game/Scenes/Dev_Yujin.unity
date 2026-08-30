@@ -851,7 +851,6 @@ Transform:
   - {fileID: 1343054285}
   - {fileID: 1518883193}
   - {fileID: 315346103}
-  - {fileID: 579841349}
   m_Father: {fileID: 1548061650}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &285602609
@@ -2514,37 +2513,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1707716515}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &579841348
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 579841349}
-  m_Layer: 0
-  m_Name: Private Card Lift Point
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &579841349
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 579841348}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0.6498771, y: -0.49866816, z: -0.3491712, w: 0.45504883}
-  m_LocalPosition: {x: 0.45, y: 1.4, z: -0.75}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 230843834}
-  m_LocalEulerAnglesHint: {x: -110, y: 0, z: -75}
 --- !u!1 &590688188
 GameObject:
   m_ObjectHideFlags: 0
@@ -5531,6 +5499,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 2109837846}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1238106023 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+  m_PrefabInstance: {fileID: 2015889676265715993}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1252183276
 GameObject:
   m_ObjectHideFlags: 0
@@ -10310,7 +10283,7 @@ MonoBehaviour:
   dealerNormalCardScale: {x: 0.5, y: 0.5, z: 0.5}
   playerNormalCardScale: {x: 1, y: 1, z: 1}
   showdownCardScale: {x: 1, y: 1, z: 1}
-  cardDealPoint: {fileID: 1048253660}
+  cardDealPoint: {fileID: 1238106023}
   dealDuration: 0.2
   dealInterval: 0.05
 --- !u!114 &1964738051
@@ -11239,6 +11212,63 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1001 &2015889676265715993
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.1399999
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -1.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4148988291468682692, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6257669744678070707, guid: 8921267ba3c442d4591dad7967843738, type: 3}
+      propertyPath: m_Name
+      value: PF_DeckStackVisual
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 8921267ba3c442d4591dad7967843738, type: 3}
 --- !u!33 &3469287837667944879
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -11335,3 +11365,4 @@ SceneRoots:
   - {fileID: 1548061650}
   - {fileID: 1964738049}
   - {fileID: 1148647570620518706}
+  - {fileID: 2015889676265715993}
