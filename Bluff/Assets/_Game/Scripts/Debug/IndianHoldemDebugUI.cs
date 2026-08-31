@@ -86,6 +86,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool recoverFoldPresentationOnEnable;
     private int selectedRaiseBy = 1;
 
+    public int CurrentPlayerChipCount =>
+        gameState?.PlayerChips.Count ?? 0;
+    public int CurrentDealerChipCount =>
+        gameState?.DealerChips.Count ?? 0;
+    public int CurrentDeckRemainingCount =>
+        gameState?.Deck.RemainingCount ?? 0;
+
     private void OnEnable()
     {
         isShuttingDown = false;
