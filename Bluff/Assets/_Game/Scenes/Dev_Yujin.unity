@@ -479,7 +479,8 @@ MonoBehaviour:
   dealerStartingChips: 20
   firstTurn: 1
   maxLogLines: 8
-  dealerActionDelay: 2
+  minDealerThinkDelay: 0.6
+  maxDealerThinkDelay: 3
   uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
   itemSystem: {fileID: 2094210441}
   cardVisualController: {fileID: 1964738050}

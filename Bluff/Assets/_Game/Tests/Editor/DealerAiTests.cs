@@ -201,6 +201,27 @@ public sealed class DealerAiTests
         Assert.That(largePlan.RaiseBy, Is.GreaterThan(smallPlan.RaiseBy));
     }
 
+    [Test]
+    public void Decide_RaiseByDoesNotExceedPlayerRemainingChips()
+    {
+        GameState gameState = CreateDealerTurnGame(
+            6,
+            20,
+            1,
+            2,
+            4,
+            7,
+            TurnOwner.Player);
+        Assert.That(gameState.TryRaise(2), Is.True);
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(4));
+        var dealerAi = new DealerAi();
+
+        DealerActionPlan plan = dealerAi.Decide(gameState, 99, 99);
+
+        Assert.That(plan.Decision, Is.EqualTo(DealerDecision.Raise));
+        Assert.That(plan.RaiseBy, Is.InRange(1, 4));
+    }
+
     [TestCase(0)]
     [TestCase(25)]
     [TestCase(55)]

@@ -490,6 +490,9 @@ public sealed class DealerAi
         }
 
         long maxRaiseBy = gameState.DealerChips.Count - (long)callAmount;
+        maxRaiseBy = Math.Min(
+            maxRaiseBy,
+            (long)gameState.PlayerChips.Count);
         long potCapacity = int.MaxValue -
                            (long)gameState.Pot.Amount -
                            callAmount;

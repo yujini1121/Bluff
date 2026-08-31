@@ -17,11 +17,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private TurnOwner firstTurn = TurnOwner.Player;
     [SerializeField, Min(1), InspectorName("최대 로그 줄 수")]
     private int maxLogLines = 4;
-    [SerializeField, Min(0f), InspectorName("딜러 행동 대기 시간")]
-    private float dealerActionDelay = 0.75f;
     [SerializeField, InspectorName("UI 폰트 (한글 지원 권장)")]
     private TMP_FontAsset uiFont;
     [SerializeField] private ItemSystem itemSystem;
+
+    [Header("딜러 생각 시간 설정")]
+    [SerializeField, Min(0f)]
+    private float minDealerThinkDelay = 0.6f;
+    [SerializeField, Min(0f)]
+    private float maxDealerThinkDelay = 1.5f;
 
     [Header("3D 카드 표시")]
     [SerializeField] private CardVisualController cardVisualController;
@@ -631,7 +635,16 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             dealerAnimationController != null &&
             dealerAnimationController.TryPlayThink();
 
-        yield return new WaitForSeconds(Mathf.Max(0f, dealerActionDelay));
+        float minimumThinkDelay = Mathf.Max(
+            0f,
+            Mathf.Min(minDealerThinkDelay, maxDealerThinkDelay));
+        float maximumThinkDelay = Mathf.Max(
+            minimumThinkDelay,
+            Mathf.Max(minDealerThinkDelay, maxDealerThinkDelay));
+        float thinkDelay = UnityEngine.Random.Range(
+            minimumThinkDelay,
+            maximumThinkDelay);
+        yield return new WaitForSeconds(thinkDelay);
 
         if (thinkStarted && dealerAnimationController != null)
         {
