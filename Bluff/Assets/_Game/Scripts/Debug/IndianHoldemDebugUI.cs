@@ -409,10 +409,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        nextRoundFirstTurn = roundFirstTurn == TurnOwner.Player
-            ? TurnOwner.Dealer
-            : TurnOwner.Player;
-
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
@@ -426,6 +422,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void PrepareAndStartNextRound()
     {
         int carriedPot = gameState.Pot.Amount;
+        TurnOwner resolvedNextFirstTurn =
+            GetNextRoundFirstTurnFromRoundResult();
 
         if (!gameState.TryPrepareNextRound())
         {
@@ -433,10 +431,47 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        nextRoundFirstTurn = resolvedNextFirstTurn;
         cardVisualController?.RefreshCards();
         ResetDisplayedRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
+    }
+
+    private TurnOwner GetNextRoundFirstTurnFromRoundResult()
+    {
+        if (gameState == null || gameState.Phase == GamePhase.GameOver)
+        {
+            return nextRoundFirstTurn;
+        }
+
+        if (gameState.RoundEndReason == RoundEndReason.Fold)
+        {
+            if (gameState.FoldedBy == TurnOwner.Player)
+            {
+                return TurnOwner.Dealer;
+            }
+
+            if (gameState.FoldedBy == TurnOwner.Dealer)
+            {
+                return TurnOwner.Player;
+            }
+        }
+
+        if (gameState.RoundEndReason == RoundEndReason.Showdown)
+        {
+            if (roundWinner == RoundWinner.Player)
+            {
+                return TurnOwner.Player;
+            }
+
+            if (roundWinner == RoundWinner.Dealer)
+            {
+                return TurnOwner.Dealer;
+            }
+        }
+
+        return nextRoundFirstTurn;
     }
 
     private void RunPlayerBettingAction(string actionName, Func<bool> action)
