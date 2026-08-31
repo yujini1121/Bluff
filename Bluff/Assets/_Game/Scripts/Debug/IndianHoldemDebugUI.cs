@@ -652,13 +652,18 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         try
         {
-            int randomRoll = UnityEngine.Random.Range(0, 100);
-            DealerDecision decision = dealerAi.Decide(gameState, randomRoll);
+            int actionRoll = UnityEngine.Random.Range(0, 100);
+            int raiseRoll = UnityEngine.Random.Range(0, 100);
+            DealerActionPlan actionPlan = dealerAi.Decide(
+                gameState,
+                actionRoll,
+                raiseRoll);
+            DealerDecision decision = actionPlan.Decision;
             int playerChipsBefore = gameState.PlayerChips.Count;
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
 
-            if (dealerAi.TryExecute(gameState, decision))
+            if (dealerAi.TryExecute(gameState, actionPlan))
             {
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
