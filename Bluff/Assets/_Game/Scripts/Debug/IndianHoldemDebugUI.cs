@@ -34,31 +34,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private ChipVisualController chipVisualController;
     [SerializeField] private DealerAnimationController dealerAnimationController;
 
-    [Header("메인 게임 화면")]
-    [SerializeField] private TMP_Text phaseText;
-    [SerializeField] private TMP_Text turnText;
-    [SerializeField] private TMP_Text dealerCardText;
-    [SerializeField] private TMP_Text dealerChipsText;
-    [SerializeField] private TMP_Text dealerTotalBetText;
-    [SerializeField] private TMP_Text communityCard1Text;
-    [SerializeField] private TMP_Text communityCard2Text;
-    [SerializeField] private TMP_Text potText;
-    [SerializeField] private TMP_Text playerCardText;
-    [SerializeField] private TMP_Text playerChipsText;
-    [SerializeField] private TMP_Text playerTotalBetText;
-    [SerializeField] private TMP_Text dealerNameText;
-    [SerializeField] private TMP_Text playerNameText;
-    [SerializeField] private Outline dealerCardOutline;
-    [SerializeField] private Outline playerCardOutline;
-
-    [Header("Turn 강조 색상")]
-    [SerializeField] private Color turnHighlightColor =
-        new Color32(228, 181, 84, 255);
-    [SerializeField] private Color idleNameColor =
-        new Color32(235, 240, 244, 255);
-    [SerializeField] private Color idleCardOutlineColor =
-        new Color32(187, 176, 149, 255);
-
     [Header("결과 오버레이")]
     [SerializeField] private GameObject resultOverlay;
     [SerializeField] private TMP_Text resultTitleText;
@@ -74,7 +49,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private Button debugToggleButton;
 
     [Header("행동 영역")]
-    [SerializeField] private GameObject dealerActionBar;
     [SerializeField] private GameObject playerActionBar;
     [SerializeField] private GameObject contextActionArea;
     [SerializeField] private Button[] bettingActionButtons;
@@ -1436,36 +1410,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void RefreshView()
     {
-        phaseText.text = PhaseGameText(gameState.Phase);
-        turnText.text = TurnGameText(gameState.CurrentTurn);
-
-        dealerCardText.text = CardText(gameState.DealerCard);
-        dealerChipsText.text =
-            $"CHIPS\n<size=40>{gameState.DealerChips.Count}</size>";
-        dealerTotalBetText.text =
-            $"BET\n<size=34>{gameState.Betting.DealerTotalBet}</size>";
-
-        communityCard1Text.text = CardText(gameState.CommunityCard1);
-        communityCard2Text.text = CardText(gameState.CommunityCard2);
-        potText.text = $"POT\n<size=50>{gameState.Pot.Amount}</size>";
-
-        playerCardText.text = CardText(gameState.PlayerCard);
-        playerChipsText.text =
-            $"CHIPS\n<size=40>{gameState.PlayerChips.Count}</size>";
-        playerTotalBetText.text =
-            $"BET\n<size=34>{gameState.Betting.PlayerTotalBet}</size>";
-
         debugInfoText.text = BuildDebugInfo();
         messageText.text = string.Join("\n", logs);
         debugPanel.SetActive(debugPanelOpen);
         RefreshCallActionTexts();
 
-        bool dealerTurn = gameState.Phase == GamePhase.Betting &&
-                          gameState.CurrentTurn == TurnOwner.Dealer;
         bool playerTurn = gameState.Phase == GamePhase.Betting &&
                           gameState.CurrentTurn == TurnOwner.Player;
         bool canAcceptPlayerBettingInput = CanAcceptPlayerBettingInput();
-        dealerActionBar.SetActive(dealerTurn);
         playerActionBar.SetActive(playerTurn);
 
         for (int index = 0; index < bettingActionButtons.Length; index++)
@@ -1484,8 +1436,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         RefreshRaiseSelection(canAcceptPlayerBettingInput);
-
-        RefreshTurnHighlight(dealerTurn, playerTurn);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
         bool canStartNextRound = gameState.Phase == GamePhase.RoundEnd;
@@ -1630,27 +1580,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             : 1;
     }
 
-    private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
-    {
-        dealerNameText.text = dealerTurn ? "▶  DEALER  ◀" : "DEALER";
-        playerNameText.text = playerTurn ? "▶  PLAYER  ◀" : "PLAYER";
-        dealerNameText.color = dealerTurn ? turnHighlightColor : idleNameColor;
-        playerNameText.color = playerTurn ? turnHighlightColor : idleNameColor;
-
-        dealerCardOutline.effectColor = dealerTurn
-            ? turnHighlightColor
-            : idleCardOutlineColor;
-        playerCardOutline.effectColor = playerTurn
-            ? turnHighlightColor
-            : idleCardOutlineColor;
-        dealerCardOutline.effectDistance = dealerTurn
-            ? new Vector2(4, -4)
-            : new Vector2(2, -2);
-        playerCardOutline.effectDistance = playerTurn
-            ? new Vector2(4, -4)
-            : new Vector2(2, -2);
-    }
-
     private void RefreshResultOverlay()
     {
         bool hasSettledShowdown =
@@ -1772,29 +1701,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private bool HasRequiredReferences()
     {
-        return phaseText != null &&
-               turnText != null &&
-               dealerCardText != null &&
-               dealerChipsText != null &&
-               dealerTotalBetText != null &&
-               communityCard1Text != null &&
-               communityCard2Text != null &&
-               potText != null &&
-               playerCardText != null &&
-               playerChipsText != null &&
-               playerTotalBetText != null &&
-               dealerNameText != null &&
-               playerNameText != null &&
-               dealerCardOutline != null &&
-               playerCardOutline != null &&
-               resultOverlay != null &&
+        return resultOverlay != null &&
                resultTitleText != null &&
                resultDetailText != null &&
                debugPanel != null &&
                debugInfoText != null &&
                messageText != null &&
                debugToggleButton != null &&
-               dealerActionBar != null &&
                playerActionBar != null &&
                contextActionArea != null &&
                HasAllBettingActionButtons() &&
@@ -1811,7 +1724,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private bool HasAllBettingActionButtons()
     {
-        if (bettingActionButtons == null || bettingActionButtons.Length != 10)
+        if (bettingActionButtons == null || bettingActionButtons.Length == 0)
         {
             return false;
         }
@@ -1858,43 +1771,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         while (logs.Count > Mathf.Max(1, maxLogLines))
         {
             logs.RemoveAt(0);
-        }
-    }
-
-    private static string CardText(Card card)
-    {
-        return card == null ? "-" : card.ToString();
-    }
-
-    private static string PhaseGameText(GamePhase phase)
-    {
-        switch (phase)
-        {
-            case GamePhase.Setup:
-                return "SETUP";
-            case GamePhase.Betting:
-                return "BETTING";
-            case GamePhase.Showdown:
-                return "SHOWDOWN";
-            case GamePhase.RoundEnd:
-                return "ROUND END";
-            case GamePhase.GameOver:
-                return "GAME OVER";
-            default:
-                return "UNKNOWN";
-        }
-    }
-
-    private static string TurnGameText(TurnOwner owner)
-    {
-        switch (owner)
-        {
-            case TurnOwner.Player:
-                return "PLAYER TURN";
-            case TurnOwner.Dealer:
-                return "DEALER TURN";
-            default:
-                return string.Empty;
         }
     }
 
