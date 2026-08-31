@@ -162,7 +162,7 @@ public class ItemSystem : MonoBehaviour
     }
 
     // 아이템 효과
-    private void RefreshCard()
+    private void RefreshCard() // 작동 확인
     {
         itemGameApi.TryReplaceCard();
 
@@ -185,8 +185,6 @@ public class ItemSystem : MonoBehaviour
     {
         itemGameApi.TryCall();
 
-        // 콜 할때 칩 소모되는 현상 수정 필요
-
-        Debug.Log("'체커' 아이템이 사용되었습니다. 베팅을 강제 종료합니다.");
+        Debug.Log("'체커' 아이템이 사용되었습니다. 상대의 레이즈를 무시하고 베팅을 강제 종료합니다.");
     }
 }

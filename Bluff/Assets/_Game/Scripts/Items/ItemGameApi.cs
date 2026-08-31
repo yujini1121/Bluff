@@ -1,3 +1,4 @@
+using JetBrains.Annotations;
 using System;
 using static UnityEngine.GraphicsBuffer;
 
@@ -127,7 +128,7 @@ public sealed class ItemGameApi
 
     public bool TryCall()
     {
-        return gameState.TryCall();
+        return gameState.TryIgnoreRaise();
     }
 
     public bool TryFoldWithoutPenalty()

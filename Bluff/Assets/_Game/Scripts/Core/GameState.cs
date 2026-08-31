@@ -400,6 +400,20 @@ public sealed class GameState
         return true;
     }
 
+    public bool TryIgnoreRaise()
+    {
+        if (Phase != GamePhase.Betting ||
+            !IsActiveTurn(CurrentTurn) ||
+            Betting.GetCallAmount(CurrentTurn) == 0)
+        {
+            return false;
+        }
+
+        TryRefundUnmatchedBet();
+        FinishBetting();
+        return true;
+    }
+
     public bool TryCall()
     {
         if (Phase != GamePhase.Betting || !IsActiveTurn(CurrentTurn))
