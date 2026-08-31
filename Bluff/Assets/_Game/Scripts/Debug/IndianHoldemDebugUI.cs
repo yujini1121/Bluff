@@ -89,6 +89,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
     private GameState gameState;
+    private TurnOwner nextRoundFirstTurn;
     private DealerAi dealerAi;
     private Coroutine dealerActionCoroutine;
     private Coroutine showdownPresentationCoroutine;
@@ -363,6 +364,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             Mathf.Max(0, playerStartingChips),
             Mathf.Max(0, dealerStartingChips),
             deck);
+        nextRoundFirstTurn = firstTurn == TurnOwner.Dealer
+            ? TurnOwner.Dealer
+            : TurnOwner.Player;
 
         if (itemSystem == null)
         {
@@ -392,9 +396,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void StartRound()
     {
-        TurnOwner roundFirstTurn = firstTurn == TurnOwner.Dealer
-            ? TurnOwner.Dealer
-            : TurnOwner.Player;
+        TurnOwner roundFirstTurn = nextRoundFirstTurn;
 
         if (!gameState.TryStartRound(roundFirstTurn))
         {
@@ -402,6 +404,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             AddLog("라운드 시작 실패 - 남은 카드와 현재 단계를 확인하세요");
             return;
         }
+
+        nextRoundFirstTurn = roundFirstTurn == TurnOwner.Player
+            ? TurnOwner.Dealer
+            : TurnOwner.Player;
 
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
