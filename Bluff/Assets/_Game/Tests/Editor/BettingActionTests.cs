@@ -39,6 +39,23 @@ public sealed class BettingActionTests
     }
 
     [Test]
+    public void Call_FailsWhenEqualNonZeroBetsHaveNoOutstandingBet()
+    {
+        var gameState = new GameState(10, 10, CreateDeck());
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+
+        Assert.That(gameState.TryCall(), Is.False);
+
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(9));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(9));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(2));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(1));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(1));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+    }
+
+    [Test]
     public void Call_FailsWhenCurrentOwnerCannotCoverTheBet()
     {
         GameState gameState = CreateBettingGame(TurnOwner.Dealer, 3, 10);
@@ -54,6 +71,21 @@ public sealed class BettingActionTests
         Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+    }
+
+    [Test]
+    public void Call_UsesAllRemainingChipsWhenCallAmountEqualsStack()
+    {
+        GameState gameState = CreateBettingGame(TurnOwner.Dealer, 4, 10);
+        Assert.That(gameState.TryRaise(4), Is.True);
+
+        Assert.That(gameState.TryCall(), Is.True);
+
+        Assert.That(gameState.PlayerChips.Count, Is.Zero);
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(4));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
     }
 
     [Test]
@@ -83,6 +115,22 @@ public sealed class BettingActionTests
         Assert.That(gameState.Pot.Amount, Is.EqualTo(14));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(GetTotalChips(gameState), Is.EqualTo(totalChipsBefore));
+    }
+
+    [Test]
+    public void Raise_SucceedsWhenCurrentBetsAreEqual()
+    {
+        GameState gameState = CreateBettingGame(TurnOwner.Player);
+
+        Assert.That(gameState.TryRaise(2), Is.True);
+
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(8));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(2));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(2));
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
     }
 
     [Test]
@@ -210,6 +258,11 @@ public sealed class BettingActionTests
         long totalChipsBefore = GetTotalChips(gameState);
 
         Assert.That(gameState.TryRaise(5), Is.True);
+        Assert.That(
+            gameState.Betting.GetCallAmount(TurnOwner.Player),
+            Is.EqualTo(5));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(3));
+        Assert.That(gameState.TryCall(), Is.False);
 
         Assert.That(gameState.TryAllIn(), Is.True);
 
@@ -358,7 +411,6 @@ public sealed class BettingActionTests
         int playerTotalBet = gameState.Betting.PlayerTotalBet;
         int dealerTotalBet = gameState.Betting.DealerTotalBet;
 
-        Assert.That(gameState.TryCheck(), Is.False);
         Assert.That(gameState.TryCall(), Is.False);
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
@@ -412,7 +464,6 @@ public sealed class BettingActionTests
         GameState gameState = new GameState(10, 10, CreateDeck());
 
         Assert.That(gameState.TryCall(), Is.False);
-        Assert.That(gameState.TryCheck(), Is.False);
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
         Assert.That(gameState.TryFold(), Is.False);
@@ -420,10 +471,19 @@ public sealed class BettingActionTests
         Assert.That(gameState.TrySetPhase(GamePhase.Betting), Is.True);
 
         Assert.That(gameState.TryCall(), Is.False);
-        Assert.That(gameState.TryCheck(), Is.False);
         Assert.That(gameState.TryRaise(1), Is.False);
         Assert.That(gameState.TryAllIn(), Is.False);
         Assert.That(gameState.TryFold(), Is.False);
+    }
+
+    [Test]
+    public void BettingApi_DoesNotExposeCheckActionOrState()
+    {
+        Assert.That(typeof(GameState).GetMethod("TryCheck"), Is.Null);
+        Assert.That(typeof(BettingState).GetProperty("PendingCheckBy"), Is.Null);
+        Assert.That(
+            System.Enum.IsDefined(typeof(DealerDecision), "Check"),
+            Is.False);
     }
 
     private static GameState CreateBettingGame(
@@ -439,7 +499,13 @@ public sealed class BettingActionTests
 
     private static Deck CreateDeck()
     {
-        return new Deck(new[] { new Card(1), new Card(2) });
+        return new Deck(new[]
+        {
+            new Card(1),
+            new Card(2),
+            new Card(3),
+            new Card(4)
+        });
     }
 
     private static long GetTotalChips(GameState gameState)

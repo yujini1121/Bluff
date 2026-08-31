@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public sealed class IndianHoldemDebugUI : MonoBehaviour
@@ -16,11 +17,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private TurnOwner firstTurn = TurnOwner.Player;
     [SerializeField, Min(1), InspectorName("최대 로그 줄 수")]
     private int maxLogLines = 4;
-    [SerializeField, Min(0f), InspectorName("딜러 행동 대기 시간")]
-    private float dealerActionDelay = 0.75f;
     [SerializeField, InspectorName("UI 폰트 (한글 지원 권장)")]
     private TMP_FontAsset uiFont;
     [SerializeField] private ItemSystem itemSystem;
+
+    [Header("딜러 생각 시간 설정")]
+    [SerializeField, Min(0f)]
+    private float minDealerThinkDelay = 0.6f;
+    [SerializeField, Min(0f)]
+    private float maxDealerThinkDelay = 1.5f;
 
     [Header("3D 카드 표시")]
     [SerializeField] private CardVisualController cardVisualController;
@@ -58,6 +63,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private GameObject resultOverlay;
     [SerializeField] private TMP_Text resultTitleText;
     [SerializeField] private TMP_Text resultDetailText;
+    [SerializeField] private Button restartButton;
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
 
@@ -75,9 +81,19 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private Button resolveShowdownButton;
     [SerializeField] private Button nextRoundButton;
 
+    [Header("Player Raise 선택")]
+    [SerializeField] private Button raiseDecreaseButton;
+    [SerializeField] private TMP_Text raiseAmountText;
+    [SerializeField] private Button raiseIncreaseButton;
+    [SerializeField] private Button raiseMaxButton;
+    [SerializeField] private Button raiseExecuteButton;
+    [SerializeField] private TMP_Text raiseExecuteText;
+
     private readonly List<string> logs = new List<string>();
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
+    private readonly List<Button> callActionButtons = new List<Button>();
     private GameState gameState;
+    private TurnOwner nextRoundFirstTurn;
     private DealerAi dealerAi;
     private Coroutine dealerActionCoroutine;
     private Coroutine showdownPresentationCoroutine;
@@ -89,12 +105,30 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool isChipAnimating;
     private bool isCardAnimating;
     private bool isShowdownResultVisible;
+    private bool isFoldResultVisible;
     private bool isShuttingDown;
+    private bool isRestarting;
     private bool recoverShowdownPresentationOnEnable;
+    private bool recoverFoldPresentationOnEnable;
+    private int selectedRaiseBy = 1;
 
     private void OnEnable()
     {
         isShuttingDown = false;
+
+        if (recoverFoldPresentationOnEnable &&
+            gameState != null &&
+            gameState.RoundEndReason == RoundEndReason.Fold &&
+            (gameState.Phase == GamePhase.RoundEnd ||
+             gameState.Phase == GamePhase.GameOver))
+        {
+            recoverFoldPresentationOnEnable = false;
+            isCardAnimating = false;
+            isFoldResultVisible = true;
+            cardVisualController?.ShowShowdownCardsImmediately();
+            chipVisualController?.RefreshChips();
+            return;
+        }
 
         if (!recoverShowdownPresentationOnEnable ||
             gameState == null ||
@@ -130,8 +164,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         debugPanelOpen = false;
         dealerAi = new DealerAi();
         CacheCallActionTexts();
+        HideStandaloneAllInActions();
         CreateDebugGame();
         RefreshView();
+    }
+
+    private void Start()
+    {
+        if (gameState != null && itemSystem != null)
+        {
+            StartRound();
+        }
     }
 
     private void OnValidate()
@@ -154,6 +197,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void OnDisable()
     {
+        recoverFoldPresentationOnEnable =
+            isCardAnimating &&
+            gameState != null &&
+            gameState.RoundEndReason == RoundEndReason.Fold &&
+            !isFoldResultVisible;
         recoverShowdownPresentationOnEnable =
             isCardAnimating &&
             gameState != null &&
@@ -173,19 +221,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     public void OnCallClicked()
     {
-        if (gameState == null)
+        if (IsPlayerShortAllInRequired())
         {
+            RunPlayerBettingAction("올인", () => gameState.TryAllIn());
             return;
         }
 
-        if (gameState.Betting.GetCallAmount(TurnOwner.Player) == 0)
-        {
-            RunPlayerBettingAction("체크", gameState.TryCheck);
-        }
-        else
-        {
-            RunPlayerBettingAction("콜", gameState.TryCall);
-        }
+        RunPlayerBettingAction("콜", () => gameState.TryCall());
     }
 
     public void OnFoldClicked()
@@ -195,12 +237,76 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     public void OnRaiseOneClicked()
     {
-        RunPlayerBettingAction("레이즈 +1", () => gameState.TryRaise(1));
+        OnRaiseDecreaseClicked();
     }
 
     public void OnRaiseFiveClicked()
     {
-        RunPlayerBettingAction("레이즈 +7", () => gameState.TryRaise(7));
+        OnRaiseIncreaseClicked();
+    }
+
+    public void OnRaiseDecreaseClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        ClampSelectedRaiseBy(maxRaiseBy);
+        selectedRaiseBy = Mathf.Max(1, selectedRaiseBy - 1);
+        RefreshView();
+    }
+
+    public void OnRaiseIncreaseClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        ClampSelectedRaiseBy(maxRaiseBy);
+        selectedRaiseBy = Mathf.Min(maxRaiseBy, selectedRaiseBy + 1);
+        RefreshView();
+    }
+
+    public void OnRaiseMaxClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        selectedRaiseBy = maxRaiseBy;
+        RefreshView();
+    }
+
+    public void OnRaiseClicked()
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        {
+            return;
+        }
+
+        ClampSelectedRaiseBy(maxRaiseBy);
+        int raiseBy = selectedRaiseBy;
+        bool isAllIn = raiseBy == maxRaiseBy;
+        string actionName = isAllIn ? "올인" : $"레이즈 +{raiseBy}";
+
+        RunPlayerBettingAction(
+            actionName,
+            () =>
+            {
+                bool succeeded = isAllIn
+                    ? gameState.TryAllIn()
+                    : gameState.TryRaise(raiseBy);
+
+                if (succeeded)
+                {
+                    selectedRaiseBy = 1;
+                }
+
+                return succeeded;
+            });
     }
 
     public void OnAllInClicked()
@@ -218,6 +324,35 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RunProgressAction(GamePhase.RoundEnd, PrepareAndStartNextRound);
     }
 
+    public void OnRestartClicked()
+    {
+        if (!CanRestartGame())
+        {
+            return;
+        }
+
+        Scene currentScene = SceneManager.GetActiveScene();
+        int buildIndex = currentScene.buildIndex;
+
+        if (!currentScene.IsValid() ||
+            !currentScene.isLoaded ||
+            buildIndex < 0 ||
+            buildIndex >= SceneManager.sceneCountInBuildSettings)
+        {
+            Debug.LogError(
+                "현재 활성 Scene이 Build Settings에 등록되지 않아 " +
+                "게임을 Restart할 수 없습니다.",
+                this);
+            return;
+        }
+
+        isRestarting = true;
+        isActionProcessing = true;
+        restartButton.interactable = false;
+        CancelDealerAction();
+        SceneManager.LoadScene(buildIndex);
+    }
+
     public void OnDebugToggleClicked()
     {
         debugPanelOpen = !debugPanelOpen;
@@ -233,6 +368,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             Mathf.Max(0, playerStartingChips),
             Mathf.Max(0, dealerStartingChips),
             deck);
+        nextRoundFirstTurn = firstTurn == TurnOwner.Dealer
+            ? TurnOwner.Dealer
+            : TurnOwner.Player;
 
         if (itemSystem == null)
         {
@@ -258,14 +396,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         ResetDisplayedRoundResult();
-        StartRound();
     }
 
     private void StartRound()
     {
-        TurnOwner roundFirstTurn = firstTurn == TurnOwner.Dealer
-            ? TurnOwner.Dealer
-            : TurnOwner.Player;
+        TurnOwner roundFirstTurn = nextRoundFirstTurn;
 
         if (!gameState.TryStartRound(roundFirstTurn))
         {
@@ -274,10 +409,18 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        chipVisualController?.RefreshChips();
+        nextRoundFirstTurn = roundFirstTurn == TurnOwner.Player
+            ? TurnOwner.Dealer
+            : TurnOwner.Player;
+
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
-        TryStartCardDeal();
+
+        if (!TryStartRoundAnteAnimation())
+        {
+            chipVisualController?.RefreshChips();
+            TryStartCardDeal();
+        }
     }
 
     private void PrepareAndStartNextRound()
@@ -342,6 +485,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                     potBefore);
             }
 
+            if (isPlayerFold && !foldSettlementStarted)
+            {
+                StartFoldCardReveal();
+            }
+
             AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
             AddBettingResultLog();
         }
@@ -375,6 +523,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool CanAcceptPlayerBettingInput()
     {
         return gameState != null &&
+               !isRestarting &&
                !isActionProcessing &&
                !isChipAnimating &&
                !isCardAnimating &&
@@ -386,11 +535,38 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool CanAcceptProgressInput(GamePhase requiredPhase)
     {
         return gameState != null &&
+               !isRestarting &&
                !isActionProcessing &&
                !isChipAnimating &&
                !isCardAnimating &&
                dealerActionCoroutine == null &&
                gameState.Phase == requiredPhase;
+    }
+
+    private bool CanRestartGame()
+    {
+        if (gameState == null ||
+            isRestarting ||
+            isShuttingDown ||
+            !isActiveAndEnabled ||
+            !gameObject.scene.IsValid() ||
+            !gameObject.scene.isLoaded ||
+            gameState.Phase != GamePhase.GameOver ||
+            gameState.FinalWinner == GameWinner.None ||
+            isActionProcessing ||
+            isChipAnimating ||
+            isCardAnimating ||
+            dealerActionCoroutine != null ||
+            showdownPresentationCoroutine != null)
+        {
+            return false;
+        }
+
+        bool hasSettledShowdown =
+            gameState.RoundEndReason == RoundEndReason.Showdown &&
+            roundWinner != RoundWinner.None;
+
+        return !hasSettledShowdown || isShowdownResultVisible;
     }
 
     private void AddBettingResultLog()
@@ -411,7 +587,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void TryScheduleDealerAction()
     {
-        if (isActionProcessing ||
+        if (isRestarting ||
+            isActionProcessing ||
             isChipAnimating ||
             isCardAnimating ||
             dealerActionCoroutine != null ||
@@ -443,7 +620,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        dealerAnimationController?.StopThink();
+        if (dealerAnimationController != null)
+        {
+            dealerAnimationController.StopThink();
+        }
+
         StopCoroutine(dealerActionCoroutine);
         dealerActionCoroutine = null;
     }
@@ -454,7 +635,16 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             dealerAnimationController != null &&
             dealerAnimationController.TryPlayThink();
 
-        yield return new WaitForSeconds(Mathf.Max(0f, dealerActionDelay));
+        float minimumThinkDelay = Mathf.Max(
+            0f,
+            Mathf.Min(minDealerThinkDelay, maxDealerThinkDelay));
+        float maximumThinkDelay = Mathf.Max(
+            minimumThinkDelay,
+            Mathf.Max(minDealerThinkDelay, maxDealerThinkDelay));
+        float thinkDelay = UnityEngine.Random.Range(
+            minimumThinkDelay,
+            maximumThinkDelay);
+        yield return new WaitForSeconds(thinkDelay);
 
         if (thinkStarted && dealerAnimationController != null)
         {
@@ -475,21 +665,18 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         try
         {
-            int randomRoll = UnityEngine.Random.Range(0, 100);
-            DealerDecision decision = dealerAi.Decide(gameState, randomRoll);
+            int actionRoll = UnityEngine.Random.Range(0, 100);
+            int raiseRoll = UnityEngine.Random.Range(0, 100);
+            DealerActionPlan actionPlan = dealerAi.Decide(
+                gameState,
+                actionRoll,
+                raiseRoll);
+            DealerDecision decision = actionPlan.Decision;
             int playerChipsBefore = gameState.PlayerChips.Count;
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
 
-            bool checkPresentationStarted =
-                decision == DealerDecision.Check &&
-                TryStartDealerCheckPresentation();
-
-            if (checkPresentationStarted)
-            {
-                // 실제 Check 결과는 Animation 완료 Callback에서 기록한다.
-            }
-            else if (dealerAi.TryExecute(gameState, decision))
+            if (dealerAi.TryExecute(gameState, actionPlan))
             {
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
@@ -524,6 +711,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                         playerChipsBefore,
                         dealerChipsBefore,
                         potBefore);
+                }
+
+                if (isDealerFold && !foldPresentationStarted)
+                {
+                    StartFoldCardReveal();
                 }
 
                 AddLog($"DEALER {DealerDecisionText(decision)}");
@@ -561,6 +753,58 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         isCardAnimating = false;
         cardVisualController.RefreshCards();
+    }
+
+    private bool TryStartRoundAnteAnimation()
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginRoundAnte(
+                OnRoundAnteChipsMoved,
+                OnRoundAnteChipsMoveFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnRoundAnteChipsMoved(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompleteRoundAnte(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelRoundAnte();
+            chipVisualController.RefreshChips();
+        }
+
+        TryStartCardDeal();
+        RefreshView();
+    }
+
+    private void OnRoundAnteChipsMoveFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelRoundAnte();
+            chipVisualController.RefreshChips();
+        }
+
+        TryStartCardDeal();
+        RefreshView();
     }
 
     private void OnCardDealCompleted()
@@ -679,6 +923,56 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         RefreshView();
     }
 
+    private bool TryStartDrawSettlement()
+    {
+        if (chipVisualController == null)
+        {
+            return false;
+        }
+
+        isChipAnimating = true;
+
+        if (chipVisualController.TryBeginDrawSettlement(
+                OnDrawSettlementCompleted,
+                OnDrawSettlementFailed))
+        {
+            return true;
+        }
+
+        isChipAnimating = false;
+        return false;
+    }
+
+    private void OnDrawSettlementCompleted(GameObject[] chips)
+    {
+        bool moveCompleted =
+            chipVisualController != null &&
+            chipVisualController.CompleteDrawSettlement(chips);
+
+        isChipAnimating = false;
+
+        if (!moveCompleted && chipVisualController != null)
+        {
+            chipVisualController.CancelDrawSettlement();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
+    private void OnDrawSettlementFailed(GameObject[] chips)
+    {
+        isChipAnimating = false;
+
+        if (chipVisualController != null)
+        {
+            chipVisualController.CancelDrawSettlement();
+            chipVisualController.RefreshChips();
+        }
+
+        RefreshView();
+    }
+
     private bool TryStartFoldSettlement(
         TurnOwner foldedBy,
         int potChipCount,
@@ -733,44 +1027,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             penaltyChipCount);
     }
 
-    private bool TryStartDealerCheckPresentation()
-    {
-        if (dealerAnimationController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (dealerAnimationController.TryPlayCheck(
-                OnDealerCheckAnimationFinished,
-                OnDealerCheckAnimationFinished))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private void OnDealerCheckAnimationFinished()
-    {
-        isChipAnimating = false;
-
-        if (gameState != null &&
-            dealerAi.TryExecute(gameState, DealerDecision.Check))
-        {
-            AddLog("DEALER CHECK");
-            AddBettingResultLog();
-        }
-        else
-        {
-            AddLog("DEALER CHECK 실패");
-        }
-
-        RefreshView();
-    }
-
     private void OnDealerFoldAnimationFinished(
         TurnOwner foldedBy,
         int potChipCount,
@@ -784,7 +1040,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 penaltyChipCount))
         {
             chipVisualController?.RefreshChips();
-            RefreshView();
+            StartFoldCardReveal();
         }
     }
 
@@ -802,7 +1058,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             chipVisualController.RefreshChips();
         }
 
-        RefreshView();
+        StartFoldCardReveal();
     }
 
     private void OnFoldSettlementFailed()
@@ -815,6 +1071,51 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             chipVisualController.RefreshChips();
         }
 
+        StartFoldCardReveal();
+    }
+
+    private void StartFoldCardReveal()
+    {
+        if (gameState == null ||
+            gameState.RoundEndReason != RoundEndReason.Fold ||
+            isFoldResultVisible ||
+            isCardAnimating)
+        {
+            return;
+        }
+
+        isFoldResultVisible = false;
+        isCardAnimating = true;
+
+        bool revealStarted =
+            cardVisualController != null &&
+            cardVisualController.TryPlayShowdownReveal(
+                CompleteFoldCardReveal,
+                () =>
+                {
+                    cardVisualController?.ShowShowdownCardsImmediately();
+                    CompleteFoldCardReveal();
+                });
+
+        if (!revealStarted)
+        {
+            cardVisualController?.ShowShowdownCardsImmediately();
+            CompleteFoldCardReveal();
+            return;
+        }
+
+        RefreshView();
+    }
+
+    private void CompleteFoldCardReveal()
+    {
+        if (!CanHandlePresentationCallback())
+        {
+            return;
+        }
+
+        isCardAnimating = false;
+        isFoldResultVisible = true;
         RefreshView();
     }
 
@@ -827,7 +1128,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             !chipVisualController.TryBeginDealerBet(
                 chipCount,
                 out GameObject[] chips,
-                out Vector3[] potTargetPositions))
+                out Vector3[] betAreaTargetPositions))
         {
             return false;
         }
@@ -836,12 +1137,12 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         bool animationStarted = useAllInAnimation
             ? dealerAnimationController.TryPlayAllInChips(
                 chips,
-                potTargetPositions,
+                betAreaTargetPositions,
                 OnBetChipsMoved,
                 OnBetChipsMoveFailed)
             : dealerAnimationController.TryPlayCallChips(
                 chips,
-                potTargetPositions,
+                betAreaTargetPositions,
                 OnBetChipsMoved,
                 OnBetChipsMoveFailed);
 
@@ -1045,6 +1346,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 collectAnimationStarted =
                     TryStartDealerCollectAnimation(potBeforeSettlement);
             }
+            else if (roundWinner == RoundWinner.Draw)
+            {
+                collectAnimationStarted = TryStartDrawSettlement();
+            }
         }
 
         if (!collectAnimationStarted)
@@ -1134,6 +1439,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 canAcceptPlayerBettingInput;
         }
 
+        bool canCall =
+            canAcceptPlayerBettingInput &&
+            gameState.Betting.GetCallAmount(TurnOwner.Player) > 0;
+
+        for (int index = 0; index < callActionButtons.Count; index++)
+        {
+            callActionButtons[index].interactable = canCall;
+        }
+
+        RefreshRaiseSelection(canAcceptPlayerBettingInput);
+
         RefreshTurnHighlight(dealerTurn, playerTurn);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
@@ -1152,6 +1468,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void CacheCallActionTexts()
     {
         callActionTexts.Clear();
+        callActionButtons.Clear();
 
         for (int buttonIndex = 0;
              buttonIndex < bettingActionButtons.Length;
@@ -1177,22 +1494,105 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                     callActionTexts.Add(actionText);
                 }
 
+                callActionButtons.Add(button);
+
                 break;
+            }
+        }
+    }
+
+    private void HideStandaloneAllInActions()
+    {
+        for (int buttonIndex = 0;
+             buttonIndex < bettingActionButtons.Length;
+             buttonIndex++)
+        {
+            Button button = bettingActionButtons[buttonIndex];
+
+            for (int eventIndex = 0;
+                 eventIndex < button.onClick.GetPersistentEventCount();
+                 eventIndex++)
+            {
+                if (button.onClick.GetPersistentMethodName(eventIndex) ==
+                    nameof(OnAllInClicked))
+                {
+                    button.gameObject.SetActive(false);
+                    break;
+                }
             }
         }
     }
 
     private void RefreshCallActionTexts()
     {
-        string actionText =
-            gameState.Betting.GetCallAmount(gameState.CurrentTurn) == 0
-                ? "CHECK"
-                : "CALL";
+        string actionText = IsPlayerShortAllInRequired()
+            ? "ALL IN"
+            : "CALL";
 
         for (int index = 0; index < callActionTexts.Count; index++)
         {
             callActionTexts[index].text = actionText;
         }
+    }
+
+    private bool IsPlayerShortAllInRequired()
+    {
+        if (gameState == null)
+        {
+            return false;
+        }
+
+        int callAmount =
+            gameState.Betting.GetCallAmount(TurnOwner.Player);
+        return callAmount > gameState.PlayerChips.Count;
+    }
+
+    private void RefreshRaiseSelection(bool canAcceptPlayerBettingInput)
+    {
+        int maxRaiseBy = GetMaxPlayerRaiseBy();
+        ClampSelectedRaiseBy(maxRaiseBy);
+        bool canRaise = canAcceptPlayerBettingInput && maxRaiseBy > 0;
+
+        raiseDecreaseButton.interactable =
+            canRaise && selectedRaiseBy > 1;
+        raiseIncreaseButton.interactable =
+            canRaise && selectedRaiseBy < maxRaiseBy;
+        raiseMaxButton.interactable =
+            canRaise && selectedRaiseBy < maxRaiseBy;
+        raiseExecuteButton.interactable = canRaise;
+
+        raiseAmountText.text = maxRaiseBy > 0
+            ? $"+{selectedRaiseBy}"
+            : "+0";
+        raiseExecuteText.text = maxRaiseBy > 0 &&
+                                selectedRaiseBy == maxRaiseBy
+            ? "ALL IN"
+            : "RAISE";
+    }
+
+    private bool CanSelectPlayerRaise(out int maxRaiseBy)
+    {
+        maxRaiseBy = GetMaxPlayerRaiseBy();
+        return CanAcceptPlayerBettingInput() && maxRaiseBy > 0;
+    }
+
+    private int GetMaxPlayerRaiseBy()
+    {
+        if (gameState == null)
+        {
+            return 0;
+        }
+
+        int callAmount =
+            gameState.Betting.GetCallAmount(TurnOwner.Player);
+        return gameState.PlayerChips.Count - callAmount;
+    }
+
+    private void ClampSelectedRaiseBy(int maxRaiseBy)
+    {
+        selectedRaiseBy = maxRaiseBy > 0
+            ? Mathf.Clamp(selectedRaiseBy, 1, maxRaiseBy)
+            : 1;
     }
 
     private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
@@ -1223,18 +1623,23 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             roundWinner != RoundWinner.None &&
             (gameState.Phase == GamePhase.RoundEnd ||
              gameState.Phase == GamePhase.GameOver);
+        bool hasFoldResult =
+            gameState.RoundEndReason == RoundEndReason.Fold &&
+            (gameState.Phase == GamePhase.RoundEnd ||
+             gameState.Phase == GamePhase.GameOver);
         bool isGameOver = gameState.Phase == GamePhase.GameOver &&
-                          gameState.FinalWinner != GameWinner.None &&
-                          (!hasSettledShowdown ||
-                           isShowdownResultVisible);
+                           gameState.FinalWinner != GameWinner.None &&
+                           (!hasSettledShowdown ||
+                            isShowdownResultVisible) &&
+                          (!hasFoldResult || isFoldResultVisible);
         bool isShowdownResult = hasSettledShowdown &&
-                                isShowdownResultVisible;
-        bool isFoldResult = gameState.RoundEndReason == RoundEndReason.Fold &&
-                            (gameState.Phase == GamePhase.RoundEnd ||
-                             gameState.Phase == GamePhase.GameOver);
+                                 isShowdownResultVisible;
+        bool isFoldResult = hasFoldResult && isFoldResultVisible;
         bool shouldShow = isGameOver || isShowdownResult || isFoldResult;
 
         resultOverlay.SetActive(shouldShow);
+        restartButton.gameObject.SetActive(isGameOver);
+        restartButton.interactable = isGameOver && CanRestartGame();
 
         if (!shouldShow)
         {
@@ -1358,8 +1763,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                playerActionBar != null &&
                contextActionArea != null &&
                HasAllBettingActionButtons() &&
+               raiseDecreaseButton != null &&
+               raiseAmountText != null &&
+               raiseIncreaseButton != null &&
+               raiseMaxButton != null &&
+               raiseExecuteButton != null &&
+               raiseExecuteText != null &&
                resolveShowdownButton != null &&
-               nextRoundButton != null;
+               nextRoundButton != null &&
+               restartButton != null;
     }
 
     private bool HasAllBettingActionButtons()
@@ -1401,6 +1813,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         dealerHandRank = HandRank.None;
         roundWinner = RoundWinner.None;
         isShowdownResultVisible = false;
+        isFoldResultVisible = false;
     }
 
     private void AddLog(string message)
@@ -1467,8 +1880,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         switch (decision)
         {
-            case DealerDecision.Check:
-                return "CHECK";
             case DealerDecision.Call:
                 return "CALL";
             case DealerDecision.Raise:
