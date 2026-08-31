@@ -101,7 +101,7 @@ public sealed class GameState
         bool bothCanPayAnte =
             PlayerChips.Count >= AnteAmount &&
             DealerChips.Count >= AnteAmount;
-        bool shouldSkipAnte = Pot.Amount > 0 && !bothCanPayAnte;
+        bool shouldCollectAnte = Pot.Amount == 0;
 
         if (Phase != GamePhase.Setup ||
             !IsActiveTurn(firstTurn) ||
@@ -110,7 +110,7 @@ public sealed class GameState
             CommunityCard1 != null ||
             CommunityCard2 != null ||
             Deck.RemainingCount < 4 ||
-            (!shouldSkipAnte &&
+            (shouldCollectAnte &&
              (!bothCanPayAnte ||
               Pot.Amount > int.MaxValue - TotalAnteAmount ||
               !Betting.CanAddToTotalBet(TurnOwner.Player, AnteAmount) ||
@@ -130,7 +130,7 @@ public sealed class GameState
         CommunityCard2 = communityCard2;
         Betting.Reset();
 
-        if (!shouldSkipAnte)
+        if (shouldCollectAnte)
         {
             PlayerChips.TrySpend(AnteAmount);
             DealerChips.TrySpend(AnteAmount);

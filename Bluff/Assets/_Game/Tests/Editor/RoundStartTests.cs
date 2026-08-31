@@ -5,7 +5,7 @@ public sealed class RoundStartTests
     [Test]
     public void StartRound_DealsCardsAndStartsBettingWithSelectedTurn()
     {
-        var gameState = new GameState(5, 5, CreateDeck(6));
+        var gameState = new GameState(10, 10, CreateDeck(6));
 
         Assert.That(gameState.TryStartRound(TurnOwner.Dealer), Is.True);
 
@@ -16,8 +16,8 @@ public sealed class RoundStartTests
         Assert.That(gameState.CommunityCard1, Is.Not.Null);
         Assert.That(gameState.CommunityCard2, Is.Not.Null);
         Assert.That(gameState.Deck.RemainingCount, Is.EqualTo(2));
-        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(4));
-        Assert.That(gameState.DealerChips.Count, Is.EqualTo(4));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(9));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(9));
         Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(1));
         Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(1));
         Assert.That(gameState.Betting.GetCallAmount(TurnOwner.Player), Is.Zero);
@@ -26,18 +26,20 @@ public sealed class RoundStartTests
     }
 
     [Test]
-    public void StartRound_AddsAntesToCarriedPot()
+    public void StartRound_CarriedPotSkipsAntesAndStartsBetting()
     {
         var gameState = new GameState(10, 10, CreateDeck(6));
-        Assert.That(gameState.Pot.TryAdd(3), Is.True);
+        Assert.That(gameState.Pot.TryAdd(6), Is.True);
 
         Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
 
-        Assert.That(gameState.Pot.Amount, Is.EqualTo(5));
-        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(9));
-        Assert.That(gameState.DealerChips.Count, Is.EqualTo(9));
-        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(1));
-        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(1));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(6));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
     }
 
     [Test]
@@ -272,14 +274,20 @@ public sealed class RoundStartTests
     }
 
     [Test]
-    public void StartRound_FailsWhenPotCannotReceiveAntesWithoutChangingState()
+    public void StartRound_MaximumCarriedPotSkipsAntes()
     {
         var gameState = new GameState(10, 10, CreateDeck(6));
         Assert.That(gameState.Pot.TryAdd(int.MaxValue), Is.True);
 
-        AssertStartRoundFailsWithoutChangingState(
-            gameState,
-            TurnOwner.Player);
+        Assert.That(gameState.TryStartRound(TurnOwner.Player), Is.True);
+
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(int.MaxValue));
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
     }
 
     [Test]
