@@ -92,6 +92,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         gameState?.DealerChips.Count ?? 0;
     public int CurrentDeckRemainingCount =>
         gameState?.Deck.RemainingCount ?? 0;
+    public GameMode CurrentGameMode =>
+        gameState?.GameMode ?? GameModeSelection.SelectedMode;
+    public int CurrentRound => gameState?.CurrentRound ?? 0;
 
     private void OnEnable()
     {
@@ -348,7 +351,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         gameState = new GameState(
             Mathf.Max(0, playerStartingChips),
             Mathf.Max(0, dealerStartingChips),
-            deck);
+            deck,
+            GameModeSelection.SelectedMode);
         nextRoundFirstTurn = firstTurn == TurnOwner.Dealer
             ? TurnOwner.Dealer
             : TurnOwner.Player;
@@ -1669,6 +1673,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private string BuildDebugInfo()
     {
         return
+            $"Game Mode      {gameState.GameMode}\n" +
+            $"Round          {gameState.CurrentRound}\n" +
             $"Phase          {gameState.Phase}\n" +
             $"Current Turn   {gameState.CurrentTurn}\n" +
             $"Player Rank    {playerHandRank}\n" +

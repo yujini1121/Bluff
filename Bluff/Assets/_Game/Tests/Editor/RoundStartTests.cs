@@ -230,7 +230,7 @@ public sealed class RoundStartTests
     }
 
     [Test]
-    public void StartRound_CarriedPotDealerWinner_WithExhaustedDeckEndsGame()
+    public void StartRound_CarriedPotDealerWinner_DoesNotEndBeforeRoundTen()
     {
         var gameState = new GameState(
             1,
@@ -249,8 +249,8 @@ public sealed class RoundStartTests
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(1));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(39));
         Assert.That(gameState.Pot.Amount, Is.Zero);
-        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
-        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Dealer));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.None));
     }
 
     [Test]

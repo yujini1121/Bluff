@@ -6,27 +6,49 @@ public sealed class GameState
     private const int TotalAnteAmount = AnteAmount * 2;
     private const int CardsPerRound = 4;
     private const int MaximumFoldPenaltyAmount = 10;
+    public const int MaximumRoundCount = 10;
 
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
     public TurnOwner FoldedBy { get; private set; }
     public int FoldPenaltyAmount { get; private set; }
     public GameWinner FinalWinner { get; private set; }
+    public GameMode GameMode { get; }
+    public int CurrentRound { get; private set; }
     public TurnState Turn { get; }
     public TurnOwner CurrentTurn => Turn.Owner;
     public ChipStack PlayerChips { get; }
     public ChipStack DealerChips { get; }
     public Pot Pot { get; }
     public BettingState Betting { get; }
-    public Deck Deck { get; }
+    public Deck Deck { get; private set; }
     public Card PlayerCard { get; private set; }
     public Card DealerCard { get; private set; }
     public Card CommunityCard1 { get; private set; }
     public Card CommunityCard2 { get; private set; }
 
     public GameState(int playerStartingChips, int dealerStartingChips, Deck deck)
+        : this(
+            playerStartingChips,
+            dealerStartingChips,
+            deck,
+            GameMode.RoundLimited)
     {
+    }
+
+    public GameState(
+        int playerStartingChips,
+        int dealerStartingChips,
+        Deck deck,
+        GameMode gameMode)
+    {
+        if (gameMode != GameMode.RoundLimited && gameMode != GameMode.Endless)
+        {
+            throw new ArgumentOutOfRangeException(nameof(gameMode));
+        }
+
         Deck = deck ?? throw new ArgumentNullException(nameof(deck));
+        GameMode = gameMode;
         PlayerChips = new ChipStack(playerStartingChips);
         DealerChips = new ChipStack(dealerStartingChips);
         Pot = new Pot();
@@ -34,6 +56,7 @@ public sealed class GameState
         Turn = new TurnState();
         Phase = GamePhase.Setup;
         FinalWinner = GameWinner.None;
+        CurrentRound = 0;
         ResetRoundResult();
     }
 
@@ -105,6 +128,8 @@ public sealed class GameState
         bool shouldCollectAnte = Pot.Amount == 0;
 
         if (Phase != GamePhase.Setup ||
+            (GameMode == GameMode.RoundLimited &&
+             CurrentRound >= MaximumRoundCount) ||
             !IsActiveTurn(firstTurn) ||
             PlayerCard != null ||
             DealerCard != null ||
@@ -142,6 +167,8 @@ public sealed class GameState
 
         ResetRoundResult();
 
+        CurrentRound++;
+
         if (PlayerChips.Count == 0 || DealerChips.Count == 0)
         {
             Turn.Reset();
@@ -156,9 +183,18 @@ public sealed class GameState
 
     public bool TryPrepareNextRound()
     {
-        if (Phase != GamePhase.RoundEnd)
+        if (Phase != GamePhase.RoundEnd ||
+            (GameMode == GameMode.RoundLimited &&
+             CurrentRound >= MaximumRoundCount))
         {
             return false;
+        }
+
+        if (GameMode == GameMode.Endless &&
+            Deck.RemainingCount < CardsPerRound)
+        {
+            Deck = Deck.CreateIndianHoldemDeck();
+            Deck.Shuffle();
         }
 
         Betting.Reset();
@@ -297,11 +333,10 @@ public sealed class GameState
 
     private void EndGameIfNeeded()
     {
-        if (Deck.RemainingCount < CardsPerRound)
+        if (GameMode == GameMode.RoundLimited &&
+            CurrentRound >= MaximumRoundCount)
         {
-            FinalWinner = Pot.Amount > 0
-                ? GameWinner.Draw
-                : GetWinnerByChipCount();
+            FinalWinner = GetWinnerByChipCount();
             Phase = GamePhase.GameOver;
             return;
         }
