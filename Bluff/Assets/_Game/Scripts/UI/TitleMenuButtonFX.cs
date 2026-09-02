@@ -1,6 +1,7 @@
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class TitleMenuButtonFX : MonoBehaviour,
     IPointerEnterHandler,
@@ -19,6 +20,15 @@ public class TitleMenuButtonFX : MonoBehaviour,
     [Header("Other Button")]
     [SerializeField] private float dimAlpha = 0.45f;
 
+    [Header("Diamond")]
+    [SerializeField] private RectTransform leftDiamond;
+    [SerializeField] private RectTransform rightDiamond;
+    [SerializeField] private Color diamondNormalColor = Color.white;
+    [SerializeField] private Color diamondHoverColor = Color.cyan;
+    [SerializeField] private float indicatorDuration = 0.15f;
+
+    private Image leftDiamondImage;
+    private Image rightDiamondImage;
     private TitleMenuController controller;
     private Vector2 basePosition;
     private bool isHovered;
@@ -26,12 +36,25 @@ public class TitleMenuButtonFX : MonoBehaviour,
     private void Awake()
     {
         basePosition = visualRoot.anchoredPosition;
+        
+        leftDiamondImage = leftDiamond?.GetComponent<Image>();
+        rightDiamondImage = rightDiamond?.GetComponent<Image>();
 
         if (underline != null)
         {
             Vector3 scale = underline.localScale;
             scale.x = 0f;
             underline.localScale = scale;
+        }
+
+        if (leftDiamond != null)
+        {
+            leftDiamond.localScale = Vector3.zero;
+        }
+
+        if (rightDiamond != null)
+        {
+            rightDiamond.localScale = Vector3.zero;
         }
     }
 
@@ -52,6 +75,15 @@ public class TitleMenuButtonFX : MonoBehaviour,
 
         underline?.DOScaleX(1f, hoverDuration)
             .SetEase(Ease.OutQuad);
+
+        leftDiamond?.DOScale(1f, indicatorDuration)
+            .SetEase(Ease.OutBack);
+
+        rightDiamond?.DOScale(1f, indicatorDuration)
+            .SetEase(Ease.OutBack);
+
+        leftDiamondImage?.DOColor(diamondHoverColor, hoverDuration);
+        rightDiamondImage?.DOColor(diamondHoverColor, hoverDuration);
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -66,6 +98,15 @@ public class TitleMenuButtonFX : MonoBehaviour,
 
         underline?.DOScaleX(0f, hoverDuration)
             .SetEase(Ease.OutQuad);
+
+        leftDiamond?.DOScale(0f, indicatorDuration)
+            .SetEase(Ease.InQuad);
+
+        rightDiamond?.DOScale(0f, indicatorDuration)
+            .SetEase(Ease.InQuad);
+
+        leftDiamondImage?.DOColor(diamondNormalColor, hoverDuration);
+        rightDiamondImage?.DOColor(diamondNormalColor, hoverDuration);
     }
 
     public void OnPointerDown(PointerEventData eventData)
