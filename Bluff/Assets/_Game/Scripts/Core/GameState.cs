@@ -4,6 +4,7 @@ public sealed class GameState
 {
     private const int AnteAmount = 1;
     private const int TotalAnteAmount = AnteAmount * 2;
+    private const int CardsPerRound = 4;
     private const int MaximumFoldPenaltyAmount = 10;
 
     public GamePhase Phase { get; private set; }
@@ -109,7 +110,7 @@ public sealed class GameState
             DealerCard != null ||
             CommunityCard1 != null ||
             CommunityCard2 != null ||
-            Deck.RemainingCount < 4 ||
+            Deck.RemainingCount < CardsPerRound ||
             (shouldCollectAnte &&
              (!bothCanPayAnte ||
               Pot.Amount > int.MaxValue - TotalAnteAmount ||
@@ -296,6 +297,15 @@ public sealed class GameState
 
     private void EndGameIfNeeded()
     {
+        if (Deck.RemainingCount < CardsPerRound)
+        {
+            FinalWinner = Pot.Amount > 0
+                ? GameWinner.Draw
+                : GetWinnerByChipCount();
+            Phase = GamePhase.GameOver;
+            return;
+        }
+
         if (Pot.Amount > 0)
         {
             return;
@@ -311,6 +321,21 @@ public sealed class GameState
             FinalWinner = GameWinner.Player;
             Phase = GamePhase.GameOver;
         }
+    }
+
+    private GameWinner GetWinnerByChipCount()
+    {
+        if (PlayerChips.Count > DealerChips.Count)
+        {
+            return GameWinner.Player;
+        }
+
+        if (DealerChips.Count > PlayerChips.Count)
+        {
+            return GameWinner.Dealer;
+        }
+
+        return GameWinner.Draw;
     }
 
     private HandRank GetHandRank(Card privateCard)

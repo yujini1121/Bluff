@@ -597,7 +597,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
         else if (gameState.Phase == GamePhase.GameOver)
         {
-            AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
+            AddLog(GameOverLogText(gameState.FinalWinner));
         }
     }
 
@@ -1321,7 +1321,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         if (gameState.Phase == GamePhase.GameOver)
         {
-            AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
+            AddLog(GameOverLogText(gameState.FinalWinner));
         }
 
         RefreshView();
@@ -1619,9 +1619,22 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         if (isGameOver)
         {
-            resultTitleText.text = gameState.FinalWinner == GameWinner.Player
-                ? "PLAYER WINS"
-                : "DEALER WINS";
+            switch (gameState.FinalWinner)
+            {
+                case GameWinner.Player:
+                    resultTitleText.text = "PLAYER WINS";
+                    break;
+                case GameWinner.Dealer:
+                    resultTitleText.text = "DEALER WINS";
+                    break;
+                case GameWinner.Draw:
+                    resultTitleText.text = "DRAW";
+                    break;
+                default:
+                    resultTitleText.text = "GAME OVER";
+                    break;
+            }
+
             string gameOverDetail = isFoldResult
                 ? BuildFoldResultSummary()
                 : BuildHandRankSummary();
@@ -1881,8 +1894,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return "플레이어";
             case GameWinner.Dealer:
                 return "딜러";
+            case GameWinner.Draw:
+                return "무승부";
             default:
                 return "없음";
         }
+    }
+
+    private static string GameOverLogText(GameWinner winner)
+    {
+        return winner == GameWinner.Draw
+            ? "게임 종료 - 무승부"
+            : $"게임 종료 - {GameWinnerText(winner)} 승리";
     }
 }

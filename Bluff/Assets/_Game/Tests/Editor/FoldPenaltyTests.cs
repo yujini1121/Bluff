@@ -306,6 +306,12 @@ public sealed class FoldPenaltyTests
 
     private static Deck CreateDeck()
     {
-        return new Deck(new[] { new Card(1), new Card(2) });
+        return new Deck(new[]
+        {
+            new Card(1),
+            new Card(2),
+            new Card(3),
+            new Card(4)
+        });
     }
 }

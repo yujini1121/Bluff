@@ -87,6 +87,7 @@ public sealed class GameOverTests
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(8));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
         Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.None));
+        Assert.That(gameState.TryPrepareNextRound(), Is.True);
     }
 
     [Test]
@@ -153,6 +154,95 @@ public sealed class GameOverTests
     }
 
     [Test]
+    public void SettleShowdown_ExhaustedDeckWithPlayerChipLeadEndsGame()
+    {
+        GameState gameState = CreateGameWithCards(
+            12,
+            8,
+            6,
+            4,
+            4,
+            5,
+            3);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
+
+        Assert.That(gameState.TrySettleShowdown(out _), Is.True);
+
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Player));
+        Assert.That(gameState.TryPrepareNextRound(), Is.False);
+    }
+
+    [Test]
+    public void SettleShowdown_ExhaustedDeckWithDealerChipLeadEndsGame()
+    {
+        GameState gameState = CreateGameWithCards(
+            8,
+            12,
+            9,
+            4,
+            4,
+            7,
+            3);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
+
+        Assert.That(gameState.TrySettleShowdown(out _), Is.True);
+
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Dealer));
+        Assert.That(gameState.TryPrepareNextRound(), Is.False);
+    }
+
+    [Test]
+    public void SettleShowdown_ExhaustedDeckWithEqualChipsEndsGameInDraw()
+    {
+        GameState gameState = CreateGameWithCards(
+            10,
+            10,
+            9,
+            9,
+            4,
+            7,
+            3);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
+
+        Assert.That(gameState.TrySettleShowdown(out RoundWinner winner), Is.True);
+
+        Assert.That(winner, Is.EqualTo(RoundWinner.Draw));
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Draw));
+        Assert.That(gameState.TryPrepareNextRound(), Is.False);
+    }
+
+    [Test]
+    public void SettleShowdown_ExhaustedDeckDrawWithCarriedPotEndsGameInDraw()
+    {
+        GameState gameState = CreateGameWithCards(
+            3,
+            5,
+            9,
+            9,
+            4,
+            7,
+            3);
+        Assert.That(gameState.Pot.TryAdd(6), Is.True);
+        Assert.That(gameState.TrySetPhase(GamePhase.Showdown), Is.True);
+
+        Assert.That(gameState.TrySettleShowdown(out RoundWinner winner), Is.True);
+
+        Assert.That(winner, Is.EqualTo(RoundWinner.Draw));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(3));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(5));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(6));
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.GameOver));
+        Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.Draw));
+        Assert.That(gameState.TryPrepareNextRound(), Is.False);
+    }
+
+    [Test]
     public void Fold_AfterFinalPayoutCanEndGame()
     {
         var gameState = new GameState(0, 10, CreateDeck());
@@ -185,9 +275,13 @@ public sealed class GameOverTests
         int playerRank,
         int dealerRank,
         int communityRank1,
-        int communityRank2)
+        int communityRank2,
+        int deckCardCount = 4)
     {
-        var gameState = new GameState(playerChips, dealerChips, CreateDeck());
+        var gameState = new GameState(
+            playerChips,
+            dealerChips,
+            CreateDeck(deckCardCount));
         gameState.TrySetPlayerCard(new Card(playerRank));
         gameState.TrySetDealerCard(new Card(dealerRank));
         gameState.TrySetCommunityCards(
@@ -196,8 +290,15 @@ public sealed class GameOverTests
         return gameState;
     }
 
-    private static Deck CreateDeck()
+    private static Deck CreateDeck(int cardCount = 4)
     {
-        return new Deck(new[] { new Card(1), new Card(2) });
+        var cards = new Card[cardCount];
+
+        for (int index = 0; index < cardCount; index++)
+        {
+            cards[index] = new Card(index % 10 + 1);
+        }
+
+        return new Deck(cards);
     }
 }

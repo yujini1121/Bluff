@@ -251,7 +251,7 @@ public sealed class ItemGameApiTests
         int communityRank1,
         int communityRank2)
     {
-        var gameState = new GameState(20, 20, CreateDeck());
+        var gameState = new GameState(20, 20, CreateRoundContinuationDeck());
         gameState.TrySetPlayerCard(new Card(playerRank));
         gameState.TrySetDealerCard(new Card(dealerRank));
         gameState.TrySetCommunityCards(
@@ -274,5 +274,16 @@ public sealed class ItemGameApiTests
     private static Deck CreateDeck()
     {
         return new Deck(new[] { new Card(1), new Card(2) });
+    }
+
+    private static Deck CreateRoundContinuationDeck()
+    {
+        return new Deck(new[]
+        {
+            new Card(1),
+            new Card(2),
+            new Card(3),
+            new Card(4)
+        });
     }
 }
