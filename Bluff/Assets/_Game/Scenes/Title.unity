@@ -388,11 +388,10 @@ MonoBehaviour:
   visualGroup: {fileID: 1755028630}
   hoverOffsetX: 20
   hoverDuration: 0.2
+  colorSpeed: 1
   dimAlpha: 0.6
   leftDiamond: {fileID: 1483204127}
   rightDiamond: {fileID: 901256282}
-  diamondNormalColor: {r: 1, g: 1, b: 1, a: 1}
-  diamondHoverColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
   indicatorDuration: 0.15
 --- !u!114 &262914194
 MonoBehaviour:
@@ -433,7 +432,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 0
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
@@ -1128,8 +1127,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -1419,8 +1418,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -1569,8 +1568,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -1645,11 +1644,10 @@ MonoBehaviour:
   visualGroup: {fileID: 191431898}
   hoverOffsetX: 20
   hoverDuration: 0.2
+  colorSpeed: 1
   dimAlpha: 0.6
   leftDiamond: {fileID: 1351435522}
   rightDiamond: {fileID: 520669154}
-  diamondNormalColor: {r: 1, g: 1, b: 1, a: 1}
-  diamondHoverColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
   indicatorDuration: 0.15
 --- !u!114 &829877756
 MonoBehaviour:
@@ -1690,7 +1688,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 0
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
@@ -1871,8 +1869,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -2128,8 +2126,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -2338,11 +2336,10 @@ MonoBehaviour:
   visualGroup: {fileID: 442116094}
   hoverOffsetX: 20
   hoverDuration: 0.2
+  colorSpeed: 1
   dimAlpha: 0.6
   leftDiamond: {fileID: 795743567}
   rightDiamond: {fileID: 1070194379}
-  diamondNormalColor: {r: 1, g: 1, b: 1, a: 1}
-  diamondHoverColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
   indicatorDuration: 0.15
 --- !u!114 &1170314655
 MonoBehaviour:
@@ -2383,7 +2380,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 0
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
@@ -2550,8 +2547,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -2759,8 +2756,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -2834,8 +2831,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -3110,7 +3107,7 @@ MonoBehaviour:
     m_SelectOnDown: {fileID: 0}
     m_SelectOnLeft: {fileID: 0}
     m_SelectOnRight: {fileID: 0}
-  m_Transition: 1
+  m_Transition: 0
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
     m_HighlightedColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
@@ -3222,11 +3219,10 @@ MonoBehaviour:
   visualGroup: {fileID: 1106569207}
   hoverOffsetX: 20
   hoverDuration: 0.2
+  colorSpeed: 1
   dimAlpha: 0.6
   leftDiamond: {fileID: 464884109}
   rightDiamond: {fileID: 1401648411}
-  diamondNormalColor: {r: 1, g: 1, b: 1, a: 1}
-  diamondHoverColor: {r: 1, g: 0.69411767, b: 0.84313726, a: 1}
   indicatorDuration: 0.15
 --- !u!1 &1628510025
 GameObject:
