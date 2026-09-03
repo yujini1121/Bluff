@@ -1639,6 +1639,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                     break;
             }
 
+            bool isFinalRoundLimitedResult =
+                gameState.GameMode == GameMode.RoundLimited &&
+                gameState.CurrentRound >= GameState.MaximumRoundCount;
+            if (isFinalRoundLimitedResult)
+            {
+                resultTitleText.text =
+                    "MATCH RESULT\n\n" + resultTitleText.text;
+                resultDetailText.text = BuildFinalChipSummary();
+                return;
+            }
+
             string gameOverDetail = isFoldResult
                 ? BuildFoldResultSummary()
                 : BuildHandRankSummary();
@@ -1723,6 +1734,14 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return
             $"PLAYER {HandRankGameText(playerHandRank)}  ·  " +
             $"DEALER {HandRankGameText(dealerHandRank)}";
+    }
+
+    private string BuildFinalChipSummary()
+    {
+        return
+            "FINAL CHIPS\n" +
+            $"PLAYER {gameState.PlayerChips.Count} · " +
+            $"DEALER {gameState.DealerChips.Count}";
     }
 
     private bool HasRequiredReferences()
