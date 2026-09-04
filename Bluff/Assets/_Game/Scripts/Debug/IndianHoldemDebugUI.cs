@@ -384,6 +384,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         itemSystem.Initialize(new ItemGameApi(gameState));
+        gameState.InitializeItemSystem(itemSystem);
 
         if (cardVisualController != null)
         {

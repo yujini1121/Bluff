@@ -1,10 +1,13 @@
 using System;
+using UnityEditor;
 
 public sealed class GameState
 {
     private const int AnteAmount = 1;
     private const int TotalAnteAmount = AnteAmount * 2;
     private const int MaximumFoldPenaltyAmount = 10;
+
+    private ItemSystem itemSystem;
 
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
@@ -34,6 +37,11 @@ public sealed class GameState
         Phase = GamePhase.Setup;
         FinalWinner = GameWinner.None;
         ResetRoundResult();
+    }
+
+    public void InitializeItemSystem(ItemSystem itemSystem)
+    {
+        this.itemSystem = itemSystem ?? throw new ArgumentNullException(nameof(itemSystem));
     }
 
     public bool TrySetPhase(GamePhase phase)
@@ -140,6 +148,7 @@ public sealed class GameState
         }
 
         ResetRoundResult();
+        itemSystem.GetItem();
 
         if (PlayerChips.Count == 0 || DealerChips.Count == 0)
         {

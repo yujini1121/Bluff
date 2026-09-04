@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.Purchasing;
 
 public enum ItemType
 {
@@ -7,7 +6,7 @@ public enum ItemType
     refreshCard,
     prizmChip,
     chipPocket,
-    checker
+    defy
 }
 
 public enum CanUseType

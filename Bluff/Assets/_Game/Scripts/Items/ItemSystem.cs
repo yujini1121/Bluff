@@ -1,10 +1,9 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEditor.Progress;
 
 public class ItemSystem : MonoBehaviour
 {
+    [SerializeField] private Inventory inventory;
     private const int AnteAmount = 1;
     private const int TotalAnteAmount = AnteAmount * 2;
     private const int MaximumFoldPenaltyAmount = 10;
@@ -12,11 +11,9 @@ public class ItemSystem : MonoBehaviour
     private ItemGameApi itemGameApi;
 
     public List<GameObject> itemList = new List<GameObject>(); // 전체 아이템 목록
-    public List<GameObject> playerItemInventory = new List<GameObject>(); // 플레이어 인벤토리
-    public List<GameObject> dealerItemInventory = new List<GameObject>(); // 딜러 인벤토리
 
-    private Vector3 playerItemSpawnPos = new Vector3(-9.5f, 0f, 0f); // 플레이어 아이템 스폰 위치
-    private Vector3 dealerItemSpawnPos = new Vector3(9.5f, 0f, 0f); // 딜러 아이템 스폰 위치
+    [SerializeField] private GameObject[] playerItemSpawnPos = new GameObject[4]; // 플레이어 아이템 스폰 위치
+    [SerializeField] private GameObject[] dealerItemSpawnPos = new GameObject[4]; // 딜러 아이템 스폰 위치
 
     [Header("아이템 수치")]
     [SerializeField] private int chipPocketAmount = 2; // 칩 포켓 아이템으로 얻는 칩 수량
@@ -30,45 +27,42 @@ public class ItemSystem : MonoBehaviour
     {
         // 플레이어 아이템 지급
         GameObject randomPlayerItem = itemList[Random.Range(0, itemList.Count)]; // 랜덤 아이템 선택
-        GameObject playerItem = Instantiate(randomPlayerItem, playerItemSpawnPos, Quaternion.identity); // 아이템을 게임 씬에 생성
-        playerItemInventory.Add(playerItem); // 아이템을 플레이어 인벤토리에 추가
-        if (playerItem.TryGetComponent<Item>(out var playerItemComponent))
+        int playerInventoryIndex = inventory.GetInventoryIndex(TurnOwner.Player); // 플레이어 인벤토리에서 빈 슬롯 확인
+        if (playerInventoryIndex != -1) // 인벤토리 공간 확인
         {
-            playerItemComponent.itemSystem = this;
+            GameObject playerItem = Instantiate(randomPlayerItem, playerItemSpawnPos[playerInventoryIndex].transform.position, Quaternion.identity); // 아이템을 게임 씬에 생성
+            if (inventory.AddItem(TurnOwner.Player, playerItem)) // 아이템을 플레이어 인벤토리에 추가
+            {
+                if (playerItem.TryGetComponent<Item>(out var playerItemComponent))
+                {
+                    playerItemComponent.itemSystem = this;
+                }
+            }
         }
 
         // 딜러 아이템 지급
         GameObject randomDealerItem = itemList[Random.Range(0, itemList.Count)]; // 랜덤 아이템 선택
-        GameObject dealerItem = Instantiate(randomDealerItem, dealerItemSpawnPos, Quaternion.identity); // 아이템을 게임 씬에 생성
-        dealerItemInventory.Add(dealerItem); // 아이템을 딜러 인벤토리에 추가
-        if (dealerItem.TryGetComponent<Item>(out var dealerItemComponent))
+        int dealerInventoryIndex = inventory.GetInventoryIndex(TurnOwner.Dealer); // 딜러 인벤토리에서 빈 슬롯 확인
+        if (dealerInventoryIndex != -1) // 인벤토리 공간 확인
         {
-            dealerItemComponent.itemSystem = this;
+            GameObject dealerItem = Instantiate(randomDealerItem, dealerItemSpawnPos[dealerInventoryIndex].transform.position, Quaternion.identity); // 아이템을 게임 씬에 생성
+            if (inventory.AddItem(TurnOwner.Dealer, dealerItem)) // 아이템을 딜러 인벤토리에 추가
+            {
+                if (dealerItem.TryGetComponent<Item>(out var dealerItemComponent))
+                {
+                    dealerItemComponent.itemSystem = this;
+                }
+            }
         }
     }
 
     public bool UseItem(TurnOwner target, GameObject item)
     {
         // 인벤토리에 아이템이 있는지 검사
-        switch (target)
+        if (!inventory.HasItem(target, item))
         {
-            case TurnOwner.Player:
-                if (!playerItemInventory.Contains(item))
-                {
-                    Debug.LogWarning("플레이어 인벤토리에 아이템이 없습니다.");
-                    return false;
-                }
-                break;
-            case TurnOwner.Dealer:
-                if (!dealerItemInventory.Contains(item))
-                {
-                    Debug.LogWarning("딜러 인벤토리에 아이템이 없습니다.");
-                    return false;
-                }
-                break;
-            default:
-                Debug.LogWarning("잘못된 타겟입니다.");
-                return false;
+            Debug.LogWarning("인벤토리에 아이템이 없습니다.");
+            return false;
         }
 
         ItemType type = item.GetComponent<Item>().itemData.itemType;
@@ -90,8 +84,8 @@ public class ItemSystem : MonoBehaviour
             case ItemType.chipPocket:
                 ChipPocket();
                 break;
-            case ItemType.checker:
-                Checker();
+            case ItemType.defy:
+                Defy();
                 break;
             default:
                 Debug.LogWarning("아이템이 사용되지 않았습니다.");
@@ -99,15 +93,7 @@ public class ItemSystem : MonoBehaviour
         }
 
         // 아이템 사용 후 인벤토리에서 제거
-        switch (target)
-        {
-            case TurnOwner.Player:
-                playerItemInventory.Remove(item);
-                break;
-            case TurnOwner.Dealer:
-                dealerItemInventory.Remove(item);
-                break;
-        }
+        inventory.TryRemoveItem(target, item);
 
         return true;
     }
@@ -145,11 +131,11 @@ public class ItemSystem : MonoBehaviour
             case ItemType.chipPocket:
                 // 다른 조건 없음
                 break;
-            case ItemType.checker:
+            case ItemType.defy:
                 // Betting된 칩이 있을 경우에만 사용 가능
                 if (itemGameApi.GetPot() == TotalAnteAmount)
                 {
-                    Debug.LogWarning("'체커' 아이템은 베팅이 진행된 후에 사용 가능합니다.");
+                    Debug.LogWarning("'디파이' 아이템은 베팅이 진행된 후에 사용 가능합니다.");
                     return false;
                 }
                 break;
@@ -181,10 +167,9 @@ public class ItemSystem : MonoBehaviour
         Debug.Log("'칩 포켓' 아이템이 사용되었습니다. 일정량의 칩을 얻습니다.");
     }
 
-    private void Checker()
+    private void Defy() // 작동 확인
     {
         itemGameApi.TryCall();
-
-        Debug.Log("'체커' 아이템이 사용되었습니다. 상대의 레이즈를 무시하고 베팅을 강제 종료합니다.");
+        Debug.Log("'디파이' 아이템이 사용되었습니다. 상대의 레이즈를 무시하고 베팅을 강제 종료합니다.");
     }
 }
