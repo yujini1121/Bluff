@@ -44,11 +44,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12a58db77c93908468e94d610343949e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  inventory: {fileID: 11400000, guid: 47d50e16eec7e5d44b9b66a1503ec66f, type: 2}
   itemList:
   - {fileID: 4266628273308215506, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
   - {fileID: 9109885737611708634, guid: 988b413a0a059fc46990422995127199, type: 3}
   - {fileID: 4180414832903803173, guid: ea3f1f036d32d194badd323d20b6556a, type: 3}
   - {fileID: 6493617705365993511, guid: 443ad5786f4de564aa65e170b157400c, type: 3}
-  playerItemInventory: []
-  dealerItemInventory: []
+  playerItemSpawnPos:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  dealerItemSpawnPos:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   chipPocketAmount: 2
