@@ -42,6 +42,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
 
+    [Header("Gameplay HUD")]
+    [SerializeField] private TMP_Text roundText;
+
     [Header("디버그 패널")]
     [SerializeField] private GameObject debugPanel;
     [SerializeField] private TMP_Text debugInfoText;
@@ -1421,6 +1424,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void RefreshView()
     {
+        RefreshRoundText();
         debugInfoText.text = BuildDebugInfo();
         messageText.text = string.Join("\n", logs);
         debugPanel.SetActive(debugPanelOpen);
@@ -1459,6 +1463,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             CanAcceptProgressInput(GamePhase.RoundEnd);
 
         RefreshResultOverlay();
+    }
+
+    private void RefreshRoundText()
+    {
+        roundText.text = CurrentGameMode == GameMode.RoundLimited
+            ? $"ROUND {CurrentRound} / {GameState.MaximumRoundCount}"
+            : $"ROUND {CurrentRound}";
     }
 
     private void CacheCallActionTexts()
@@ -1749,6 +1760,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return resultOverlay != null &&
                resultTitleText != null &&
                resultDetailText != null &&
+               roundText != null &&
                debugPanel != null &&
                debugInfoText != null &&
                messageText != null &&
