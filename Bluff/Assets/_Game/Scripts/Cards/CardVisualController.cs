@@ -562,12 +562,4 @@ public sealed class CardVisualController : MonoBehaviour
             cardVisual.SetCard(card);
         }
     }
-
-    public void RefreshAllCards()
-    {
-        playerCardVisual?.SetCard(gameState?.PlayerCard);
-        dealerCardVisual?.SetCard(gameState?.DealerCard);
-        communityCardVisual1?.SetCard(gameState?.CommunityCard1);
-        communityCardVisual2?.SetCard(gameState?.CommunityCard2);
-    }
 }

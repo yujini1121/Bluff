@@ -165,11 +165,6 @@ public class ItemSystem : MonoBehaviour
     private void RefreshCard() // 작동 확인
     {
         itemGameApi.TryReplaceCard();
-        IndianHoldemDebugUI indianHoldemDebugUI = FindObjectOfType<IndianHoldemDebugUI>();
-        if (indianHoldemDebugUI != null)
-        {
-            indianHoldemDebugUI.UpdateCardVisuals();
-        }
 
         Debug.Log("'새로고침 카드' 아이템이 사용되었습니다. 시드 카드와 각 플레이어의 카드를 재설정합니다.");
     }

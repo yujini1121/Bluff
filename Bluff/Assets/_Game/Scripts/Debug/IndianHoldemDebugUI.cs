@@ -1556,9 +1556,4 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return "없음";
         }
     }
-
-    public void UpdateCardVisuals()
-    {
-        cardVisualController?.RefreshAllCards();
-    }
 }
