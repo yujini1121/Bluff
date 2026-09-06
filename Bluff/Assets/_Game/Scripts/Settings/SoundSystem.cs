@@ -5,9 +5,11 @@ public class SoundSystem : MonoBehaviour
 {
     public static SoundSystem Instance { get; private set; }
 
-    [SerializeField] private AudioSource bgm;
+    [SerializeField] private AudioSource[] bgmList;
     [SerializeField] private AudioSource chipStackSFX;
     [SerializeField] private AudioSource cardSFX;
+
+    private int currentBGMIndex = 0;
 
     void Awake()
     {
@@ -18,16 +20,31 @@ public class SoundSystem : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
+        StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
-    public void PlayBGM()
+    public IEnumerator RepeatPlaybackBGM(int index)
     {
-        bgm.Play();
+        if (index < 0 || index >= bgmList.Length)
+        {
+            Debug.LogWarning("Invalid BGM index.");
+            yield break;
+        }
+        bgmList[index].Play();
+
+        yield return new WaitForSeconds(bgmList[index].clip.length);
+
+        currentBGMIndex++;
+        if (currentBGMIndex >= bgmList.Length)
+        {
+            currentBGMIndex = 0;
+        }
+        StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
     public void StopBGM()
     {
-        bgm.Stop();
+        StopCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
     public void PlayChipStackSFX()
