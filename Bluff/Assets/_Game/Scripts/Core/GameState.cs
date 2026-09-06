@@ -127,10 +127,10 @@ public sealed class GameState
             return false;
         }
 
-        Deck.TryDraw(out Card playerCard);
-        Deck.TryDraw(out Card dealerCard);
-        Deck.TryDraw(out Card communityCard1);
-        Deck.TryDraw(out Card communityCard2);
+        Deck.TryDraw(out Card playerCard); SoundSystem.Instance.PlayCardSFX();
+        Deck.TryDraw(out Card dealerCard); SoundSystem.Instance.PlayCardSFX();
+        Deck.TryDraw(out Card communityCard1); SoundSystem.Instance.PlayCardSFX();
+        Deck.TryDraw(out Card communityCard2); SoundSystem.Instance.PlayCardSFX();
 
         PlayerCard = playerCard;
         DealerCard = dealerCard;
@@ -434,6 +434,7 @@ public sealed class GameState
             return false;
         }
 
+        SoundSystem.Instance.PlayChipStackSFX();
         FinishBetting();
         return true;
     }
@@ -466,6 +467,7 @@ public sealed class GameState
             return false;
         }
 
+        SoundSystem.Instance.PlayChipStackSFX();
         Turn.TrySwitch();
         return true;
     }
@@ -495,6 +497,8 @@ public sealed class GameState
         }
 
         AddBetToPot(allInAmount);
+
+        SoundSystem.Instance.PlayChipStackSFX();
 
         if (shouldEndBetting)
         {

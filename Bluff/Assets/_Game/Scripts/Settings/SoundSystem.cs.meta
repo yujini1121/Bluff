@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 684e8ec420a67c0428aa478af3c36ea8
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - bgm: {instanceID: 0}
+  - chipStackSFX: {instanceID: 0}
+  - cardSFX: {fileID: 6443609836815082446, guid: 7dcfeb5f09e8a9c4eba471f58ef562db, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
