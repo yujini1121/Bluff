@@ -7,47 +7,21 @@ public sealed class RoundFirstTurnTests
     private static readonly BindingFlags PrivateInstance =
         BindingFlags.Instance | BindingFlags.NonPublic;
 
-    [TestCase(
-        TurnOwner.Player,
-        TurnOwner.Player,
-        TurnOwner.Dealer,
-        TurnOwner.Player)]
-    [TestCase(
-        TurnOwner.Dealer,
-        TurnOwner.Dealer,
-        TurnOwner.Player,
-        TurnOwner.Dealer)]
-    public void StartRound_AlternatesFirstTurnAfterEachSuccessfulRound(
-        TurnOwner configuredFirstTurn,
-        TurnOwner firstRoundTurn,
-        TurnOwner secondRoundTurn,
-        TurnOwner thirdRoundTurn)
+    [Test]
+    public void PlayerFirst_PlayerWins_PlayerStartsNextRound()
     {
-        IndianHoldemDebugUI ui = CreateUi(configuredFirstTurn);
+        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
 
         try
         {
             GameState gameState = GetField<GameState>(ui, "gameState");
-            TurnOwner[] expectedTurns =
-            {
-                firstRoundTurn,
-                secondRoundTurn,
-                thirdRoundTurn
-            };
+            InvokeStartRound(ui);
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
 
-            for (int index = 0; index < expectedTurns.Length; index++)
-            {
-                InvokeStartRound(ui);
-                Assert.That(
-                    gameState.CurrentTurn,
-                    Is.EqualTo(expectedTurns[index]));
+            SettleShowdown(ui, 6, 4, 4, 5, RoundWinner.Player);
+            InvokePrepareAndStartNextRound(ui);
 
-                if (index < expectedTurns.Length - 1)
-                {
-                    Assert.That(gameState.TryFold(), Is.True);
-                    Assert.That(gameState.TryPrepareNextRound(), Is.True);
-                }
-            }
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
         }
         finally
         {
@@ -56,7 +30,120 @@ public sealed class RoundFirstTurnTests
     }
 
     [Test]
-    public void StartRound_FailureDoesNotAdvanceNextFirstTurn()
+    public void PlayerFirst_DealerWins_DealerStartsNextRound()
+    {
+        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
+
+        try
+        {
+            GameState gameState = GetField<GameState>(ui, "gameState");
+            InvokeStartRound(ui);
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+
+            SettleShowdown(ui, 4, 6, 4, 5, RoundWinner.Dealer);
+            InvokePrepareAndStartNextRound(ui);
+
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        }
+        finally
+        {
+            Object.DestroyImmediate(ui.gameObject);
+        }
+    }
+
+    [Test]
+    public void DealerFirst_Draw_DealerStartsNextRound()
+    {
+        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Dealer);
+
+        try
+        {
+            GameState gameState = GetField<GameState>(ui, "gameState");
+            InvokeStartRound(ui);
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+
+            SettleShowdown(ui, 9, 9, 4, 7, RoundWinner.Draw);
+            InvokePrepareAndStartNextRound(ui);
+
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        }
+        finally
+        {
+            Object.DestroyImmediate(ui.gameObject);
+        }
+    }
+
+    [Test]
+    public void PlayerFolds_DealerStartsNextRound()
+    {
+        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
+
+        try
+        {
+            GameState gameState = GetField<GameState>(ui, "gameState");
+            InvokeStartRound(ui);
+            Assert.That(gameState.TryFold(), Is.True);
+
+            InvokePrepareAndStartNextRound(ui);
+
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        }
+        finally
+        {
+            Object.DestroyImmediate(ui.gameObject);
+        }
+    }
+
+    [Test]
+    public void DealerFolds_PlayerStartsNextRound()
+    {
+        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Dealer);
+
+        try
+        {
+            GameState gameState = GetField<GameState>(ui, "gameState");
+            InvokeStartRound(ui);
+            Assert.That(gameState.TryFold(), Is.True);
+
+            InvokePrepareAndStartNextRound(ui);
+
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
+        }
+        finally
+        {
+            Object.DestroyImmediate(ui.gameObject);
+        }
+    }
+
+    [Test]
+    public void ConsecutiveDraws_KeepOriginalFirstTurn()
+    {
+        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Dealer);
+
+        try
+        {
+            GameState gameState = GetField<GameState>(ui, "gameState");
+            InvokeStartRound(ui);
+
+            for (int index = 0; index < 2; index++)
+            {
+                Assert.That(
+                    gameState.CurrentTurn,
+                    Is.EqualTo(TurnOwner.Dealer));
+                SettleShowdown(ui, 9, 9, 4, 7, RoundWinner.Draw);
+                InvokePrepareAndStartNextRound(ui);
+            }
+
+            Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        }
+        finally
+        {
+            Object.DestroyImmediate(ui.gameObject);
+        }
+    }
+
+    [Test]
+    public void StartRound_FailureDoesNotChangeNextFirstTurn()
     {
         IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
 
@@ -65,13 +152,13 @@ public sealed class RoundFirstTurnTests
             InvokeStartRound(ui);
             Assert.That(
                 GetField<TurnOwner>(ui, "nextRoundFirstTurn"),
-                Is.EqualTo(TurnOwner.Dealer));
+                Is.EqualTo(TurnOwner.Player));
 
             InvokeStartRound(ui);
 
             Assert.That(
                 GetField<TurnOwner>(ui, "nextRoundFirstTurn"),
-                Is.EqualTo(TurnOwner.Dealer));
+                Is.EqualTo(TurnOwner.Player));
         }
         finally
         {
@@ -98,6 +185,44 @@ public sealed class RoundFirstTurnTests
     private static void InvokeStartRound(IndianHoldemDebugUI ui)
     {
         InvokePrivate(ui, "StartRound");
+    }
+
+    private static void InvokePrepareAndStartNextRound(
+        IndianHoldemDebugUI ui)
+    {
+        InvokePrivate(ui, "PrepareAndStartNextRound");
+    }
+
+    private static void SettleShowdown(
+        IndianHoldemDebugUI ui,
+        int playerRank,
+        int dealerRank,
+        int communityRank1,
+        int communityRank2,
+        RoundWinner expectedWinner)
+    {
+        GameState gameState = GetField<GameState>(ui, "gameState");
+        Assert.That(
+            gameState.TrySetPlayerCard(new Card(playerRank)),
+            Is.True);
+        Assert.That(
+            gameState.TrySetDealerCard(new Card(dealerRank)),
+            Is.True);
+        Assert.That(
+            gameState.TrySetCommunityCards(
+                new Card(communityRank1),
+                new Card(communityRank2)),
+            Is.True);
+        Assert.That(gameState.TryRaise(1), Is.True);
+        Assert.That(gameState.TryCall(), Is.True);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
+
+        InvokePrivate(ui, "ResolveShowdown");
+
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
+        Assert.That(
+            GetField<RoundWinner>(ui, "roundWinner"),
+            Is.EqualTo(expectedWinner));
     }
 
     private static void InvokePrivate(

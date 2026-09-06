@@ -87,6 +87,7 @@ public sealed class GameOverTests
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(8));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
         Assert.That(gameState.FinalWinner, Is.EqualTo(GameWinner.None));
+        Assert.That(gameState.TryPrepareNextRound(), Is.True);
     }
 
     [Test]
@@ -185,9 +186,13 @@ public sealed class GameOverTests
         int playerRank,
         int dealerRank,
         int communityRank1,
-        int communityRank2)
+        int communityRank2,
+        int deckCardCount = 4)
     {
-        var gameState = new GameState(playerChips, dealerChips, CreateDeck());
+        var gameState = new GameState(
+            playerChips,
+            dealerChips,
+            CreateDeck(deckCardCount));
         gameState.TrySetPlayerCard(new Card(playerRank));
         gameState.TrySetDealerCard(new Card(dealerRank));
         gameState.TrySetCommunityCards(
@@ -196,8 +201,15 @@ public sealed class GameOverTests
         return gameState;
     }
 
-    private static Deck CreateDeck()
+    private static Deck CreateDeck(int cardCount = 4)
     {
-        return new Deck(new[] { new Card(1), new Card(2) });
+        var cards = new Card[cardCount];
+
+        for (int index = 0; index < cardCount; index++)
+        {
+            cards[index] = new Card(index % 10 + 1);
+        }
+
+        return new Deck(cards);
     }
 }

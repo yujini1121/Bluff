@@ -2,5 +2,6 @@ public enum GameWinner
 {
     None,
     Player,
-    Dealer
+    Dealer,
+    Draw
 }

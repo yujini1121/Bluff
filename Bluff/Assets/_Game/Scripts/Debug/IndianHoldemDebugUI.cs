@@ -34,31 +34,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private ChipVisualController chipVisualController;
     [SerializeField] private DealerAnimationController dealerAnimationController;
 
-    [Header("메인 게임 화면")]
-    [SerializeField] private TMP_Text phaseText;
-    [SerializeField] private TMP_Text turnText;
-    [SerializeField] private TMP_Text dealerCardText;
-    [SerializeField] private TMP_Text dealerChipsText;
-    [SerializeField] private TMP_Text dealerTotalBetText;
-    [SerializeField] private TMP_Text communityCard1Text;
-    [SerializeField] private TMP_Text communityCard2Text;
-    [SerializeField] private TMP_Text potText;
-    [SerializeField] private TMP_Text playerCardText;
-    [SerializeField] private TMP_Text playerChipsText;
-    [SerializeField] private TMP_Text playerTotalBetText;
-    [SerializeField] private TMP_Text dealerNameText;
-    [SerializeField] private TMP_Text playerNameText;
-    [SerializeField] private Outline dealerCardOutline;
-    [SerializeField] private Outline playerCardOutline;
-
-    [Header("Turn 강조 색상")]
-    [SerializeField] private Color turnHighlightColor =
-        new Color32(228, 181, 84, 255);
-    [SerializeField] private Color idleNameColor =
-        new Color32(235, 240, 244, 255);
-    [SerializeField] private Color idleCardOutlineColor =
-        new Color32(187, 176, 149, 255);
-
     [Header("결과 오버레이")]
     [SerializeField] private GameObject resultOverlay;
     [SerializeField] private TMP_Text resultTitleText;
@@ -67,6 +42,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
 
+    [Header("Gameplay HUD")]
+    [SerializeField] private TMP_Text roundText;
+
     [Header("디버그 패널")]
     [SerializeField] private GameObject debugPanel;
     [SerializeField] private TMP_Text debugInfoText;
@@ -74,7 +52,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private Button debugToggleButton;
 
     [Header("행동 영역")]
-    [SerializeField] private GameObject dealerActionBar;
     [SerializeField] private GameObject playerActionBar;
     [SerializeField] private GameObject contextActionArea;
     [SerializeField] private Button[] bettingActionButtons;
@@ -111,6 +88,16 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private bool recoverShowdownPresentationOnEnable;
     private bool recoverFoldPresentationOnEnable;
     private int selectedRaiseBy = 1;
+
+    public int CurrentPlayerChipCount =>
+        gameState?.PlayerChips.Count ?? 0;
+    public int CurrentDealerChipCount =>
+        gameState?.DealerChips.Count ?? 0;
+    public int CurrentDeckRemainingCount =>
+        gameState?.Deck.RemainingCount ?? 0;
+    public GameMode CurrentGameMode =>
+        gameState?.GameMode ?? GameModeSelection.SelectedMode;
+    public int CurrentRound => gameState?.CurrentRound ?? 0;
 
     private void OnEnable()
     {
@@ -367,7 +354,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         gameState = new GameState(
             Mathf.Max(0, playerStartingChips),
             Mathf.Max(0, dealerStartingChips),
-            deck);
+            deck,
+            GameModeSelection.SelectedMode);
         nextRoundFirstTurn = firstTurn == TurnOwner.Dealer
             ? TurnOwner.Dealer
             : TurnOwner.Player;
@@ -410,10 +398,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
-        nextRoundFirstTurn = roundFirstTurn == TurnOwner.Player
-            ? TurnOwner.Dealer
-            : TurnOwner.Player;
-
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
@@ -427,6 +411,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void PrepareAndStartNextRound()
     {
         int carriedPot = gameState.Pot.Amount;
+        TurnOwner resolvedNextFirstTurn =
+            GetNextRoundFirstTurnFromRoundResult();
 
         if (!gameState.TryPrepareNextRound())
         {
@@ -434,10 +420,47 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        nextRoundFirstTurn = resolvedNextFirstTurn;
         cardVisualController?.RefreshCards();
         ResetDisplayedRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
+    }
+
+    private TurnOwner GetNextRoundFirstTurnFromRoundResult()
+    {
+        if (gameState == null || gameState.Phase == GamePhase.GameOver)
+        {
+            return nextRoundFirstTurn;
+        }
+
+        if (gameState.RoundEndReason == RoundEndReason.Fold)
+        {
+            if (gameState.FoldedBy == TurnOwner.Player)
+            {
+                return TurnOwner.Dealer;
+            }
+
+            if (gameState.FoldedBy == TurnOwner.Dealer)
+            {
+                return TurnOwner.Player;
+            }
+        }
+
+        if (gameState.RoundEndReason == RoundEndReason.Showdown)
+        {
+            if (roundWinner == RoundWinner.Player)
+            {
+                return TurnOwner.Player;
+            }
+
+            if (roundWinner == RoundWinner.Dealer)
+            {
+                return TurnOwner.Dealer;
+            }
+        }
+
+        return nextRoundFirstTurn;
     }
 
     private void RunPlayerBettingAction(string actionName, Func<bool> action)
@@ -582,7 +605,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
         else if (gameState.Phase == GamePhase.GameOver)
         {
-            AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
+            AddLog(GameOverLogText(gameState.FinalWinner));
         }
     }
 
@@ -1306,7 +1329,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         if (gameState.Phase == GamePhase.GameOver)
         {
-            AddLog($"게임 종료 - {GameWinnerText(gameState.FinalWinner)} 승리");
+            AddLog(GameOverLogText(gameState.FinalWinner));
         }
 
         RefreshView();
@@ -1402,36 +1425,15 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void RefreshView()
     {
-        phaseText.text = PhaseGameText(gameState.Phase);
-        turnText.text = TurnGameText(gameState.CurrentTurn);
-
-        dealerCardText.text = CardText(gameState.DealerCard);
-        dealerChipsText.text =
-            $"CHIPS\n<size=40>{gameState.DealerChips.Count}</size>";
-        dealerTotalBetText.text =
-            $"BET\n<size=34>{gameState.Betting.DealerTotalBet}</size>";
-
-        communityCard1Text.text = CardText(gameState.CommunityCard1);
-        communityCard2Text.text = CardText(gameState.CommunityCard2);
-        potText.text = $"POT\n<size=50>{gameState.Pot.Amount}</size>";
-
-        playerCardText.text = CardText(gameState.PlayerCard);
-        playerChipsText.text =
-            $"CHIPS\n<size=40>{gameState.PlayerChips.Count}</size>";
-        playerTotalBetText.text =
-            $"BET\n<size=34>{gameState.Betting.PlayerTotalBet}</size>";
-
+        RefreshRoundText();
         debugInfoText.text = BuildDebugInfo();
         messageText.text = string.Join("\n", logs);
         debugPanel.SetActive(debugPanelOpen);
         RefreshCallActionTexts();
 
-        bool dealerTurn = gameState.Phase == GamePhase.Betting &&
-                          gameState.CurrentTurn == TurnOwner.Dealer;
         bool playerTurn = gameState.Phase == GamePhase.Betting &&
                           gameState.CurrentTurn == TurnOwner.Player;
         bool canAcceptPlayerBettingInput = CanAcceptPlayerBettingInput();
-        dealerActionBar.SetActive(dealerTurn);
         playerActionBar.SetActive(playerTurn);
 
         for (int index = 0; index < bettingActionButtons.Length; index++)
@@ -1451,8 +1453,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         RefreshRaiseSelection(canAcceptPlayerBettingInput);
 
-        RefreshTurnHighlight(dealerTurn, playerTurn);
-
         bool canResolve = gameState.Phase == GamePhase.Showdown;
         bool canStartNextRound = gameState.Phase == GamePhase.RoundEnd;
         contextActionArea.SetActive(canResolve || canStartNextRound);
@@ -1464,6 +1464,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             CanAcceptProgressInput(GamePhase.RoundEnd);
 
         RefreshResultOverlay();
+    }
+
+    private void RefreshRoundText()
+    {
+        roundText.text = CurrentGameMode == GameMode.RoundLimited
+            ? $"ROUND {CurrentRound} / {GameState.MaximumRoundCount}"
+            : $"ROUND {CurrentRound}";
     }
 
     private void CacheCallActionTexts()
@@ -1596,27 +1603,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             : 1;
     }
 
-    private void RefreshTurnHighlight(bool dealerTurn, bool playerTurn)
-    {
-        dealerNameText.text = dealerTurn ? "▶  DEALER  ◀" : "DEALER";
-        playerNameText.text = playerTurn ? "▶  PLAYER  ◀" : "PLAYER";
-        dealerNameText.color = dealerTurn ? turnHighlightColor : idleNameColor;
-        playerNameText.color = playerTurn ? turnHighlightColor : idleNameColor;
-
-        dealerCardOutline.effectColor = dealerTurn
-            ? turnHighlightColor
-            : idleCardOutlineColor;
-        playerCardOutline.effectColor = playerTurn
-            ? turnHighlightColor
-            : idleCardOutlineColor;
-        dealerCardOutline.effectDistance = dealerTurn
-            ? new Vector2(4, -4)
-            : new Vector2(2, -2);
-        playerCardOutline.effectDistance = playerTurn
-            ? new Vector2(4, -4)
-            : new Vector2(2, -2);
-    }
-
     private void RefreshResultOverlay()
     {
         bool hasSettledShowdown =
@@ -1649,9 +1635,33 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         if (isGameOver)
         {
-            resultTitleText.text = gameState.FinalWinner == GameWinner.Player
-                ? "PLAYER WINS"
-                : "DEALER WINS";
+            switch (gameState.FinalWinner)
+            {
+                case GameWinner.Player:
+                    resultTitleText.text = "PLAYER WINS";
+                    break;
+                case GameWinner.Dealer:
+                    resultTitleText.text = "DEALER WINS";
+                    break;
+                case GameWinner.Draw:
+                    resultTitleText.text = "DRAW";
+                    break;
+                default:
+                    resultTitleText.text = "GAME OVER";
+                    break;
+            }
+
+            bool isFinalRoundLimitedResult =
+                gameState.GameMode == GameMode.RoundLimited &&
+                gameState.CurrentRound >= GameState.MaximumRoundCount;
+            if (isFinalRoundLimitedResult)
+            {
+                resultTitleText.text =
+                    "MATCH RESULT\n\n" + resultTitleText.text;
+                resultDetailText.text = BuildFinalChipSummary();
+                return;
+            }
+
             string gameOverDetail = isFoldResult
                 ? BuildFoldResultSummary()
                 : BuildHandRankSummary();
@@ -1686,6 +1696,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private string BuildDebugInfo()
     {
         return
+            $"Game Mode      {gameState.GameMode}\n" +
+            $"Round          {gameState.CurrentRound}\n" +
             $"Phase          {gameState.Phase}\n" +
             $"Current Turn   {gameState.CurrentTurn}\n" +
             $"Player Rank    {playerHandRank}\n" +
@@ -1736,31 +1748,24 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             $"DEALER {HandRankGameText(dealerHandRank)}";
     }
 
+    private string BuildFinalChipSummary()
+    {
+        return
+            "FINAL CHIPS\n" +
+            $"PLAYER {gameState.PlayerChips.Count} · " +
+            $"DEALER {gameState.DealerChips.Count}";
+    }
+
     private bool HasRequiredReferences()
     {
-        return phaseText != null &&
-               turnText != null &&
-               dealerCardText != null &&
-               dealerChipsText != null &&
-               dealerTotalBetText != null &&
-               communityCard1Text != null &&
-               communityCard2Text != null &&
-               potText != null &&
-               playerCardText != null &&
-               playerChipsText != null &&
-               playerTotalBetText != null &&
-               dealerNameText != null &&
-               playerNameText != null &&
-               dealerCardOutline != null &&
-               playerCardOutline != null &&
-               resultOverlay != null &&
+        return resultOverlay != null &&
                resultTitleText != null &&
                resultDetailText != null &&
+               roundText != null &&
                debugPanel != null &&
                debugInfoText != null &&
                messageText != null &&
                debugToggleButton != null &&
-               dealerActionBar != null &&
                playerActionBar != null &&
                contextActionArea != null &&
                HasAllBettingActionButtons() &&
@@ -1777,7 +1782,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private bool HasAllBettingActionButtons()
     {
-        if (bettingActionButtons == null || bettingActionButtons.Length != 10)
+        if (bettingActionButtons == null || bettingActionButtons.Length == 0)
         {
             return false;
         }
@@ -1824,43 +1829,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         while (logs.Count > Mathf.Max(1, maxLogLines))
         {
             logs.RemoveAt(0);
-        }
-    }
-
-    private static string CardText(Card card)
-    {
-        return card == null ? "-" : card.ToString();
-    }
-
-    private static string PhaseGameText(GamePhase phase)
-    {
-        switch (phase)
-        {
-            case GamePhase.Setup:
-                return "SETUP";
-            case GamePhase.Betting:
-                return "BETTING";
-            case GamePhase.Showdown:
-                return "SHOWDOWN";
-            case GamePhase.RoundEnd:
-                return "ROUND END";
-            case GamePhase.GameOver:
-                return "GAME OVER";
-            default:
-                return "UNKNOWN";
-        }
-    }
-
-    private static string TurnGameText(TurnOwner owner)
-    {
-        switch (owner)
-        {
-            case TurnOwner.Player:
-                return "PLAYER TURN";
-            case TurnOwner.Dealer:
-                return "DEALER TURN";
-            default:
-                return string.Empty;
         }
     }
 
@@ -1964,8 +1932,17 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return "플레이어";
             case GameWinner.Dealer:
                 return "딜러";
+            case GameWinner.Draw:
+                return "무승부";
             default:
                 return "없음";
         }
+    }
+
+    private static string GameOverLogText(GameWinner winner)
+    {
+        return winner == GameWinner.Draw
+            ? "게임 종료 - 무승부"
+            : $"게임 종료 - {GameWinnerText(winner)} 승리";
     }
 }
