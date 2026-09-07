@@ -1751,7 +1751,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private string BuildFinalChipSummary()
     {
         return
-            "FINAL CHIPS\n" +
+            "FINAL CHIPS" +
             $"PLAYER {gameState.PlayerChips.Count} · " +
             $"DEALER {gameState.DealerChips.Count}";
     }
