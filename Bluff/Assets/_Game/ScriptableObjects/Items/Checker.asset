@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ddb5fdd0839ddc049a6fe0a89acba944, type: 3}
   m_Name: Checker
   m_EditorClassIdentifier: 
-  itemName: "\uCCB4\uCEE4"
+  itemName: "\uB514\uD30C\uC774"
   itemType: 4
   canUseType: 1
-  description: "\uCD94\uAC00 \uCE69 \uBCA0\uD305 \uC5C6\uC774 CALL\uD55C \uAC83\uC73C\uB85C
-    \uAC04\uC8FC\uB41C\uB2E4."
+  description: "\uC0C1\uB300\uC758 \uB808\uC774\uC988\uB97C \uBB34\uC2DC\uD558\uACE0
+    \uBCA0\uD305\uC744 \uAC15\uC81C \uC885\uB8CC\uD569\uB2C8\uB2E4."

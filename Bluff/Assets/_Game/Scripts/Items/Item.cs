@@ -12,6 +12,11 @@ public class Item : MonoBehaviour
         Use();
     }
 
+    public string GetDescription()
+    {
+        return itemData?.description ?? string.Empty;
+    }
+
     public void Use()
     {
         if (itemSystem.UseItem(TurnOwner.Player, gameObject))

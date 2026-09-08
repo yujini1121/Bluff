@@ -14,4 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemName: "\uCE69 \uC8FC\uBA38\uB2C8"
   itemType: 3
-  description: "\uC989\uC2DC \uC77C\uC815\uB7C9\uC758 \uCE69\uC744 \uC5BB\uC2B5\uB2C8\uB2E4."
+  canUseType: 0
+  description: "\uC0AC\uC6A9 \uC2DC, \uCE69 2\uAC1C\uB97C \uC5BB\uC2B5\uB2C8\uB2E4."

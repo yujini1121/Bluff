@@ -4,7 +4,8 @@ public enum GameplayInfoHoverTarget
 {
     PlayerChips,
     DealerChips,
-    Deck
+    Deck,
+    Item
 }
 
 public sealed class GameplayInfoHover : MonoBehaviour
@@ -18,6 +19,18 @@ public sealed class GameplayInfoHover : MonoBehaviour
 
     private bool isHovered;
     private Camera worldCamera;
+
+    private void Awake()
+    {
+        if (tooltip == null)
+        {
+            tooltip = FindObjectOfType<GameplayInfoTooltip>();
+        }
+        if (gameUi == null)
+        {
+            gameUi = FindObjectOfType<IndianHoldemDebugUI>();
+        }
+    }
 
     private void OnMouseEnter()
     {
@@ -94,6 +107,9 @@ public sealed class GameplayInfoHover : MonoBehaviour
                 return gameUi.CurrentDealerChipCount.ToString();
             case GameplayInfoHoverTarget.Deck:
                 return gameUi.CurrentDeckRemainingCount.ToString();
+            case GameplayInfoHoverTarget.Item:
+                Item item = this.gameObject.GetComponent<Item>();
+                return item != null ? item.GetDescription() : string.Empty;
             default:
                 return string.Empty;
         }
