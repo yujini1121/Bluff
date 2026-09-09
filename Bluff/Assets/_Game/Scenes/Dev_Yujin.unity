@@ -553,6 +553,7 @@ MonoBehaviour:
   roundText: {fileID: 953414833}
   dealerHandRankUI: {fileID: 1870027819}
   dealerHandRankText: {fileID: 1815269373}
+  switchCamera: {fileID: 1769829635}
   debugPanel: {fileID: 951970242}
   debugInfoText: {fileID: 1813150521}
   messageText: {fileID: 1252183279}
@@ -6080,6 +6081,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 348159357}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1769829635 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2538667681285267793, guid: c133abe85518422489d0d4a4f0941ca8, type: 3}
+  m_PrefabInstance: {fileID: 2059603014}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 25796f40a9689124dae7db75bfdc7b72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1778255335
 GameObject:
   m_ObjectHideFlags: 0

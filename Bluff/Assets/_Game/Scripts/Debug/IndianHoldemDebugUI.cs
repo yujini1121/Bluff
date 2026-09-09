@@ -46,6 +46,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     [SerializeField] private TMP_Text roundText;
     [SerializeField] private GameObject dealerHandRankUI;
     [SerializeField] private TMP_Text dealerHandRankText;
+    [SerializeField] private SwitchCamera switchCamera;
 
     [Header("디버그 패널")]
     [SerializeField] private GameObject debugPanel;
@@ -1477,6 +1478,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         if (dealerHandRankText == null ||
+            switchCamera == null ||
+            gameState.Phase != GamePhase.Betting ||
+            switchCamera.CurrentView != CameraView.Dealer ||
             !gameState.TryGetVisibleDealerHandRank(
                 out HandRank visibleDealerHandRank))
         {
