@@ -44,6 +44,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     [Header("Gameplay HUD")]
     [SerializeField] private TMP_Text roundText;
+    [SerializeField] private GameObject dealerHandRankUI;
+    [SerializeField] private TMP_Text dealerHandRankText;
 
     [Header("디버그 패널")]
     [SerializeField] private GameObject debugPanel;
@@ -1426,6 +1428,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void RefreshView()
     {
         RefreshRoundText();
+        RefreshDealerHandRank();
         debugInfoText.text = BuildDebugInfo();
         messageText.text = string.Join("\n", logs);
         debugPanel.SetActive(debugPanelOpen);
@@ -1464,6 +1467,25 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             CanAcceptProgressInput(GamePhase.RoundEnd);
 
         RefreshResultOverlay();
+    }
+
+    private void RefreshDealerHandRank()
+    {
+        if (dealerHandRankUI == null)
+        {
+            return;
+        }
+
+        if (dealerHandRankText == null ||
+            !gameState.TryGetVisibleDealerHandRank(
+                out HandRank visibleDealerHandRank))
+        {
+            dealerHandRankUI.SetActive(false);
+            return;
+        }
+
+        dealerHandRankText.text = visibleDealerHandRank.ToString();
+        dealerHandRankUI.SetActive(true);
     }
 
     private void RefreshRoundText()
