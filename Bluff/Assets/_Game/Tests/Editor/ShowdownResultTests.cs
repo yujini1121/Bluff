@@ -77,6 +77,53 @@ public sealed class ShowdownResultTests
     }
 
     [Test]
+    public void VisibleDealerHandRank_ReturnsDealerRankDuringBetting()
+    {
+        var gameState = new GameState(10, 10, CreateDeck());
+        gameState.TrySetDealerCard(new Card(4));
+        gameState.TrySetCommunityCards(new Card(4), new Card(7));
+        gameState.TrySetPhase(GamePhase.Betting);
+
+        Assert.That(
+            gameState.TryGetVisibleDealerHandRank(out HandRank handRank),
+            Is.True);
+        Assert.That(handRank, Is.EqualTo(HandRank.Double));
+    }
+
+    [Test]
+    public void VisibleDealerHandRank_FailsOutsideBetting()
+    {
+        GameState gameState = CreateGameWithCards(1, 4, 4, 7);
+
+        Assert.That(
+            gameState.TryGetVisibleDealerHandRank(out HandRank handRank),
+            Is.False);
+        Assert.That(handRank, Is.EqualTo(HandRank.None));
+    }
+
+    [Test]
+    public void VisibleDealerHandRank_FailsWhenRequiredCardIsMissing()
+    {
+        var missingDealerCard = new GameState(10, 10, CreateDeck());
+        missingDealerCard.TrySetCommunityCards(new Card(4), new Card(7));
+        missingDealerCard.TrySetPhase(GamePhase.Betting);
+
+        var missingCommunityCards = new GameState(10, 10, CreateDeck());
+        missingCommunityCards.TrySetDealerCard(new Card(4));
+        missingCommunityCards.TrySetPhase(GamePhase.Betting);
+
+        Assert.That(
+            missingDealerCard.TryGetVisibleDealerHandRank(out HandRank dealerRank),
+            Is.False);
+        Assert.That(dealerRank, Is.EqualTo(HandRank.None));
+        Assert.That(
+            missingCommunityCards.TryGetVisibleDealerHandRank(
+                out HandRank communityRank),
+            Is.False);
+        Assert.That(communityRank, Is.EqualTo(HandRank.None));
+    }
+
+    [Test]
     public void DetermineWinner_PlayerTripleBeatsDealerDouble()
     {
         GameState gameState = CreateShowdownGame(4, 7, 4, 4);

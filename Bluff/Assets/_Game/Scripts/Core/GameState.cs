@@ -265,6 +265,22 @@ public sealed class GameState
         return true;
     }
 
+    public bool TryGetVisibleDealerHandRank(out HandRank handRank)
+    {
+        handRank = HandRank.None;
+
+        if (Phase != GamePhase.Betting ||
+            DealerCard == null ||
+            CommunityCard1 == null ||
+            CommunityCard2 == null)
+        {
+            return false;
+        }
+
+        handRank = GetHandRank(DealerCard);
+        return true;
+    }
+
     public bool TryDetermineWinner(out RoundWinner winner)
     {
         winner = RoundWinner.None;

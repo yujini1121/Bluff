@@ -44,6 +44,9 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     [Header("Gameplay HUD")]
     [SerializeField] private TMP_Text roundText;
+    [SerializeField] private GameObject dealerHandRankUI;
+    [SerializeField] private TMP_Text dealerHandRankText;
+    [SerializeField] private SwitchCamera switchCamera;
 
     [Header("디버그 패널")]
     [SerializeField] private GameObject debugPanel;
@@ -1426,6 +1429,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void RefreshView()
     {
         RefreshRoundText();
+        RefreshDealerHandRank();
         debugInfoText.text = BuildDebugInfo();
         messageText.text = string.Join("\n", logs);
         debugPanel.SetActive(debugPanelOpen);
@@ -1464,6 +1468,32 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             CanAcceptProgressInput(GamePhase.RoundEnd);
 
         RefreshResultOverlay();
+    }
+
+    private void RefreshDealerHandRank()
+    {
+        if (dealerHandRankUI == null)
+        {
+            return;
+        }
+
+        if (dealerHandRankText == null ||
+            switchCamera == null ||
+            gameState.Phase != GamePhase.Betting ||
+            switchCamera.CurrentView != CameraView.Dealer ||
+            !gameState.TryGetVisibleDealerHandRank(
+                out HandRank visibleDealerHandRank))
+        {
+            dealerHandRankUI.SetActive(false);
+            return;
+        }
+
+        dealerHandRankText.text = BuildHandDisplayText(
+            gameState.DealerCard,
+            gameState.CommunityCard1,
+            gameState.CommunityCard2,
+            visibleDealerHandRank);
+        dealerHandRankUI.SetActive(true);
     }
 
     private void RefreshRoundText()
@@ -1647,7 +1677,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                     resultTitleText.text = "DRAW";
                     break;
                 default:
-                    resultTitleText.text = "GAME OVER";
+                    resultTitleText.text = string.Empty;
                     break;
             }
 
@@ -1662,10 +1692,21 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 return;
             }
 
-            string gameOverDetail = isFoldResult
-                ? BuildFoldResultSummary()
-                : BuildHandRankSummary();
-            resultDetailText.text = "GAME OVER\n" + gameOverDetail;
+            if (isFoldResult)
+            {
+                resultDetailText.text = BuildFoldResultSummary();
+                return;
+            }
+
+            if (gameState.FinalWinner == GameWinner.Draw ||
+                roundWinner == RoundWinner.Draw)
+            {
+                resultDetailText.text = string.Empty;
+                return;
+            }
+
+            SetWinningHandDetail(
+                gameState.FinalWinner == GameWinner.Player);
             return;
         }
 
@@ -1680,17 +1721,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         if (roundWinner == RoundWinner.Draw)
         {
             resultTitleText.text = "DRAW";
-            resultDetailText.text = BuildHandRankSummary();
+            resultDetailText.text = string.Empty;
             return;
         }
 
         bool playerIsWinner = roundWinner == RoundWinner.Player;
-        HandRank winnerHandRank = playerIsWinner
-            ? playerHandRank
-            : dealerHandRank;
         resultTitleText.text = playerIsWinner ? "PLAYER WIN" : "DEALER WIN";
-        resultDetailText.text =
-            HandRankGameText(winnerHandRank) + "\n" + BuildHandRankSummary();
+        SetWinningHandDetail(playerIsWinner);
     }
 
     private string BuildDebugInfo()
@@ -1741,17 +1778,26 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return foldedBy + " -" + gameState.FoldPenaltyAmount;
     }
 
-    private string BuildHandRankSummary()
+    private void SetWinningHandDetail(bool playerIsWinner)
     {
-        return
-            $"PLAYER {HandRankGameText(playerHandRank)}  ·  " +
-            $"DEALER {HandRankGameText(dealerHandRank)}";
+        Card winnerCard = playerIsWinner
+            ? gameState.PlayerCard
+            : gameState.DealerCard;
+        HandRank winnerHandRank = playerIsWinner
+            ? playerHandRank
+            : dealerHandRank;
+
+        resultDetailText.text = BuildHandDisplayText(
+            winnerCard,
+            gameState.CommunityCard1,
+            gameState.CommunityCard2,
+            winnerHandRank);
     }
 
     private string BuildFinalChipSummary()
     {
         return
-            "FINAL CHIPS\n" +
+            "FINAL CHIPS" +
             $"PLAYER {gameState.PlayerChips.Count} · " +
             $"DEALER {gameState.DealerChips.Count}";
     }
@@ -1894,6 +1940,69 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             default:
                 return "-";
         }
+    }
+
+    private static string BuildHandDisplayText(
+        Card privateCard,
+        Card communityCard1,
+        Card communityCard2,
+        HandRank handRank)
+    {
+        if (privateCard == null ||
+            communityCard1 == null ||
+            communityCard2 == null)
+        {
+            return HandRankGameText(handRank);
+        }
+
+        int displayRank;
+
+        switch (handRank)
+        {
+            case HandRank.Number:
+                displayRank = privateCard.Rank;
+                return $"{displayRank}  {HandRankGameText(handRank)}";
+            case HandRank.Triple:
+                displayRank = privateCard.Rank;
+                return $"{displayRank}  {HandRankGameText(handRank)}";
+            case HandRank.Double:
+                displayRank = privateCard.Rank == communityCard1.Rank ||
+                              privateCard.Rank == communityCard2.Rank
+                    ? privateCard.Rank
+                    : communityCard1.Rank;
+                return $"{displayRank}  {HandRankGameText(handRank)}";
+            case HandRank.Straight:
+                return $"{BuildStraightRankText(privateCard, communityCard1, communityCard2)}  " +
+                       HandRankGameText(handRank);
+            default:
+                return HandRankGameText(handRank);
+        }
+    }
+
+    private static string BuildStraightRankText(
+        Card privateCard,
+        Card communityCard1,
+        Card communityCard2)
+    {
+        int[] ranks =
+        {
+            privateCard.Rank,
+            communityCard1.Rank,
+            communityCard2.Rank
+        };
+        Array.Sort(ranks);
+
+        if (ranks[0] == 1 && ranks[1] == 9 && ranks[2] == 10)
+        {
+            return "9 · 10 · 1";
+        }
+
+        if (ranks[0] == 1 && ranks[1] == 2 && ranks[2] == 10)
+        {
+            return "10 · 1 · 2";
+        }
+
+        return $"{ranks[0]} · {ranks[1]} · {ranks[2]}";
     }
 
     private static string RoundWinnerText(RoundWinner winner)
