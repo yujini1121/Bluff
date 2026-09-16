@@ -154,7 +154,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         debugPanelOpen = false;
         dealerAi = new DealerAi();
         CacheCallActionTexts();
-        HideStandaloneAllInActions();
         CreateDebugGame();
         RefreshView();
     }
@@ -213,26 +212,25 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     {
         if (IsPlayerShortAllInRequired())
         {
-            RunPlayerBettingAction("올인", () => gameState.TryAllIn());
+            RunPlayerBettingAction(
+                "올인",
+                () => gameState.TryAllIn(),
+                playChipSfx: true);
             return;
         }
 
-        RunPlayerBettingAction("콜", () => gameState.TryCall());
+        RunPlayerBettingAction(
+            "콜",
+            () => gameState.TryCall(),
+            playChipSfx: true);
     }
 
     public void OnFoldClicked()
     {
-        RunPlayerBettingAction("폴드", () => gameState.TryFold());
-    }
-
-    public void OnRaiseOneClicked()
-    {
-        OnRaiseDecreaseClicked();
-    }
-
-    public void OnRaiseFiveClicked()
-    {
-        OnRaiseIncreaseClicked();
+        RunPlayerBettingAction(
+            "폴드",
+            () => gameState.TryFold(),
+            playChipSfx: false);
     }
 
     public void OnRaiseDecreaseClicked()
@@ -296,12 +294,8 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 }
 
                 return succeeded;
-            });
-    }
-
-    public void OnAllInClicked()
-    {
-        RunPlayerBettingAction("올인", () => gameState.TryAllIn());
+            },
+            playChipSfx: true);
     }
 
     public void OnResolveShowdownClicked()
@@ -375,7 +369,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         itemSystem.Initialize(new ItemGameApi(gameState));
-        gameState.InitializeItemSystem(itemSystem);
 
         if (cardVisualController != null)
         {
@@ -401,6 +394,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        RunRoundStartEffects();
         ResetDisplayedRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
@@ -466,7 +460,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         return nextRoundFirstTurn;
     }
 
-    private void RunPlayerBettingAction(string actionName, Func<bool> action)
+    private void RunPlayerBettingAction(
+        string actionName,
+        Func<bool> action,
+        bool playChipSfx)
     {
         if (!CanAcceptPlayerBettingInput() || action == null)
         {
@@ -484,6 +481,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             {
                 AddLog($"{OwnerText(TurnOwner.Player)} {actionName} 실패");
                 return;
+            }
+
+            if (playChipSfx)
+            {
+                SoundSystem.Instance.PlayChipStackSFX();
             }
 
             bool isPlayerFold =
@@ -705,6 +707,13 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
             if (dealerAi.TryExecute(gameState, actionPlan))
             {
+                if (decision == DealerDecision.Call ||
+                    decision == DealerDecision.Raise ||
+                    decision == DealerDecision.AllIn)
+                {
+                    SoundSystem.Instance.PlayChipStackSFX();
+                }
+
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
                     gameState.FoldedBy == TurnOwner.Dealer;
@@ -780,6 +789,21 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
         isCardAnimating = false;
         cardVisualController.RefreshCards();
+    }
+
+    private void RunRoundStartEffects()
+    {
+        if (!isActiveAndEnabled)
+        {
+            return;
+        }
+
+        SoundSystem soundSystem = SoundSystem.Instance;
+        soundSystem.PlayCardSFX();
+        soundSystem.PlayCardSFX();
+        soundSystem.PlayCardSFX();
+        soundSystem.PlayCardSFX();
+        itemSystem.GetItem();
     }
 
     private bool TryStartRoundAnteAnimation()
@@ -1535,28 +1559,6 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 callActionButtons.Add(button);
 
                 break;
-            }
-        }
-    }
-
-    private void HideStandaloneAllInActions()
-    {
-        for (int buttonIndex = 0;
-             buttonIndex < bettingActionButtons.Length;
-             buttonIndex++)
-        {
-            Button button = bettingActionButtons[buttonIndex];
-
-            for (int eventIndex = 0;
-                 eventIndex < button.onClick.GetPersistentEventCount();
-                 eventIndex++)
-            {
-                if (button.onClick.GetPersistentMethodName(eventIndex) ==
-                    nameof(OnAllInClicked))
-                {
-                    button.gameObject.SetActive(false);
-                    break;
-                }
             }
         }
     }
