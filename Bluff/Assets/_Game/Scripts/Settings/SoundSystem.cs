@@ -91,7 +91,6 @@ public class SoundSystem : MonoBehaviour
             return;
         }
 
-        volume = Mathf.Max(volume, 0.0001f);
         float db = Mathf.Log10(volume) * 20;
         audioMixer.SetFloat("MasterVolume", db);
 
@@ -105,7 +104,7 @@ public class SoundSystem : MonoBehaviour
             audioMixer.SetFloat("BGMVolume", -80f);
             return;
         }
-        volume = Mathf.Max(volume, 0.0001f);
+
         float db = Mathf.Log10(volume) * 20;
         audioMixer.SetFloat("BGMVolume", db);
 
@@ -119,7 +118,7 @@ public class SoundSystem : MonoBehaviour
             audioMixer.SetFloat("SFXVolume", -80f);
             return;
         }
-        volume = Mathf.Max(volume, 0.0001f);
+
         float db = Mathf.Log10(volume) * 20;
         audioMixer.SetFloat("SFXVolume", db);
 
