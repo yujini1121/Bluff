@@ -4,8 +4,7 @@ MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
-  - bgm: {instanceID: 0}
-  - chipStackSFX: {instanceID: 0}
+  - chipStackSFX: {fileID: 63986045119831500, guid: 75451429092969640b27f7f25207b910, type: 3}
   - cardSFX: {fileID: 6443609836815082446, guid: 7dcfeb5f09e8a9c4eba471f58ef562db, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}

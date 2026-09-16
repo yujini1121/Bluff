@@ -1,9 +1,16 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Audio;
 
 public class SoundSystem : MonoBehaviour
 {
     public static SoundSystem Instance { get; private set; }
+
+    [SerializeField] private AudioMixer audioMixer;
+    [SerializeField] private Slider MasterSlider;
+    [SerializeField] private Slider BGMVolumeSlider;
+    [SerializeField] private Slider SFXVolumeSlider;
 
     [SerializeField] private AudioSource[] bgmList;
     [SerializeField] private AudioSource chipStackSFX;
@@ -21,6 +28,14 @@ public class SoundSystem : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
         StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
+
+        MasterSlider.onValueChanged.AddListener(SetMasterVolume);
+        BGMVolumeSlider.onValueChanged.AddListener(SetBGMVolume);
+        SFXVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
+        SetMasterVolume(MasterSlider.value);
+        SetBGMVolume(BGMVolumeSlider.value);
+        SetSFXVolume(SFXVolumeSlider.value);
+
     }
 
     public IEnumerator RepeatPlaybackBGM(int index)
@@ -59,5 +74,42 @@ public class SoundSystem : MonoBehaviour
         AudioSource instantiatedSFX = Instantiate(cardSFX, this.gameObject.transform);
         instantiatedSFX.Play();
         Destroy(instantiatedSFX.gameObject, instantiatedSFX.clip.length);
+    }
+
+    public void SetMasterVolume(float volume)
+    {
+        if (volume < 0.0001f)
+        {
+            audioMixer.SetFloat("MasterVolume", -80f);
+            return;
+        }
+
+        volume = Mathf.Max(volume, 0.0001f);
+        float db = Mathf.Log10(volume) * 20;
+        audioMixer.SetFloat("MasterVolume", db);
+    }
+
+    public void SetBGMVolume(float volume)
+    {
+        if (volume < 0.0001f)
+        {
+            audioMixer.SetFloat("BGMVolume", -80f);
+            return;
+        }
+        volume = Mathf.Max(volume, 0.0001f);
+        float db = Mathf.Log10(volume) * 20;
+        audioMixer.SetFloat("BGMVolume", db);
+    }
+
+    public void SetSFXVolume(float volume)
+    {
+        if (volume < 0.0001f)
+        {
+            audioMixer.SetFloat("SFXVolume", -80f);
+            return;
+        }
+        volume = Mathf.Max(volume, 0.0001f);
+        float db = Mathf.Log10(volume) * 20;
+        audioMixer.SetFloat("SFXVolume", db);
     }
 }

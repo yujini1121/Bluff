@@ -46,6 +46,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 684e8ec420a67c0428aa478af3c36ea8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  audioMixer: {fileID: 24100000, guid: c58c4649b735c5e47924a0bb6100857e, type: 2}
   bgmList:
   - {fileID: 1700441918637759315}
   - {fileID: 1165598145860757110}
