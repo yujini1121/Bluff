@@ -28,14 +28,21 @@ public class SoundSystem : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
         StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
+    }
 
-        MasterSlider.onValueChanged.AddListener(SetMasterVolume);
-        BGMVolumeSlider.onValueChanged.AddListener(SetBGMVolume);
-        SFXVolumeSlider.onValueChanged.AddListener(SetSFXVolume);
+    void Start()
+    {
+        float savedMasterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
+        float savedBGMVolume = PlayerPrefs.GetFloat("BGMVolume", 1f);
+        float savedSFXVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
+
+        MasterSlider.value = savedMasterVolume;
+        BGMVolumeSlider.value = savedBGMVolume;
+        SFXVolumeSlider.value = savedSFXVolume;
+
         SetMasterVolume(MasterSlider.value);
         SetBGMVolume(BGMVolumeSlider.value);
         SetSFXVolume(SFXVolumeSlider.value);
-
     }
 
     public IEnumerator RepeatPlaybackBGM(int index)
@@ -87,6 +94,8 @@ public class SoundSystem : MonoBehaviour
         volume = Mathf.Max(volume, 0.0001f);
         float db = Mathf.Log10(volume) * 20;
         audioMixer.SetFloat("MasterVolume", db);
+
+        PlayerPrefs.SetFloat("MasterVolume", volume);
     }
 
     public void SetBGMVolume(float volume)
@@ -99,6 +108,8 @@ public class SoundSystem : MonoBehaviour
         volume = Mathf.Max(volume, 0.0001f);
         float db = Mathf.Log10(volume) * 20;
         audioMixer.SetFloat("BGMVolume", db);
+
+        PlayerPrefs.SetFloat("BGMVolume", volume);
     }
 
     public void SetSFXVolume(float volume)
@@ -111,5 +122,7 @@ public class SoundSystem : MonoBehaviour
         volume = Mathf.Max(volume, 0.0001f);
         float db = Mathf.Log10(volume) * 20;
         audioMixer.SetFloat("SFXVolume", db);
+
+        PlayerPrefs.SetFloat("SFXVolume", volume);
     }
 }
