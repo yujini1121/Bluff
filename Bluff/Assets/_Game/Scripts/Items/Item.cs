@@ -17,9 +17,6 @@ public class Item : MonoBehaviour
 
     public void Use()
     {
-        if (itemSystem.UseItem(TurnOwner.Player, gameObject))
-        {
-            Destroy(gameObject); // 아이템 사용 후 제거
-        }
+        itemSystem.RequestPlayerItemUse(gameObject);
     }
 }

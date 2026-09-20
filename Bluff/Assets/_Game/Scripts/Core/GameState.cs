@@ -8,8 +8,6 @@ public sealed class GameState
     private const int MaximumFoldPenaltyAmount = 10;
     public const int MaximumRoundCount = 10;
 
-    private ItemSystem itemSystem;
-
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
     public TurnOwner FoldedBy { get; private set; }
@@ -60,11 +58,6 @@ public sealed class GameState
         FinalWinner = GameWinner.None;
         CurrentRound = 0;
         ResetRoundResult();
-    }
-
-    public void InitializeItemSystem(ItemSystem itemSystem)
-    {
-        this.itemSystem = itemSystem ?? throw new ArgumentNullException(nameof(itemSystem));
     }
 
     public bool TrySetPhase(GamePhase phase)
@@ -152,10 +145,10 @@ public sealed class GameState
             return false;
         }
 
-        Deck.TryDraw(out Card playerCard); SoundSystem.Instance.PlayCardSFX();
-        Deck.TryDraw(out Card dealerCard); SoundSystem.Instance.PlayCardSFX();
-        Deck.TryDraw(out Card communityCard1); SoundSystem.Instance.PlayCardSFX();
-        Deck.TryDraw(out Card communityCard2); SoundSystem.Instance.PlayCardSFX();
+        Deck.TryDraw(out Card playerCard);
+        Deck.TryDraw(out Card dealerCard);
+        Deck.TryDraw(out Card communityCard1);
+        Deck.TryDraw(out Card communityCard2);
 
         PlayerCard = playerCard;
         DealerCard = dealerCard;
@@ -173,7 +166,6 @@ public sealed class GameState
         }
 
         ResetRoundResult();
-        itemSystem.GetItem();
 
         CurrentRound++;
 
@@ -509,7 +501,6 @@ public sealed class GameState
             return false;
         }
 
-        SoundSystem.Instance.PlayChipStackSFX();
         FinishBetting();
         return true;
     }
@@ -542,7 +533,6 @@ public sealed class GameState
             return false;
         }
 
-        SoundSystem.Instance.PlayChipStackSFX();
         Turn.TrySwitch();
         return true;
     }
@@ -572,8 +562,6 @@ public sealed class GameState
         }
 
         AddBetToPot(allInAmount);
-
-        SoundSystem.Instance.PlayChipStackSFX();
 
         if (shouldEndBetting)
         {
