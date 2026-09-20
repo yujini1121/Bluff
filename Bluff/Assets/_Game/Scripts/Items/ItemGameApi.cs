@@ -2,6 +2,8 @@ using System;
 
 public sealed class ItemGameApi
 {
+    private const int InitialAnteBet = 1;
+
     private readonly GameState gameState;
 
     public ItemGameApi(GameState gameState)
@@ -22,6 +24,14 @@ public sealed class ItemGameApi
     public int GetPot()
     {
         return gameState.Pot.Amount;
+    }
+
+    public bool IsBeforeVoluntaryBetting()
+    {
+        // 일반 라운드는 Ante 1/1, Draw 이월 라운드는 Ante 없이 0/0으로 시작
+        return gameState.Betting.GetCallAmount(gameState.CurrentTurn) == 0 &&
+               gameState.Betting.PlayerTotalBet == gameState.Betting.DealerTotalBet &&
+               gameState.Betting.PlayerTotalBet <= InitialAnteBet;
     }
 
     public bool TryGiveChips(TurnOwner target, int amount)

@@ -73,8 +73,10 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
     private GameState gameState;
+    private ItemSystem subscribedItemSystem;
     private TurnOwner nextRoundFirstTurn;
     private DealerAi dealerAi;
+    private readonly DealerItemAi dealerItemAi = new DealerItemAi();
     private Coroutine dealerActionCoroutine;
     private Coroutine showdownPresentationCoroutine;
     private HandRank playerHandRank;
@@ -105,6 +107,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
     private void OnEnable()
     {
         isShuttingDown = false;
+        SubscribeToItemSystemEvents();
 
         if (recoverFoldPresentationOnEnable &&
             gameState != null &&
@@ -186,6 +189,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
 
     private void OnDisable()
     {
+        UnsubscribeFromItemSystemEvents(unsubscribePlayerRequests: false);
         recoverFoldPresentationOnEnable =
             isCardAnimating &&
             gameState != null &&
@@ -206,6 +210,11 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             StopCoroutine(showdownPresentationCoroutine);
             showdownPresentationCoroutine = null;
         }
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeFromItemSystemEvents();
     }
 
     public void OnCallClicked()
@@ -369,6 +378,7 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         itemSystem.Initialize(new ItemGameApi(gameState));
+        SubscribeToItemSystemEvents();
 
         if (cardVisualController != null)
         {
@@ -381,6 +391,63 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         }
 
         ResetDisplayedRoundResult();
+    }
+
+    private void SubscribeToItemSystemEvents()
+    {
+        UnsubscribeFromItemSystemEvents();
+        subscribedItemSystem = itemSystem;
+
+        if (subscribedItemSystem != null)
+        {
+            subscribedItemSystem.RefreshCardSucceeded += OnRefreshCardSucceeded;
+            subscribedItemSystem.PlayerItemUseRequested += OnPlayerItemUseRequested;
+        }
+    }
+
+    private void UnsubscribeFromItemSystemEvents(bool unsubscribePlayerRequests = true)
+    {
+        if (subscribedItemSystem != null)
+        {
+            subscribedItemSystem.RefreshCardSucceeded -= OnRefreshCardSucceeded;
+            if (unsubscribePlayerRequests)
+            {
+                subscribedItemSystem.PlayerItemUseRequested -= OnPlayerItemUseRequested;
+            }
+        }
+
+        if (unsubscribePlayerRequests)
+        {
+            subscribedItemSystem = null;
+        }
+    }
+
+    private void OnPlayerItemUseRequested(GameObject item)
+    {
+        if (!isActiveAndEnabled || itemSystem == null || item == null)
+        {
+            return;
+        }
+
+        string actionName = item.TryGetComponent(out Item itemComponent) &&
+                            itemComponent.itemData != null
+            ? $"ITEM {itemComponent.itemData.itemType}"
+            : "ITEM";
+        RunPlayerBettingAction(
+            actionName,
+            () => itemSystem.UseItem(TurnOwner.Player, item),
+            playChipSfx: false);
+    }
+
+    private void OnRefreshCardSucceeded()
+    {
+        // 시작 연출 중에는 기존 딜 완료/실패 경로가 최신 카드를 동기화
+        if (isCardAnimating || isChipAnimating)
+        {
+            return;
+        }
+
+        cardVisualController?.RefreshCards();
     }
 
     private void StartRound()
@@ -696,14 +763,41 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
         {
             int actionRoll = UnityEngine.Random.Range(0, 100);
             int raiseRoll = UnityEngine.Random.Range(0, 100);
-            DealerActionPlan actionPlan = dealerAi.Decide(
-                gameState,
-                actionRoll,
-                raiseRoll);
-            DealerDecision decision = actionPlan.Decision;
             int playerChipsBefore = gameState.PlayerChips.Count;
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
+
+            if (!TryPrepareDealerActionPlan(actionRoll, raiseRoll, out DealerActionPlan actionPlan))
+            {
+                bool isDealerItemFold =
+                    gameState.RoundEndReason == RoundEndReason.Fold &&
+                    gameState.FoldedBy == TurnOwner.Dealer;
+                bool foldPresentationStarted =
+                    isDealerItemFold &&
+                    TryStartDealerFoldPresentation(
+                        TurnOwner.Dealer,
+                        potBefore,
+                        gameState.FoldPenaltyAmount);
+
+                if (!foldPresentationStarted)
+                {
+                    RefreshChipsIfChanged(playerChipsBefore, dealerChipsBefore, potBefore);
+                }
+
+                if (isDealerItemFold && !foldPresentationStarted)
+                {
+                    StartFoldCardReveal();
+                }
+
+                AddBettingResultLog();
+                yield break;
+            }
+
+            RefreshChipsIfChanged(playerChipsBefore, dealerChipsBefore, potBefore);
+            playerChipsBefore = gameState.PlayerChips.Count;
+            dealerChipsBefore = gameState.DealerChips.Count;
+            potBefore = gameState.Pot.Amount;
+            DealerDecision decision = actionPlan.Decision;
 
             if (dealerAi.TryExecute(gameState, actionPlan))
             {
@@ -768,6 +862,43 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             dealerActionCoroutine = null;
             RefreshView();
         }
+    }
+
+    private bool TryPrepareDealerActionPlan(
+        int actionRoll,
+        int raiseRoll,
+        out DealerActionPlan actionPlan)
+    {
+        actionPlan = dealerAi.Decide(gameState, actionRoll, raiseRoll);
+        IReadOnlyList<ItemType> ownedItems = itemSystem != null
+            ? itemSystem.GetOwnedItemTypes(TurnOwner.Dealer)
+            : Array.Empty<ItemType>();
+        DealerItemPlan itemPlan = dealerItemAi.Decide(gameState, ownedItems, actionPlan);
+
+        if (!itemPlan.ShouldUseItem)
+        {
+            AddLog("DEALER ITEM NONE - 아이템을 사용하지 않음");
+            return true;
+        }
+
+        ItemType selectedItemType = itemPlan.SelectedItem.Value;
+        bool itemUsed = itemSystem.TryUseItem(TurnOwner.Dealer, selectedItemType);
+        AddLog(itemUsed
+            ? $"DEALER ITEM {selectedItemType} 사용"
+            : $"DEALER ITEM {selectedItemType} 사용 실패");
+
+        // 사용 요청이 실패했더라도 효과가 상태를 일부 변경했을 수 있으므로 다시 확인
+        if (gameState.Phase != GamePhase.Betting ||
+            gameState.CurrentTurn != TurnOwner.Dealer)
+        {
+            AddLog($"DEALER ITEM 이후 추가 행동 없음 - Phase: {gameState.Phase}, Turn: {gameState.CurrentTurn}");
+            actionPlan = DealerActionPlan.None;
+            return false;
+        }
+
+        AddLog("DEALER ITEM 이후 일반 행동 재계산");
+        actionPlan = dealerAi.Decide(gameState, actionRoll, raiseRoll);
+        return true;
     }
 
     private void TryStartCardDeal()
