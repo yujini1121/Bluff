@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 public sealed class TitleSceneController : MonoBehaviour
 {
-    private const string GameplaySceneName = "Dev_Yujin";
+    private const string GameplaySceneName = "Intro";
 
     public void StartRoundLimited()
     {

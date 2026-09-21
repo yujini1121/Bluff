@@ -6,7 +6,9 @@ public sealed class DialogueController : MonoBehaviour
 {
     [SerializeField] private TMP_Text dialogueText;
     [SerializeField] private string[] dialogueLines = Array.Empty<string>();
+    [SerializeField] private GameObject dialoguePanel;
 
+    private string[] activeDialogueLines = Array.Empty<string>();
     private int currentLineIndex = -1;
     private bool completionRaised;
 
@@ -15,16 +17,35 @@ public sealed class DialogueController : MonoBehaviour
     public bool IsRunning { get; private set; }
     public int CurrentLineIndex => currentLineIndex;
     public string CurrentLine => IsValidCurrentLine()
-        ? dialogueLines[currentLineIndex]
+        ? activeDialogueLines[currentLineIndex]
         : string.Empty;
+
+    private void Start()
+    {
+        if (dialoguePanel != null)
+        {
+            dialoguePanel.SetActive(false);
+        }
+    }
 
     public void StartDialogue()
     {
+        StartDialogue(dialogueLines);
+    }
+
+    public void StartDialogue(string[] lines)
+    {
+        if (dialoguePanel != null)
+        {
+            dialoguePanel.SetActive(true);
+        }
+
+        activeDialogueLines = lines ?? Array.Empty<string>();
         currentLineIndex = -1;
         completionRaised = false;
         IsRunning = false;
 
-        if (dialogueLines == null || dialogueLines.Length == 0)
+        if (activeDialogueLines.Length == 0)
         {
             CompleteDialogue();
             return;
@@ -42,7 +63,7 @@ public sealed class DialogueController : MonoBehaviour
             return;
         }
 
-        if (currentLineIndex < dialogueLines.Length - 1)
+        if (currentLineIndex < activeDialogueLines.Length - 1)
         {
             currentLineIndex++;
             ShowCurrentLine();
@@ -82,8 +103,7 @@ public sealed class DialogueController : MonoBehaviour
 
     private bool IsValidCurrentLine()
     {
-        return dialogueLines != null &&
-               currentLineIndex >= 0 &&
-               currentLineIndex < dialogueLines.Length;
+        return currentLineIndex >= 0 &&
+               currentLineIndex < activeDialogueLines.Length;
     }
 }

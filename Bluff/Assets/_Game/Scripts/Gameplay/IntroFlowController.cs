@@ -6,24 +6,35 @@ public sealed class IntroFlowController : MonoBehaviour
 {
     private const string GameplaySceneName = "Dev_Yujin";
 
-    public enum IntroStage
+    public enum IntroStepType
     {
-        NotStarted,
+        Cutscene,
         Dialogue,
-        Interaction,
-        Finished
+        Interaction
+    }
+
+    [Serializable]
+    public sealed class IntroStep
+    {
+        [SerializeField] private IntroStepType type;
+        [SerializeField] private string[] dialogueLines = Array.Empty<string>();
+
+        public IntroStepType Type => type;
+        public string[] DialogueLines => dialogueLines;
     }
 
     [SerializeField] private DialogueController dialogueController;
+    [SerializeField] private IntroStep[] steps = Array.Empty<IntroStep>();
 
+    private int currentStepIndex = -1;
     private bool dialogueSubscribed;
     private bool isTransitioning;
     private Action<string> sceneLoader = SceneManager.LoadScene;
 
-    public event Action<IntroStage> StageChanged;
-
-    public IntroStage CurrentStage { get; private set; } =
-        IntroStage.NotStarted;
+    public int CurrentStepIndex => currentStepIndex;
+    public IntroStepType? CurrentStepType => HasCurrentStep()
+        ? steps[currentStepIndex].Type
+        : null;
 
     private void OnEnable()
     {
@@ -42,32 +53,36 @@ public sealed class IntroFlowController : MonoBehaviour
 
     public void StartIntro()
     {
-        if (isTransitioning || CurrentStage != IntroStage.NotStarted)
+        if (isTransitioning || currentStepIndex >= 0)
         {
-            return;
-        }
-
-        if (dialogueController == null)
-        {
-            Debug.LogError(
-                "IntroFlowController에 DialogueController가 연결되지 않았습니다.",
-                this);
             return;
         }
 
         SubscribeToDialogue();
-        SetStage(IntroStage.Dialogue);
-        dialogueController.StartDialogue();
+        currentStepIndex = 0;
+        StartCurrentStep();
     }
 
-    public void OnInteractionCompleted()
+    public void OnCutsceneCompleted()
     {
-        if (isTransitioning || CurrentStage != IntroStage.Interaction)
+        if (isTransitioning ||
+            CurrentStepType != IntroStepType.Cutscene)
         {
             return;
         }
 
-        FinishIntro();
+        AdvanceStep();
+    }
+
+    public void OnInteractionCompleted()
+    {
+        if (isTransitioning ||
+            CurrentStepType != IntroStepType.Interaction)
+        {
+            return;
+        }
+
+        AdvanceStep();
     }
 
     public void SkipIntro()
@@ -88,25 +103,80 @@ public sealed class IntroFlowController : MonoBehaviour
         }
 
         isTransitioning = true;
-        SetStage(IntroStage.Finished);
         UnsubscribeFromDialogue();
         sceneLoader(GameplaySceneName);
     }
 
     private void HandleDialogueCompleted()
     {
-        if (isTransitioning || CurrentStage != IntroStage.Dialogue)
+        if (isTransitioning ||
+            CurrentStepType != IntroStepType.Dialogue)
         {
             return;
         }
 
-        SetStage(IntroStage.Interaction);
+        AdvanceStep();
     }
 
-    private void SetStage(IntroStage stage)
+    private void StartCurrentStep()
     {
-        CurrentStage = stage;
-        StageChanged?.Invoke(stage);
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        if (!HasCurrentStep())
+        {
+            FinishIntro();
+            return;
+        }
+
+        IntroStep currentStep = steps[currentStepIndex];
+
+        switch (currentStep.Type)
+        {
+            case IntroStepType.Cutscene:
+            case IntroStepType.Interaction:
+                return;
+
+            case IntroStepType.Dialogue:
+                if (dialogueController == null)
+                {
+                    Debug.LogError(
+                        "Dialogue Step에 DialogueController가 연결되지 않았습니다.",
+                        this);
+                    return;
+                }
+
+                dialogueController.StartDialogue(currentStep.DialogueLines);
+                return;
+        }
+    }
+
+    private void AdvanceStep()
+    {
+        if (isTransitioning)
+        {
+            return;
+        }
+
+        currentStepIndex++;
+
+        if (HasCurrentStep())
+        {
+            StartCurrentStep();
+            return;
+        }
+
+        FinishIntro();
+    }
+
+    private bool HasCurrentStep()
+    {
+        return steps != null &&
+               currentStepIndex >= 0 &&
+               currentStepIndex < steps.Length &&
+               steps[currentStepIndex] != null;
     }
 
     private void SubscribeToDialogue()
