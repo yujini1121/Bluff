@@ -8381,9 +8381,9 @@ MonoBehaviour:
   playerNormalCardScale: {x: 1, y: 1, z: 1}
   showdownCardScale: {x: 1, y: 1, z: 1}
   cardDealPoint: {fileID: 1238106023}
-  dealDuration: 2
+  dealDuration: 0.3
   dealInterval: 0.15
-  refreshCollectDuration: 2
+  refreshCollectDuration: 0.32
   refreshCollectInterval: 0.26
   refreshBeforeShuffleDelay: 0.27
   refreshShuffleDuration: 1.25
