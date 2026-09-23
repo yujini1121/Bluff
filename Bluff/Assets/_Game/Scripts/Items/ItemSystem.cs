@@ -64,7 +64,8 @@ public class ItemSystem : MonoBehaviour
         if (item != null &&
             item.TryGetComponent(out Item itemComponent) &&
             itemComponent.itemData != null &&
-            (itemComponent.itemData.itemType == ItemType.prizmChip ||
+            (itemComponent.itemData.itemType == ItemType.refreshCard ||
+             itemComponent.itemData.itemType == ItemType.prizmChip ||
              itemComponent.itemData.itemType == ItemType.chipPocket ||
              itemComponent.itemData.itemType == ItemType.defy) &&
             PlayerItemUseRequested != null)

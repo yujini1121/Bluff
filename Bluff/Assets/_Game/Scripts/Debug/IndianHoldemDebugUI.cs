@@ -447,7 +447,42 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
             return;
         }
 
+        isCardAnimating = true;
+
+        bool refreshStarted =
+            cardVisualController != null &&
+            cardVisualController.TryPlayRefresh(
+                OnRefreshPresentationCompleted,
+                OnRefreshPresentationFailed);
+
+        if (!refreshStarted)
+        {
+            isCardAnimating = false;
+            cardVisualController?.RefreshCards();
+        }
+    }
+
+    private void OnRefreshPresentationCompleted()
+    {
+        if (!CanHandlePresentationCallback())
+        {
+            return;
+        }
+
+        isCardAnimating = false;
+        RefreshView();
+    }
+
+    private void OnRefreshPresentationFailed()
+    {
+        if (!CanHandlePresentationCallback())
+        {
+            return;
+        }
+
         cardVisualController?.RefreshCards();
+        isCardAnimating = false;
+        RefreshView();
     }
 
     private void StartRound()
@@ -790,6 +825,27 @@ public sealed class IndianHoldemDebugUI : MonoBehaviour
                 }
 
                 AddBettingResultLog();
+                yield break;
+            }
+
+            while (isCardAnimating)
+            {
+                if (isShuttingDown ||
+                    isRestarting ||
+                    !isActiveAndEnabled)
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            if (isShuttingDown ||
+                isRestarting ||
+                !isActiveAndEnabled ||
+                gameState.Phase != GamePhase.Betting ||
+                gameState.CurrentTurn != TurnOwner.Dealer)
+            {
                 yield break;
             }
 

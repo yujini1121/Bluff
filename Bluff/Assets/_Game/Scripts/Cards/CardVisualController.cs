@@ -39,6 +39,13 @@ public sealed class CardVisualController : MonoBehaviour
     [SerializeField, Min(0f)] private float dealDuration = 0.2f;
     [SerializeField, Min(0f)] private float dealInterval = 0.05f;
 
+    [Header("Refresh")]
+    [SerializeField, Min(0f)] private float refreshCollectDuration = 0.28f;
+    [SerializeField, Min(0f)] private float refreshCollectInterval = 0.06f;
+    [SerializeField, Min(0f)] private float refreshBeforeShuffleDelay = 0.15f;
+    [SerializeField, Min(0f)] private float refreshShuffleDuration = 0.35f;
+    [SerializeField, Min(0f)] private float refreshShuffleStrength = 0.04f;
+
     private GameState gameState;
     private Sequence dealSequence;
     private CardVisual[] activeDealVisuals;
@@ -49,6 +56,15 @@ public sealed class CardVisualController : MonoBehaviour
     private Sequence showdownRevealSequence;
     private Action showdownRevealCompleted;
     private Action showdownRevealFailed;
+    private Sequence refreshSequence;
+    private CardVisual[] activeRefreshVisuals;
+    private Transform[] activeRefreshTransforms;
+    private CardTransformState[] refreshOriginalTransforms;
+    private Action refreshCompleted;
+    private Action refreshFailed;
+    private Vector3 refreshDeckOriginalLocalPosition;
+    private bool hasRefreshDeckOriginalLocalPosition;
+    private int returnedRefreshCardCount;
     private bool isDealerCardFollowingNormalPoint;
     private bool isPlayerCardFollowingNormalPoint;
     private bool isApplicationQuitting;
@@ -105,6 +121,7 @@ public sealed class CardVisualController : MonoBehaviour
             dealerShowdownCardPoint == null ||
             dealSequence != null ||
             showdownRevealSequence != null ||
+            refreshSequence != null ||
             !isActiveAndEnabled ||
             onCompleted == null ||
             onFailed == null)
@@ -248,6 +265,8 @@ public sealed class CardVisualController : MonoBehaviour
             gameState.DealerCard == null ||
             gameState.PlayerCard == null ||
             dealSequence != null ||
+            showdownRevealSequence != null ||
+            refreshSequence != null ||
             !isActiveAndEnabled ||
             onCompleted == null ||
             onFailed == null)
@@ -302,8 +321,7 @@ public sealed class CardVisualController : MonoBehaviour
             cardTransform.localPosition = parent != null
                 ? parent.InverseTransformPoint(cardDealPoint.position)
                 : cardDealPoint.position;
-            cardTransform.localRotation =
-                originalTransforms[index].LocalRotation;
+            cardTransform.rotation = cardDealPoint.rotation;
             cardTransform.localScale = originalTransforms[index].LocalScale;
             activeDealVisuals[index].SetVisible(false);
         }
@@ -325,6 +343,12 @@ public sealed class CardVisualController : MonoBehaviour
                     activeDealTransforms[index]
                         .DOLocalMove(
                             originalTransforms[index].LocalPosition,
+                            Mathf.Max(0f, dealDuration))
+                        .SetEase(Ease.OutQuad));
+                dealSequence.Join(
+                    activeDealTransforms[index]
+                        .DOLocalRotateQuaternion(
+                            originalTransforms[index].LocalRotation,
                             Mathf.Max(0f, dealDuration))
                         .SetEase(Ease.OutQuad));
             }
@@ -349,6 +373,315 @@ public sealed class CardVisualController : MonoBehaviour
             .OnComplete(CompleteDeal)
             .OnKill(HandleDealKilled);
         return true;
+    }
+
+    public bool TryPlayRefresh(Action onCompleted, Action onFailed)
+    {
+        if (gameState == null ||
+            cardDealPoint == null ||
+            deckStackVisual == null ||
+            communityCardVisual1 == null ||
+            communityCardVisual2 == null ||
+            dealerCardVisual == null ||
+            playerCardVisual == null ||
+            dealerCardRoot == null ||
+            playerCardRoot == null ||
+            dealerCardPoint == null ||
+            playerCardPoint == null ||
+            gameState.CommunityCard1 == null ||
+            gameState.CommunityCard2 == null ||
+            gameState.DealerCard == null ||
+            gameState.PlayerCard == null ||
+            dealSequence != null ||
+            showdownRevealSequence != null ||
+            refreshSequence != null ||
+            !isActiveAndEnabled ||
+            onCompleted == null ||
+            onFailed == null)
+        {
+            return false;
+        }
+
+        if (!HasValidPrivateCardHierarchy())
+        {
+            return false;
+        }
+
+        StopDealerNormalFollow();
+        StopPlayerNormalFollow();
+
+        activeRefreshVisuals = new[]
+        {
+            communityCardVisual1,
+            communityCardVisual2,
+            dealerCardVisual,
+            playerCardVisual
+        };
+        activeRefreshTransforms = new[]
+        {
+            communityCardVisual1.transform,
+            communityCardVisual2.transform,
+            dealerCardRoot,
+            playerCardRoot
+        };
+        refreshOriginalTransforms = new CardTransformState[
+            activeRefreshTransforms.Length];
+        refreshCompleted = onCompleted;
+        refreshFailed = onFailed;
+        returnedRefreshCardCount = 0;
+
+        for (int index = 0; index < activeRefreshTransforms.Length; index++)
+        {
+            Transform cardTransform = activeRefreshTransforms[index];
+            refreshOriginalTransforms[index] = new CardTransformState
+            {
+                LocalPosition = cardTransform.localPosition,
+                LocalRotation = cardTransform.localRotation,
+                LocalScale = cardTransform.localScale
+            };
+        }
+
+        Transform deckTransform = deckStackVisual.transform;
+        refreshDeckOriginalLocalPosition = deckTransform.localPosition;
+        hasRefreshDeckOriginalLocalPosition = true;
+        float collectDuration = Mathf.Max(0f, refreshCollectDuration);
+        float collectInterval = Mathf.Max(0f, refreshCollectInterval);
+
+        refreshSequence = DOTween.Sequence();
+
+        for (int index = 0; index < activeRefreshTransforms.Length; index++)
+        {
+            int collectIndex = index;
+            Transform cardTransform = activeRefreshTransforms[index];
+            Sequence collectSequence = DOTween.Sequence();
+            collectSequence.Append(
+                cardTransform
+                    .DOMove(cardDealPoint.position, collectDuration)
+                    .SetEase(Ease.InQuad));
+            collectSequence.Join(
+                cardTransform
+                    .DORotateQuaternion(cardDealPoint.rotation, collectDuration)
+                    .SetEase(Ease.InQuad));
+            collectSequence.AppendCallback(
+                () => CompleteRefreshCardCollection(collectIndex));
+            refreshSequence.Insert(index * collectInterval, collectSequence);
+        }
+
+        refreshSequence.AppendCallback(EnsureAllRefreshCardsCollected);
+        refreshSequence.AppendInterval(
+            Mathf.Max(0f, refreshBeforeShuffleDelay));
+        refreshSequence.Append(
+            deckTransform.DOShakePosition(
+                Mathf.Max(0f, refreshShuffleDuration),
+                new Vector3(
+                    Mathf.Max(0f, refreshShuffleStrength),
+                    0f,
+                    0f),
+                10,
+                0f,
+                false,
+                true));
+        refreshSequence.AppendCallback(RestoreRefreshDeckPosition);
+        refreshSequence
+            .OnComplete(CompleteRefreshCollection)
+            .OnKill(HandleRefreshKilled);
+        return true;
+    }
+
+    private void CompleteRefreshCardCollection(int index)
+    {
+        if (activeRefreshVisuals == null ||
+            index < 0 ||
+            index >= activeRefreshVisuals.Length ||
+            activeRefreshVisuals[index] == null)
+        {
+            FailRefresh(ShouldNotifyUi());
+            return;
+        }
+
+        activeRefreshVisuals[index].SetVisible(false);
+        returnedRefreshCardCount++;
+        deckStackVisual?.SetCardCount(
+            gameState.Deck.RemainingCount + returnedRefreshCardCount);
+    }
+
+    private void EnsureAllRefreshCardsCollected()
+    {
+        if (activeRefreshVisuals == null)
+        {
+            FailRefresh(ShouldNotifyUi());
+            return;
+        }
+
+        for (int index = 0; index < activeRefreshVisuals.Length; index++)
+        {
+            activeRefreshVisuals[index]?.SetVisible(false);
+        }
+
+        returnedRefreshCardCount = activeRefreshVisuals.Length;
+        deckStackVisual?.SetCardCount(
+            gameState.Deck.RemainingCount + returnedRefreshCardCount);
+    }
+
+    private void CompleteRefreshCollection()
+    {
+        if (!HasValidRefreshVisuals())
+        {
+            FailRefresh(ShouldNotifyUi());
+            return;
+        }
+
+        RestoreRefreshDeckPosition();
+        RestoreRefreshTransforms();
+        HideRefreshCards();
+        ClearRefreshCollectionState();
+
+        if (!TryPlayDeal(CompleteRefreshDeal, FailRefreshDeal))
+        {
+            FailRefresh(ShouldNotifyUi(), false);
+        }
+    }
+
+    private void CompleteRefreshDeal()
+    {
+        Action completedCallback = ShouldNotifyUi()
+            ? refreshCompleted
+            : null;
+        ClearRefreshCallbacks();
+        completedCallback?.Invoke();
+    }
+
+    private void FailRefreshDeal()
+    {
+        FailRefresh(ShouldNotifyUi(), false);
+    }
+
+    private void HandleRefreshKilled()
+    {
+        if (refreshSequence != null)
+        {
+            FailRefresh(ShouldNotifyUi(), false);
+        }
+    }
+
+    private void FailRefresh(bool notifyFailure, bool killSequence = true)
+    {
+        if (refreshSequence == null &&
+            activeRefreshVisuals == null &&
+            refreshCompleted == null &&
+            refreshFailed == null)
+        {
+            return;
+        }
+
+        Action failedCallback = notifyFailure ? refreshFailed : null;
+        Sequence activeSequence = refreshSequence;
+        refreshSequence = null;
+
+        if (killSequence)
+        {
+            activeSequence?.Kill(false);
+        }
+
+        RestoreRefreshDeckPosition();
+        RestoreRefreshTransforms();
+        ClearRefreshCollectionState();
+        ClearRefreshCallbacks();
+        RefreshCards();
+        failedCallback?.Invoke();
+    }
+
+    private bool HasValidRefreshVisuals()
+    {
+        if (activeRefreshVisuals == null ||
+            activeRefreshTransforms == null ||
+            refreshOriginalTransforms == null ||
+            activeRefreshVisuals.Length != activeRefreshTransforms.Length ||
+            activeRefreshVisuals.Length != refreshOriginalTransforms.Length)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < activeRefreshVisuals.Length; index++)
+        {
+            if (activeRefreshVisuals[index] == null ||
+                activeRefreshTransforms[index] == null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void RestoreRefreshTransforms()
+    {
+        if (activeRefreshTransforms == null ||
+            refreshOriginalTransforms == null)
+        {
+            return;
+        }
+
+        int restoreCount = Mathf.Min(
+            activeRefreshTransforms.Length,
+            refreshOriginalTransforms.Length);
+
+        for (int index = 0; index < restoreCount; index++)
+        {
+            Transform cardTransform = activeRefreshTransforms[index];
+
+            if (cardTransform == null)
+            {
+                continue;
+            }
+
+            cardTransform.localPosition =
+                refreshOriginalTransforms[index].LocalPosition;
+            cardTransform.localRotation =
+                refreshOriginalTransforms[index].LocalRotation;
+            cardTransform.localScale =
+                refreshOriginalTransforms[index].LocalScale;
+        }
+
+        RestorePrivateCardStartTransforms();
+    }
+
+    private void HideRefreshCards()
+    {
+        if (activeRefreshVisuals == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < activeRefreshVisuals.Length; index++)
+        {
+            activeRefreshVisuals[index]?.SetVisible(false);
+        }
+    }
+
+    private void RestoreRefreshDeckPosition()
+    {
+        if (hasRefreshDeckOriginalLocalPosition && deckStackVisual != null)
+        {
+            deckStackVisual.transform.localPosition =
+                refreshDeckOriginalLocalPosition;
+        }
+    }
+
+    private void ClearRefreshCollectionState()
+    {
+        refreshSequence = null;
+        activeRefreshVisuals = null;
+        activeRefreshTransforms = null;
+        refreshOriginalTransforms = null;
+        returnedRefreshCardCount = 0;
+        hasRefreshDeckOriginalLocalPosition = false;
+    }
+
+    private void ClearRefreshCallbacks()
+    {
+        refreshCompleted = null;
+        refreshFailed = null;
     }
 
     private Tween CreatePrivateCardDealTween(
@@ -737,6 +1070,7 @@ public sealed class CardVisualController : MonoBehaviour
     {
         FailDeal(ShouldNotifyUi());
         FailShowdownReveal(ShouldNotifyUi());
+        FailRefresh(ShouldNotifyUi());
     }
 
     private void OnApplicationQuit()

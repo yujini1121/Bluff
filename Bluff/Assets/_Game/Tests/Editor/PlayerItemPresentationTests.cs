@@ -50,6 +50,18 @@ public sealed class PlayerItemPresentationTests
                 Set(cards, "communityCardVisual" + (index - 1), visual);
             }
         }
+        GameObject deckObject = CreateObject("Deck presentation");
+        deckObject.SetActive(false);
+        deckObject.transform.position = new Vector3(6f, 0f, 0f);
+        DeckStackVisual deckVisual = deckObject.AddComponent<DeckStackVisual>();
+        Set(cards, "deckStackVisual", deckVisual);
+        Set(cards, "cardDealPoint", deckObject.transform);
+        Set(cards, "dealDuration", 0.1f);
+        Set(cards, "dealInterval", 0.02f);
+        Set(cards, "refreshCollectDuration", 0.1f);
+        Set(cards, "refreshCollectInterval", 0.02f);
+        Set(cards, "refreshBeforeShuffleDelay", 0.01f);
+        Set(cards, "refreshShuffleDuration", 0.1f);
 
         chips = CreateObject("Chip presentation").AddComponent<ChipVisualController>();
         foreach (string field in new[] { "playerChipArea", "dealerChipArea", "playerBetAreaPoint", "dealerBetAreaPoint", "potArea" })
@@ -103,6 +115,64 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Player));
         Assert.That(game.Phase, Is.EqualTo(GamePhase.Betting));
         AssertChipVisuals();
+    }
+
+    [Test]
+    public void PlayerRefresh_LocksInputUntilPresentationCompletes()
+    {
+        GameObject first = Add(TurnOwner.Player, ItemType.refreshCard);
+        GameObject second = Add(TurnOwner.Player, ItemType.refreshCard);
+
+        first.GetComponent<Item>().Use();
+
+        Assert.That(first == null, Is.True);
+        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(true));
+        Assert.That(Get(cards, "refreshSequence"), Is.Not.Null);
+        second.GetComponent<Item>().Use();
+        Assert.That(inventory.HasItem(TurnOwner.Player, second), Is.True);
+
+        CompleteRefreshPresentation();
+
+        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(false));
+        Assert.That(Get(cards, "refreshSequence"), Is.Null);
+        Assert.That(Get(cards, "dealSequence"), Is.Null);
+    }
+
+    [Test]
+    public void DealerRefresh_WaitsBeforeExecutingPreparedAction()
+    {
+        var state = new GameState(
+            20,
+            20,
+            new Deck(new[] { new Card(9) }, new NoSwapRandom()));
+        state.TrySetPlayerCard(new Card(4));
+        state.TrySetDealerCard(new Card(1));
+        state.TrySetCommunityCards(new Card(4), new Card(2));
+        state.Pot.TryAdd(2);
+        state.TrySetPhase(GamePhase.Betting);
+        state.Turn.TrySet(TurnOwner.Dealer);
+        Bind(state);
+        Add(TurnOwner.Dealer, ItemType.refreshCard);
+        Set(ui, "minDealerThinkDelay", 0f);
+        Set(ui, "maxDealerThinkDelay", 0f);
+        Random.InitState(FindDealerSeed(ItemType.refreshCard));
+        var routine = (IEnumerator)Invoke(ui, "PerformDealerActionAfterDelay");
+
+        Assert.That(routine.MoveNext(), Is.True);
+        Assert.That(routine.MoveNext(), Is.True);
+        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(true));
+        Assert.That(game.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        Assert.That(routine.MoveNext(), Is.True);
+        Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+
+        CompleteRefreshPresentation();
+
+        Assert.That(routine.MoveNext(), Is.False);
+        Assert.That(
+            game.Phase != GamePhase.Betting ||
+            game.CurrentTurn != TurnOwner.Dealer,
+            Is.True);
     }
 
     [TestCase(false)]
@@ -336,6 +406,24 @@ public sealed class PlayerItemPresentationTests
         // CardVisualController는 PlayMode에서만 완료 알림을 보내므로 연결된 콜백을 진행한다.
         if (!Application.isPlaying) completed();
     }
+
+    private void CompleteRefreshPresentation()
+    {
+        var refresh = (Sequence)Get(cards, "refreshSequence");
+        Assert.That(refresh, Is.Not.Null);
+        refresh.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+        var deal = (Sequence)Get(cards, "dealSequence");
+        Assert.That(deal, Is.Not.Null);
+        deal.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+        Assert.That(Get(cards, "dealSequence"), Is.Null);
+        if (!Application.isPlaying)
+        {
+            Invoke(cards, "CompleteRefreshDeal");
+            Invoke(ui, "OnRefreshPresentationCompleted");
+        }
+    }
     private int FindDealerSeed(ItemType type)
     {
         for (int seed = 0; seed < 1000; seed++)
@@ -397,4 +485,9 @@ public sealed class PlayerItemPresentationTests
     private static object Get(object obj, string field) => obj.GetType().GetField(field, Hidden).GetValue(obj);
     private static void Set(object obj, string field, object value) => obj.GetType().GetField(field, Hidden).SetValue(obj, value);
     private static object Invoke(object obj, string method, params object[] args) => obj.GetType().GetMethod(method, Hidden).Invoke(obj, args);
+
+    private sealed class NoSwapRandom : System.Random
+    {
+        public override int Next(int maxValue) => maxValue - 1;
+    }
 }

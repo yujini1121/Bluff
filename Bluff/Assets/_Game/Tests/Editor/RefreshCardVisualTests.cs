@@ -20,6 +20,7 @@ public sealed class RefreshCardVisualTests
     private ItemSystem itemSystem;
     private IndianHoldemDebugUI ui;
     private CardVisualController controller;
+    private DeckStackVisual deckStackVisual;
     private Transform playerRoot;
 
     [SetUp]
@@ -61,6 +62,19 @@ public sealed class RefreshCardVisualTests
         }
         SetField(controller, "communityCardVisual1", visuals[2]);
         SetField(controller, "communityCardVisual2", visuals[3]);
+
+        var deckObject = CreateObject("Refresh Deck");
+        deckObject.SetActive(false);
+        deckObject.transform.position = new Vector3(6f, 0f, 0f);
+        deckStackVisual = deckObject.AddComponent<DeckStackVisual>();
+        SetField(controller, "deckStackVisual", deckStackVisual);
+        SetField(controller, "cardDealPoint", deckObject.transform);
+        SetField(controller, "dealDuration", 0.1f);
+        SetField(controller, "dealInterval", 0.02f);
+        SetField(controller, "refreshCollectDuration", 0.28f);
+        SetField(controller, "refreshCollectInterval", 0.06f);
+        SetField(controller, "refreshBeforeShuffleDelay", 0.01f);
+        SetField(controller, "refreshShuffleDuration", 0.1f);
 
         var uiObject = CreateObject("Refresh Card UI");
         uiObject.SetActive(false);
@@ -130,6 +144,82 @@ public sealed class RefreshCardVisualTests
 
         Assert.That(notifications, Is.EqualTo(1));
         Assert.That(playerRoot.position, Is.EqualTo(markerPosition));
+        AssertVisualsMatchCurrentCards();
+    }
+
+    [Test]
+    public void RefreshPresentation_CollectsShufflesAndReusesDeal()
+    {
+        int[] previousRanks = GetVisualRanks();
+        int deckCount = gameState.Deck.RemainingCount;
+        Vector3 deckPosition = deckStackVisual.transform.localPosition;
+        controller.gameObject.SetActive(true);
+
+        UseRefresh(TurnOwner.Player);
+
+        Assert.That(GetField(ui, "isCardAnimating"), Is.EqualTo(true));
+        Assert.That(GetVisualRanks(), Is.EqualTo(previousRanks));
+        var refresh = (Sequence)GetField(controller, "refreshSequence");
+        Assert.That(refresh, Is.Not.Null);
+        refresh.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+
+        Assert.That(GetField(controller, "refreshSequence"), Is.Null);
+        Assert.That(deckStackVisual.transform.localPosition, Is.EqualTo(deckPosition));
+        Assert.That(
+            GetField(deckStackVisual, "currentCardCount"),
+            Is.EqualTo(deckCount + 4));
+        var deal = (Sequence)GetField(controller, "dealSequence");
+        Assert.That(deal, Is.Not.Null);
+        foreach (Renderer renderer in renderers)
+        {
+            Assert.That(renderer.enabled, Is.False);
+        }
+
+        deal.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+
+        Assert.That(GetField(controller, "dealSequence"), Is.Null);
+        Assert.That(
+            GetField(deckStackVisual, "currentCardCount"),
+            Is.EqualTo(deckCount));
+        AssertVisualsMatchCurrentCards();
+        Invoke(controller, "CompleteRefreshDeal");
+    }
+
+    [Test]
+    public void RefreshPresentation_BlocksDealAndShowdownUntilCollectionEnds()
+    {
+        controller.gameObject.SetActive(true);
+        UseRefresh(TurnOwner.Player);
+
+        Assert.That(
+            controller.TryPlayDeal(() => { }, () => { }),
+            Is.False);
+        Assert.That(
+            controller.TryPlayShowdownReveal(() => { }, () => { }),
+            Is.False);
+    }
+
+    [Test]
+    public void RefreshPresentation_DisableRestoresLatestCardsAndDeck()
+    {
+        int deckCount = gameState.Deck.RemainingCount;
+        Vector3 deckPosition = deckStackVisual.transform.localPosition;
+        controller.gameObject.SetActive(true);
+        UseRefresh(TurnOwner.Player);
+        var refresh = (Sequence)GetField(controller, "refreshSequence");
+        Assert.That(refresh, Is.Not.Null);
+        refresh.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.12f, 0.12f);
+
+        controller.gameObject.SetActive(false);
+
+        Assert.That(GetField(controller, "refreshSequence"), Is.Null);
+        Assert.That(deckStackVisual.transform.localPosition, Is.EqualTo(deckPosition));
+        Assert.That(
+            GetField(deckStackVisual, "currentCardCount"),
+            Is.EqualTo(deckCount));
         AssertVisualsMatchCurrentCards();
     }
 
@@ -236,16 +326,19 @@ public sealed class RefreshCardVisualTests
     {
         gameState.Turn.TrySet(owner);
         GameObject item = AddItem(owner, ItemType.refreshCard);
-        if (owner == TurnOwner.Player)
-        {
-            item.GetComponent<Item>().Use();
-        }
-        else
-        {
-            object[] arguments = { 20, 0, null };
-            Assert.That(Invoke(ui, "TryPrepareDealerActionPlan", arguments), Is.True);
-        }
+        Assert.That(itemSystem.TryUseItem(owner, ItemType.refreshCard), Is.True);
         Assert.That(item == null, Is.True);
+    }
+
+    private int[] GetVisualRanks()
+    {
+        var ranks = new int[visuals.Length];
+        for (int index = 0; index < visuals.Length; index++)
+        {
+            ranks[index] = visuals[index].CurrentRank;
+        }
+
+        return ranks;
     }
 
     private void AssertVisualsMatchCurrentCards()
