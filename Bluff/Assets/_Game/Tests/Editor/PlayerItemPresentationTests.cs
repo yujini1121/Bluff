@@ -19,6 +19,7 @@ public sealed class PlayerItemPresentationTests
     private ItemSystem items;
     private Inventory inventory;
     private GameplayController ui;
+    private GameplayView view;
     private ChipVisualController chips;
     private CardVisualController cards;
     private Random.State previousRandom;
@@ -75,17 +76,19 @@ public sealed class PlayerItemPresentationTests
         items = uiObject.AddComponent<ItemSystem>();
         Set(items, "inventory", inventory);
         ui = uiObject.AddComponent<GameplayController>();
+        view = uiObject.AddComponent<GameplayView>();
+        Set(ui, "gameplayView", view);
         Set(ui, "itemSystem", items);
         Set(ui, "cardVisualController", cards);
         Set(ui, "chipVisualController", chips);
         Set(ui, "maxLogLines", 30);
         foreach (string field in new[] { "roundText", "debugInfoText", "messageText", "raiseAmountText", "raiseExecuteText", "resultTitleText", "resultDetailText" })
-            Set(ui, field, CreateObject(field, ui.transform).AddComponent<TextMeshProUGUI>());
+            Set(view, field, CreateObject(field, ui.transform).AddComponent<TextMeshProUGUI>());
         foreach (string field in new[] { "raiseDecreaseButton", "raiseIncreaseButton", "raiseMaxButton", "raiseExecuteButton", "resolveShowdownButton", "nextRoundButton", "restartButton", "debugToggleButton" })
-            Set(ui, field, CreateObject(field, ui.transform).AddComponent<Button>());
+            Set(view, field, CreateObject(field, ui.transform).AddComponent<Button>());
         foreach (string field in new[] { "debugPanel", "playerActionBar", "contextActionArea", "resultOverlay" })
-            Set(ui, field, CreateObject(field, ui.transform));
-        Set(ui, "bettingActionButtons", new[] { CreateObject("Betting button", ui.transform).AddComponent<Button>() });
+            Set(view, field, CreateObject(field, ui.transform));
+        Set(view, "bettingActionButtons", new[] { CreateObject("Betting button", ui.transform).AddComponent<Button>() });
         uiObject.SetActive(true);
         Set(ui, "dealerAi", new DealerAi());
         Invoke(ui, "SubscribeToItemSystemEvents");
@@ -195,15 +198,15 @@ public sealed class PlayerItemPresentationTests
         CompleteCardReveal();
         AssertChipVisuals();
         Assert.That(Get(ui, "isFoldResultVisible"), Is.EqualTo(true));
-        Assert.That(((GameObject)Get(ui, "resultOverlay")).activeSelf, Is.True);
+        Assert.That(((GameObject)Get(view, "resultOverlay")).activeSelf, Is.True);
         Assert.That(Get(ui, "isChipAnimating"), Is.EqualTo(false));
         Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(false));
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.None));
         Assert.That(game.Phase, Is.EqualTo(finalRound ? GamePhase.GameOver : GamePhase.RoundEnd));
-        Button restart = (Button)Get(ui, "restartButton");
+        Button restart = (Button)Get(view, "restartButton");
         Assert.That(restart.gameObject.activeSelf, Is.EqualTo(finalRound));
         if (finalRound) Assert.That(restart.interactable, Is.True);
-        else Assert.That(((TMP_Text)Get(ui, "resultDetailText")).text, Is.EqualTo("PLAYER FOLD"));
+        else Assert.That(((TMP_Text)Get(view, "resultDetailText")).text, Is.EqualTo("PLAYER FOLD"));
     }
 
     [Test]
@@ -222,7 +225,7 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.None));
         AssertChipVisuals();
-        Assert.That(((Button)Get(ui, "resolveShowdownButton")).interactable, Is.True);
+        Assert.That(((Button)Get(view, "resolveShowdownButton")).interactable, Is.True);
         ui.OnResolveShowdownClicked();
         CompleteCardReveal();
         Assert.That(Get(ui, "roundWinner"), Is.EqualTo(RoundWinner.Player));
@@ -334,7 +337,7 @@ public sealed class PlayerItemPresentationTests
             CompleteChipMoves();
             CompleteCardReveal();
             Assert.That(Get(ui, "isFoldResultVisible"), Is.EqualTo(true));
-            Assert.That(((GameObject)Get(ui, "resultOverlay")).activeSelf, Is.True);
+            Assert.That(((GameObject)Get(view, "resultOverlay")).activeSelf, Is.True);
             if (type == ItemType.chipPocket)
             {
                 Assert.That(game.DealerChips.Count, Is.EqualTo(7));

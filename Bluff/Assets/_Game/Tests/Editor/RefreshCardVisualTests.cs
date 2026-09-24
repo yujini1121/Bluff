@@ -19,6 +19,7 @@ public sealed class RefreshCardVisualTests
     private Inventory inventory;
     private ItemSystem itemSystem;
     private GameplayController ui;
+    private GameplayView view;
     private CardVisualController controller;
     private DeckStackVisual deckStackVisual;
     private Transform playerRoot;
@@ -82,6 +83,8 @@ public sealed class RefreshCardVisualTests
         itemSystem = uiObject.AddComponent<ItemSystem>();
         SetField(itemSystem, "inventory", inventory);
         ui = uiObject.AddComponent<GameplayController>();
+        view = uiObject.AddComponent<GameplayView>();
+        SetField(ui, "gameplayView", view);
         SetField(ui, "itemSystem", itemSystem);
         SetField(ui, "cardVisualController", controller);
         Invoke(ui, "CreateDebugGame");
@@ -373,7 +376,7 @@ public sealed class RefreshCardVisualTests
         {
             GameObject textObject = CreateObject(field);
             textObject.transform.SetParent(ui.transform);
-            SetField(ui, field, textObject.AddComponent<TextMeshProUGUI>());
+            SetField(view, field, textObject.AddComponent<TextMeshProUGUI>());
         }
         foreach (string field in new[] { "raiseDecreaseButton", "raiseIncreaseButton",
             "raiseMaxButton", "raiseExecuteButton", "resolveShowdownButton",
@@ -381,16 +384,16 @@ public sealed class RefreshCardVisualTests
         {
             GameObject buttonObject = CreateObject(field);
             buttonObject.transform.SetParent(ui.transform);
-            SetField(ui, field, buttonObject.AddComponent<Button>());
+            SetField(view, field, buttonObject.AddComponent<Button>());
         }
         foreach (string field in new[] { "debugPanel", "playerActionBar",
             "contextActionArea", "resultOverlay" })
         {
             GameObject gameObject = CreateObject(field);
             gameObject.transform.SetParent(ui.transform);
-            SetField(ui, field, gameObject);
+            SetField(view, field, gameObject);
         }
-        SetField(ui, "bettingActionButtons", new Button[0]);
+        SetField(view, "bettingActionButtons", new Button[0]);
     }
 
     private int SubscriberCount()
