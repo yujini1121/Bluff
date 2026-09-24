@@ -10,7 +10,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void PlayerFirst_PlayerWins_PlayerStartsNextRound()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
+        GameplayController ui = CreateUi(TurnOwner.Player);
 
         try
         {
@@ -32,7 +32,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void PlayerFirst_DealerWins_DealerStartsNextRound()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
+        GameplayController ui = CreateUi(TurnOwner.Player);
 
         try
         {
@@ -54,7 +54,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void DealerFirst_Draw_DealerStartsNextRound()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Dealer);
+        GameplayController ui = CreateUi(TurnOwner.Dealer);
 
         try
         {
@@ -76,7 +76,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void PlayerFolds_DealerStartsNextRound()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
+        GameplayController ui = CreateUi(TurnOwner.Player);
 
         try
         {
@@ -97,7 +97,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void DealerFolds_PlayerStartsNextRound()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Dealer);
+        GameplayController ui = CreateUi(TurnOwner.Dealer);
 
         try
         {
@@ -118,7 +118,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void ConsecutiveDraws_KeepOriginalFirstTurn()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Dealer);
+        GameplayController ui = CreateUi(TurnOwner.Dealer);
 
         try
         {
@@ -145,7 +145,7 @@ public sealed class RoundFirstTurnTests
     [Test]
     public void StartRound_FailureDoesNotChangeNextFirstTurn()
     {
-        IndianHoldemDebugUI ui = CreateUi(TurnOwner.Player);
+        GameplayController ui = CreateUi(TurnOwner.Player);
 
         try
         {
@@ -166,13 +166,13 @@ public sealed class RoundFirstTurnTests
         }
     }
 
-    private static IndianHoldemDebugUI CreateUi(TurnOwner firstTurn)
+    private static GameplayController CreateUi(TurnOwner firstTurn)
     {
         var gameObject = new GameObject("Round First Turn Test");
         gameObject.SetActive(false);
         ItemSystem itemSystem = gameObject.AddComponent<ItemSystem>();
-        IndianHoldemDebugUI ui =
-            gameObject.AddComponent<IndianHoldemDebugUI>();
+        GameplayController ui =
+            gameObject.AddComponent<GameplayController>();
 
         SetField(ui, "firstTurn", firstTurn);
         SetField(ui, "playerStartingChips", 100);
@@ -182,19 +182,19 @@ public sealed class RoundFirstTurnTests
         return ui;
     }
 
-    private static void InvokeStartRound(IndianHoldemDebugUI ui)
+    private static void InvokeStartRound(GameplayController ui)
     {
         InvokePrivate(ui, "StartRound");
     }
 
     private static void InvokePrepareAndStartNextRound(
-        IndianHoldemDebugUI ui)
+        GameplayController ui)
     {
         InvokePrivate(ui, "PrepareAndStartNextRound");
     }
 
     private static void SettleShowdown(
-        IndianHoldemDebugUI ui,
+        GameplayController ui,
         int playerRank,
         int dealerRank,
         int communityRank1,
@@ -226,10 +226,10 @@ public sealed class RoundFirstTurnTests
     }
 
     private static void InvokePrivate(
-        IndianHoldemDebugUI ui,
+        GameplayController ui,
         string methodName)
     {
-        MethodInfo method = typeof(IndianHoldemDebugUI).GetMethod(
+        MethodInfo method = typeof(GameplayController).GetMethod(
             methodName,
             PrivateInstance);
         Assert.That(method, Is.Not.Null);
@@ -237,10 +237,10 @@ public sealed class RoundFirstTurnTests
     }
 
     private static T GetField<T>(
-        IndianHoldemDebugUI ui,
+        GameplayController ui,
         string fieldName)
     {
-        FieldInfo field = typeof(IndianHoldemDebugUI).GetField(
+        FieldInfo field = typeof(GameplayController).GetField(
             fieldName,
             PrivateInstance);
         Assert.That(field, Is.Not.Null);
@@ -248,11 +248,11 @@ public sealed class RoundFirstTurnTests
     }
 
     private static void SetField<T>(
-        IndianHoldemDebugUI ui,
+        GameplayController ui,
         string fieldName,
         T value)
     {
-        FieldInfo field = typeof(IndianHoldemDebugUI).GetField(
+        FieldInfo field = typeof(GameplayController).GetField(
             fieldName,
             PrivateInstance);
         Assert.That(field, Is.Not.Null);

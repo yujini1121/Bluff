@@ -2657,7 +2657,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnDebugToggleClicked
         m_Mode: 0
         m_Arguments:
@@ -4734,7 +4734,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnNextRoundClicked
         m_Mode: 0
         m_Arguments:
@@ -10351,7 +10351,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnFoldClicked
         m_Mode: 0
         m_Arguments:
@@ -11437,7 +11437,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnRaiseMaxClicked
         m_Mode: 0
         m_Arguments:
@@ -11944,7 +11944,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnRaiseIncreaseClicked
         m_Mode: 0
         m_Arguments:
@@ -15190,7 +15190,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnRestartClicked
         m_Mode: 1
         m_Arguments:
@@ -15674,7 +15674,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnRaiseDecreaseClicked
         m_Mode: 0
         m_Arguments:
@@ -17047,7 +17047,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnCallClicked
         m_Mode: 0
         m_Arguments:
@@ -18776,7 +18776,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnResolveShowdownClicked
         m_Mode: 0
         m_Arguments:
@@ -20632,7 +20632,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 214340530}
-        m_TargetAssemblyTypeName: IndianHoldemDebugUI, Assembly-CSharp
+        m_TargetAssemblyTypeName: GameplayController, Assembly-CSharp
         m_MethodName: OnRaiseClicked
         m_Mode: 0
         m_Arguments:

@@ -18,7 +18,7 @@ public sealed class RefreshCardVisualTests
     private GameState gameState;
     private Inventory inventory;
     private ItemSystem itemSystem;
-    private IndianHoldemDebugUI ui;
+    private GameplayController ui;
     private CardVisualController controller;
     private DeckStackVisual deckStackVisual;
     private Transform playerRoot;
@@ -81,7 +81,7 @@ public sealed class RefreshCardVisualTests
         inventory = Track(ScriptableObject.CreateInstance<Inventory>());
         itemSystem = uiObject.AddComponent<ItemSystem>();
         SetField(itemSystem, "inventory", inventory);
-        ui = uiObject.AddComponent<IndianHoldemDebugUI>();
+        ui = uiObject.AddComponent<GameplayController>();
         SetField(ui, "itemSystem", itemSystem);
         SetField(ui, "cardVisualController", controller);
         Invoke(ui, "CreateDebugGame");

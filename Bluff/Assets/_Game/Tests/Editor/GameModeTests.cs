@@ -195,7 +195,7 @@ public sealed class GameModeTests
     public void GameplayCreationUsesModeSelectedOnTitle()
     {
         GameModeSelection.Select(GameMode.Endless);
-        IndianHoldemDebugUI ui = CreateGameplayUi();
+        GameplayController ui = CreateGameplayUi();
 
         try
         {
@@ -211,12 +211,12 @@ public sealed class GameModeTests
     public void GameplayRecreationKeepsModeAndStartsNewMatch()
     {
         GameModeSelection.Select(GameMode.Endless);
-        IndianHoldemDebugUI firstUi = CreateGameplayUi();
+        GameplayController firstUi = CreateGameplayUi();
         InvokePrivate(firstUi, "StartRound");
         Assert.That(firstUi.CurrentRound, Is.EqualTo(1));
         Object.DestroyImmediate(firstUi.gameObject);
 
-        IndianHoldemDebugUI restartedUi = CreateGameplayUi();
+        GameplayController restartedUi = CreateGameplayUi();
 
         try
         {
@@ -302,23 +302,23 @@ public sealed class GameModeTests
         return new Deck(cards);
     }
 
-    private static IndianHoldemDebugUI CreateGameplayUi()
+    private static GameplayController CreateGameplayUi()
     {
         var gameObject = new GameObject("Game Mode Test");
         gameObject.SetActive(false);
         ItemSystem itemSystem = gameObject.AddComponent<ItemSystem>();
-        IndianHoldemDebugUI ui =
-            gameObject.AddComponent<IndianHoldemDebugUI>();
+        GameplayController ui =
+            gameObject.AddComponent<GameplayController>();
         SetField(ui, "itemSystem", itemSystem);
         InvokePrivate(ui, "CreateDebugGame");
         return ui;
     }
 
     private static void InvokePrivate(
-        IndianHoldemDebugUI ui,
+        GameplayController ui,
         string methodName)
     {
-        MethodInfo method = typeof(IndianHoldemDebugUI).GetMethod(
+        MethodInfo method = typeof(GameplayController).GetMethod(
             methodName,
             PrivateInstance);
         Assert.That(method, Is.Not.Null);
@@ -326,11 +326,11 @@ public sealed class GameModeTests
     }
 
     private static void SetField<T>(
-        IndianHoldemDebugUI ui,
+        GameplayController ui,
         string fieldName,
         T value)
     {
-        FieldInfo field = typeof(IndianHoldemDebugUI).GetField(
+        FieldInfo field = typeof(GameplayController).GetField(
             fieldName,
             PrivateInstance);
         Assert.That(field, Is.Not.Null);

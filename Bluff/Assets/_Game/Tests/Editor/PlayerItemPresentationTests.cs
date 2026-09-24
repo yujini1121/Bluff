@@ -18,7 +18,7 @@ public sealed class PlayerItemPresentationTests
     private GameState game;
     private ItemSystem items;
     private Inventory inventory;
-    private IndianHoldemDebugUI ui;
+    private GameplayController ui;
     private ChipVisualController chips;
     private CardVisualController cards;
     private Random.State previousRandom;
@@ -74,7 +74,7 @@ public sealed class PlayerItemPresentationTests
         uiObject.SetActive(false);
         items = uiObject.AddComponent<ItemSystem>();
         Set(items, "inventory", inventory);
-        ui = uiObject.AddComponent<IndianHoldemDebugUI>();
+        ui = uiObject.AddComponent<GameplayController>();
         Set(ui, "itemSystem", items);
         Set(ui, "cardVisualController", cards);
         Set(ui, "chipVisualController", chips);

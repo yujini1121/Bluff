@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-public sealed class IndianHoldemDebugUI : MonoBehaviour
+public sealed class GameplayController : MonoBehaviour
 {
     [Header("게임 시작 설정")]
     [SerializeField, Min(0), InspectorName("플레이어 시작 칩")]

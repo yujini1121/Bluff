@@ -14,7 +14,7 @@ public sealed class GameplayInfoHover : MonoBehaviour
 
     [SerializeField] private GameplayInfoHoverTarget target;
     [SerializeField] private GameplayInfoTooltip tooltip;
-    [SerializeField] private IndianHoldemDebugUI gameUi;
+    [SerializeField] private GameplayController gameUi;
     [SerializeField] private Transform tooltipAnchor;
 
     private bool isHovered;
@@ -28,7 +28,7 @@ public sealed class GameplayInfoHover : MonoBehaviour
         }
         if (gameUi == null)
         {
-            gameUi = FindObjectOfType<IndianHoldemDebugUI>();
+            gameUi = FindObjectOfType<GameplayController>();
         }
     }
 

@@ -30,7 +30,7 @@ public sealed class DealerItemFlowTests
     public void NoSelectedItem_KeepsExistingAction(bool ownsIneligibleItem)
     {
         GameState gameState = CreateGame(20);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         GameObject item = ownsIneligibleItem
             ? AddItem(inventory, ItemType.chipPocket)
             : null;
@@ -60,7 +60,7 @@ public sealed class DealerItemFlowTests
         Assert.That(gameState.TrySetDealerCard(new Card(1)), Is.True);
         Assert.That(gameState.TrySetCommunityCards(new Card(4), new Card(2)), Is.True);
         Assert.That(gameState.Pot.TryAdd(2), Is.True);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.refreshCard);
         DealerActionPlan previous = new DealerAi().Decide(gameState, 20, 0);
         Assert.That(previous.Decision, Is.EqualTo(DealerDecision.Fold));
@@ -83,7 +83,7 @@ public sealed class DealerItemFlowTests
     public void ChipPocket_RecalculatesBetFromIncreasedChips()
     {
         GameState gameState = CreateGame(5);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.chipPocket);
         DealerActionPlan previous = new DealerAi().Decide(gameState, 99, 99);
 
@@ -108,7 +108,7 @@ public sealed class DealerItemFlowTests
         Assert.That(gameState.TrySetCommunityCards(new Card(4), new Card(2)), Is.True);
         Assert.That(gameState.Turn.TrySet(TurnOwner.Player), Is.True);
         Assert.That(gameState.TryRaise(2), Is.True);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.prizmChip);
         AddItem(inventory, ItemType.chipPocket);
 
@@ -130,7 +130,7 @@ public sealed class DealerItemFlowTests
         GameState gameState = CreateGame(6);
         Assert.That(gameState.Turn.TrySet(TurnOwner.Player), Is.True);
         Assert.That(gameState.TryRaise(3), Is.True);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.defy);
 
         Assert.That(TryPrepare(ui, 10, 0, out DealerActionPlan actual), Is.False);
@@ -148,7 +148,7 @@ public sealed class DealerItemFlowTests
     public void OneOpportunity_ConsumesOnlyOneOfTwoEligibleItems()
     {
         GameState gameState = CreateGame(2);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         GameObject first = AddItem(inventory, ItemType.chipPocket);
         GameObject second = AddItem(inventory, ItemType.chipPocket);
 
@@ -168,7 +168,7 @@ public sealed class DealerItemFlowTests
     public void FailedItemRequest_RecalculatesWithoutConsumingItem()
     {
         GameState gameState = CreateGame(5);
-        IndianHoldemDebugUI ui = CreateUi(gameState, out Inventory inventory);
+        GameplayController ui = CreateUi(gameState, out Inventory inventory);
         ItemSystem itemSystem = (ItemSystem)GetField(ui, "itemSystem");
         SetField(itemSystem, "chipPocketAmount", 0);
         GameObject item = AddItem(inventory, ItemType.chipPocket);
@@ -183,7 +183,7 @@ public sealed class DealerItemFlowTests
         AssertLog(ui, "일반 행동 재계산");
     }
 
-    private IndianHoldemDebugUI CreateUi(GameState gameState, out Inventory inventory)
+    private GameplayController CreateUi(GameState gameState, out Inventory inventory)
     {
         inventory = Track(ScriptableObject.CreateInstance<Inventory>());
         var gameObject = Track(new GameObject("Dealer Item Flow Test"));
@@ -191,7 +191,7 @@ public sealed class DealerItemFlowTests
         ItemSystem itemSystem = gameObject.AddComponent<ItemSystem>();
         SetField(itemSystem, "inventory", inventory);
         itemSystem.Initialize(new ItemGameApi(gameState));
-        IndianHoldemDebugUI ui = gameObject.AddComponent<IndianHoldemDebugUI>();
+        GameplayController ui = gameObject.AddComponent<GameplayController>();
         SetField(ui, "gameState", gameState);
         SetField(ui, "dealerAi", new DealerAi());
         SetField(ui, "itemSystem", itemSystem);
@@ -221,10 +221,10 @@ public sealed class DealerItemFlowTests
         return gameState;
     }
 
-    private static bool TryPrepare(IndianHoldemDebugUI ui, int actionRoll, int raiseRoll,
+    private static bool TryPrepare(GameplayController ui, int actionRoll, int raiseRoll,
         out DealerActionPlan actionPlan)
     {
-        MethodInfo method = typeof(IndianHoldemDebugUI).GetMethod(
+        MethodInfo method = typeof(GameplayController).GetMethod(
             "TryPrepareDealerActionPlan", PrivateInstance);
         Assert.That(method, Is.Not.Null);
         object[] arguments = { actionRoll, raiseRoll, null };
@@ -239,12 +239,12 @@ public sealed class DealerItemFlowTests
         Assert.That(actual.RaiseBy, Is.EqualTo(expected.RaiseBy));
     }
 
-    private static void AssertLog(IndianHoldemDebugUI ui, string fragment)
+    private static void AssertLog(GameplayController ui, string fragment)
     {
         Assert.That(GetLogs(ui), Has.Some.Contains(fragment));
     }
 
-    private static List<string> GetLogs(IndianHoldemDebugUI ui)
+    private static List<string> GetLogs(GameplayController ui)
     {
         return (List<string>)GetField(ui, "logs");
     }
