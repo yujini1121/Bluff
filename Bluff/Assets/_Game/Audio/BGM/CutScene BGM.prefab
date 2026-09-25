@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &3170202620678992573
+--- !u!1 &3762211063357053486
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,22 +8,22 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 5035518137921772072}
-  - component: {fileID: 8353404066346947815}
+  - component: {fileID: 5257071625926168741}
+  - component: {fileID: 7122202387469497160}
   m_Layer: 0
-  m_Name: Holdum BGM 1
+  m_Name: CutScene BGM
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &5035518137921772072
+--- !u!4 &5257071625926168741
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3170202620678992573}
+  m_GameObject: {fileID: 3762211063357053486}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -32,19 +32,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &8353404066346947815
+--- !u!82 &7122202387469497160
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3170202620678992573}
+  m_GameObject: {fileID: 3762211063357053486}
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 2322436912041139840, guid: c58c4649b735c5e47924a0bb6100857e, type: 2}
-  m_audioClip: {fileID: 8300000, guid: 2538e2beac3fda84194255d7fe44c5d0, type: 3}
+  m_audioClip: {fileID: 8300000, guid: 3a611bdc76513c24882e5647e419454d, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.18
   m_Pitch: 1
   Loop: 0
   Mute: 0
