@@ -45,27 +45,35 @@ public sealed class ItemGameApiTests
     }
 
     [Test]
-    public void ReplaceCard_DrawsFromDeckForEveryCardTarget()
+    public void ReplaceCard_ReturnsPreviousCardAndChangesOnlySelectedTarget()
     {
-        var deck = new Deck(new[]
-        {
-            new Card(1),
-            new Card(2),
-            new Card(3),
-            new Card(4)
-        });
+        var deckCard = new Card(1);
+        var deck = new Deck(new[] { deckCard }, new ZeroRandom());
         GameState gameState = CreateGameWithRoundCards(deck);
         var itemGameApi = new ItemGameApi(gameState);
+        Card originalPlayer = gameState.PlayerCard;
+        Card originalDealer = gameState.DealerCard;
+        Card originalCommunity1 = gameState.CommunityCard1;
+        Card originalCommunity2 = gameState.CommunityCard2;
 
         Assert.That(itemGameApi.TryReplaceCard(CardTarget.Player), Is.True);
-        Assert.That(itemGameApi.TryReplaceCard(CardTarget.Dealer), Is.True);
-        Assert.That(itemGameApi.TryReplaceCard(CardTarget.CommunityCard1), Is.True);
-        Assert.That(itemGameApi.TryReplaceCard(CardTarget.CommunityCard2), Is.True);
+        AssertCards(gameState, deckCard, originalDealer, originalCommunity1, originalCommunity2);
+        Assert.That(deck.RemainingCount, Is.EqualTo(1));
 
-        Assert.That(gameState.PlayerCard.Rank, Is.EqualTo(4));
-        Assert.That(gameState.DealerCard.Rank, Is.EqualTo(3));
-        Assert.That(gameState.CommunityCard1.Rank, Is.EqualTo(2));
-        Assert.That(gameState.CommunityCard2.Rank, Is.EqualTo(1));
+        Assert.That(itemGameApi.TryReplaceCard(CardTarget.Dealer), Is.True);
+        AssertCards(gameState, deckCard, originalPlayer, originalCommunity1, originalCommunity2);
+        Assert.That(deck.RemainingCount, Is.EqualTo(1));
+
+        Assert.That(itemGameApi.TryReplaceCard(CardTarget.CommunityCard1), Is.True);
+        AssertCards(gameState, deckCard, originalPlayer, originalDealer, originalCommunity2);
+        Assert.That(deck.RemainingCount, Is.EqualTo(1));
+
+        Assert.That(itemGameApi.TryReplaceCard(CardTarget.CommunityCard2), Is.True);
+        AssertCards(gameState, deckCard, originalPlayer, originalDealer, originalCommunity1);
+        Assert.That(deck.RemainingCount, Is.EqualTo(1));
+
+        Assert.That(deck.TryDraw(out Card returnedCard), Is.True);
+        Assert.That(returnedCard, Is.SameAs(originalCommunity2));
         Assert.That(deck.RemainingCount, Is.Zero);
     }
 
@@ -108,7 +116,7 @@ public sealed class ItemGameApiTests
     }
 
     [Test]
-    public void Call_UsesExistingBettingRules()
+    public void Call_IgnoresOutstandingRaiseAndEndsBetting()
     {
         var gameState = new GameState(10, 10, CreateDeck());
         gameState.TrySetPhase(GamePhase.Betting);
@@ -118,11 +126,11 @@ public sealed class ItemGameApiTests
 
         Assert.That(itemGameApi.TryCall(), Is.True);
 
-        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(6));
-        Assert.That(gameState.DealerChips.Count, Is.EqualTo(6));
-        Assert.That(gameState.Pot.Amount, Is.EqualTo(8));
-        Assert.That(gameState.Betting.PlayerTotalBet, Is.EqualTo(4));
-        Assert.That(gameState.Betting.DealerTotalBet, Is.EqualTo(4));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(10));
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.Betting.PlayerTotalBet, Is.Zero);
+        Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
     }
@@ -260,6 +268,24 @@ public sealed class ItemGameApiTests
         gameState.TrySetPhase(GamePhase.Betting);
         gameState.Turn.TrySet(foldedBy);
         return gameState;
+    }
+
+    private static void AssertCards(
+        GameState gameState,
+        Card player,
+        Card dealer,
+        Card community1,
+        Card community2)
+    {
+        Assert.That(gameState.PlayerCard, Is.SameAs(player));
+        Assert.That(gameState.DealerCard, Is.SameAs(dealer));
+        Assert.That(gameState.CommunityCard1, Is.SameAs(community1));
+        Assert.That(gameState.CommunityCard2, Is.SameAs(community2));
+    }
+
+    private sealed class ZeroRandom : System.Random
+    {
+        public override int Next(int maxValue) => 0;
     }
 
     private static GameState CreateGameWithRoundCards(Deck deck)
