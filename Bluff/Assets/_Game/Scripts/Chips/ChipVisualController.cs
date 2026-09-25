@@ -1446,7 +1446,14 @@ public sealed class ChipVisualController : MonoBehaviour
             if (instance != null)
             {
                 instance.SetActive(false);
-                Destroy(instance);
+                if (Application.isPlaying)
+                {
+                    Destroy(instance);
+                }
+                else
+                {
+                    DestroyImmediate(instance);
+                }
             }
         }
     }

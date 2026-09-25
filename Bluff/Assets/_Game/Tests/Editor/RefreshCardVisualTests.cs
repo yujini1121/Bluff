@@ -207,7 +207,7 @@ public sealed class RefreshCardVisualTests
     }
 
     [Test]
-    public void RefreshPresentation_DisableRestoresLatestCardsAndDeck()
+    public void OnDisable_RestoresLatestCardsAndDeck()
     {
         int deckCount = gameState.Deck.RemainingCount;
         Vector3 deckPosition = deckStackVisual.transform.localPosition;
@@ -218,7 +218,7 @@ public sealed class RefreshCardVisualTests
         refresh.SetUpdate(UpdateType.Manual);
         DOTween.ManualUpdate(0.12f, 0.12f);
 
-        controller.gameObject.SetActive(false);
+        Invoke(controller, "OnDisable");
 
         Assert.That(GetField(controller, "refreshSequence"), Is.Null);
         Assert.That(deckStackVisual.transform.localPosition, Is.EqualTo(deckPosition));

@@ -17,6 +17,8 @@ public sealed class IntroFlowControllerTests
     [SetUp]
     public void SetUp()
     {
+        sceneLoadCount = 0;
+        loadedSceneName = null;
         testObject = new GameObject("IntroFlowController Test");
         dialogueController = testObject.AddComponent<DialogueController>();
         flowController = testObject.AddComponent<IntroFlowController>();

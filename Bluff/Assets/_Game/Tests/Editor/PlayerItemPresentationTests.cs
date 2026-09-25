@@ -1,13 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using DG.Tweening;
 using NUnit.Framework;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -218,7 +216,6 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.TryRaise(3), Is.True);
         RefreshChips();
         GameObject item = Add(TurnOwner.Player, ItemType.defy);
-        ExpectDestroyLogs(3);
         item.GetComponent<Item>().Use();
         Assert.That(item == null, Is.True);
         Assert.That(game.PlayerChips.Count, Is.EqualTo(19));
@@ -325,7 +322,6 @@ public sealed class PlayerItemPresentationTests
         Set(ui, "maxDealerThinkDelay", 0f);
         int seed = FindDealerSeed(type);
         Random.InitState(seed);
-        if (type == ItemType.defy) ExpectDestroyLogs(3);
         var routine = (IEnumerator)Invoke(ui, "PerformDealerActionAfterDelay");
         Assert.That(routine.MoveNext(), Is.True);
         Assert.That(routine.MoveNext(), Is.False);
@@ -366,24 +362,9 @@ public sealed class PlayerItemPresentationTests
         var dealerTurn = new DealerTurnController();
         dealerTurn.Initialize(game, items, message => Invoke(ui, "AddLog", message));
         Set(ui, "dealerTurn", dealerTurn);
-        ExpectChipRemovals();
         presentation.Initialize(game, () => Invoke(ui, "RefreshView"));
     }
-    private void RefreshChips() { ExpectChipRemovals(); chips.RefreshChips(); }
-    private void ExpectChipRemovals()
-    {
-        ExpectDestroyLogs(Mathf.Max(0, Count("playerChipInstances") - game.PlayerChips.Count)
-            + Mathf.Max(0, Count("dealerChipInstances") - game.DealerChips.Count)
-            + Mathf.Max(0, Count("playerBetChipInstances") - game.Betting.PlayerTotalBet)
-            + Mathf.Max(0, Count("dealerBetChipInstances") - game.Betting.DealerTotalBet)
-            + Mathf.Max(0, Count("potChipInstances") - Mathf.Max(0, game.Pot.Amount - game.Betting.PlayerTotalBet - game.Betting.DealerTotalBet)));
-    }
-    private static void ExpectDestroyLogs(int count)
-    {
-        // ChipVisualController의 PlayMode용 Destroy가 EditMode에서 내는 로그만 예상한다.
-        for (int index = 0; index < count; index++)
-            LogAssert.Expect(LogType.Error, new Regex("Destroy may not be called from edit mode!"));
-    }
+    private void RefreshChips() { chips.RefreshChips(); }
     private int Count(string field) => ((List<GameObject>)Get(chips, field)).Count;
     private void AssertChipVisuals()
     {
