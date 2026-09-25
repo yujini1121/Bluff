@@ -57,7 +57,7 @@ public sealed class GameplayController : MonoBehaviour
     private bool isRestarting;
     private bool recoverShowdownPresentationOnEnable;
     private bool recoverFoldPresentationOnEnable;
-    private int selectedRaiseBy = 1;
+    private int selectedRaiseAmount = 1;
 
     public int CurrentPlayerChipCount =>
         gameState?.PlayerChips.Count ?? 0;
@@ -120,7 +120,7 @@ public sealed class GameplayController : MonoBehaviour
         gameplayView.Initialize();
         debugPanelOpen = false;
         dealerAi = new DealerAi();
-        CreateDebugGame();
+        CreateGame();
         RefreshView();
     }
 
@@ -202,49 +202,49 @@ public sealed class GameplayController : MonoBehaviour
 
     public void OnRaiseDecreaseClicked()
     {
-        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        if (!CanSelectPlayerRaise(out int maxRaiseAmount))
         {
             return;
         }
 
-        ClampSelectedRaiseBy(maxRaiseBy);
-        selectedRaiseBy = Mathf.Max(1, selectedRaiseBy - 1);
+        ClampRaiseAmount(maxRaiseAmount);
+        selectedRaiseAmount = Mathf.Max(1, selectedRaiseAmount - 1);
         RefreshView();
     }
 
     public void OnRaiseIncreaseClicked()
     {
-        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        if (!CanSelectPlayerRaise(out int maxRaiseAmount))
         {
             return;
         }
 
-        ClampSelectedRaiseBy(maxRaiseBy);
-        selectedRaiseBy = Mathf.Min(maxRaiseBy, selectedRaiseBy + 1);
+        ClampRaiseAmount(maxRaiseAmount);
+        selectedRaiseAmount = Mathf.Min(maxRaiseAmount, selectedRaiseAmount + 1);
         RefreshView();
     }
 
     public void OnRaiseMaxClicked()
     {
-        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        if (!CanSelectPlayerRaise(out int maxRaiseAmount))
         {
             return;
         }
 
-        selectedRaiseBy = maxRaiseBy;
+        selectedRaiseAmount = maxRaiseAmount;
         RefreshView();
     }
 
     public void OnRaiseClicked()
     {
-        if (!CanSelectPlayerRaise(out int maxRaiseBy))
+        if (!CanSelectPlayerRaise(out int maxRaiseAmount))
         {
             return;
         }
 
-        ClampSelectedRaiseBy(maxRaiseBy);
-        int raiseBy = selectedRaiseBy;
-        bool isAllIn = raiseBy == maxRaiseBy;
+        ClampRaiseAmount(maxRaiseAmount);
+        int raiseBy = selectedRaiseAmount;
+        bool isAllIn = raiseBy == maxRaiseAmount;
         string actionName = isAllIn ? "올인" : $"레이즈 +{raiseBy}";
 
         RunPlayerBettingAction(
@@ -257,7 +257,7 @@ public sealed class GameplayController : MonoBehaviour
 
                 if (succeeded)
                 {
-                    selectedRaiseBy = 1;
+                    selectedRaiseAmount = 1;
                 }
 
                 return succeeded;
@@ -310,7 +310,7 @@ public sealed class GameplayController : MonoBehaviour
         RefreshView();
     }
 
-    private void CreateDebugGame()
+    private void CreateGame()
     {
         Deck deck = Deck.CreateIndianHoldemDeck();
         deck.Shuffle();
@@ -330,7 +330,9 @@ public sealed class GameplayController : MonoBehaviour
 
             if (itemSystem == null)
             {
-                Debug.LogError("[IndianHoldemDebugUI] itemSystem is NULL");
+                Debug.LogError(
+                    "[GameplayController] ItemSystem 참조를 찾을 수 없습니다.",
+                    this);
                 return;
             }
         }
@@ -348,7 +350,7 @@ public sealed class GameplayController : MonoBehaviour
             chipVisualController.Initialize(gameState);
         }
 
-        ResetDisplayedRoundResult();
+        ResetRoundResult();
     }
 
     private void SubscribeToItemSystemEvents()
@@ -455,7 +457,7 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         RunRoundStartEffects();
-        ResetDisplayedRoundResult();
+        ResetRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
         if (!TryStartRoundAnteAnimation())
@@ -479,7 +481,7 @@ public sealed class GameplayController : MonoBehaviour
 
         nextRoundFirstTurn = resolvedNextFirstTurn;
         cardVisualController?.RefreshCards();
-        ResetDisplayedRoundResult();
+        ResetRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
     }
@@ -845,7 +847,7 @@ public sealed class GameplayController : MonoBehaviour
                      decision == DealerDecision.Raise ||
                      decision == DealerDecision.AllIn) &&
                     movedChipCount > 0 &&
-                    TryStartBetAnimation(
+                    TryStartDealerBetAnimation(
                         movedChipCount,
                         useAllInAnimation);
 
@@ -1315,7 +1317,7 @@ public sealed class GameplayController : MonoBehaviour
         RefreshView();
     }
 
-    private bool TryStartBetAnimation(
+    private bool TryStartDealerBetAnimation(
         int chipCount,
         bool useAllInAnimation)
     {
@@ -1334,13 +1336,13 @@ public sealed class GameplayController : MonoBehaviour
             ? dealerAnimationController.TryPlayAllInChips(
                 chips,
                 betAreaTargetPositions,
-                OnBetChipsMoved,
-                OnBetChipsMoveFailed)
+                OnDealerBetChipsMoved,
+                OnDealerBetChipsMoveFailed)
             : dealerAnimationController.TryPlayCallChips(
                 chips,
                 betAreaTargetPositions,
-                OnBetChipsMoved,
-                OnBetChipsMoveFailed);
+                OnDealerBetChipsMoved,
+                OnDealerBetChipsMoveFailed);
 
         if (animationStarted)
         {
@@ -1352,7 +1354,7 @@ public sealed class GameplayController : MonoBehaviour
         return false;
     }
 
-    private void OnBetChipsMoved(GameObject[] chips)
+    private void OnDealerBetChipsMoved(GameObject[] chips)
     {
         bool moveCompleted =
             chipVisualController != null &&
@@ -1369,7 +1371,7 @@ public sealed class GameplayController : MonoBehaviour
         RefreshView();
     }
 
-    private void OnBetChipsMoveFailed(GameObject[] chips)
+    private void OnDealerBetChipsMoveFailed(GameObject[] chips)
     {
         isChipAnimating = false;
 
@@ -1613,15 +1615,15 @@ public sealed class GameplayController : MonoBehaviour
         bool canCall =
             canAcceptPlayerBettingInput &&
             gameState.Betting.GetCallAmount(TurnOwner.Player) > 0;
-        int maxRaiseBy = GetMaxPlayerRaiseBy();
-        ClampSelectedRaiseBy(maxRaiseBy);
+        int maxRaiseAmount = GetMaxRaiseAmount();
+        ClampRaiseAmount(maxRaiseAmount);
         gameplayView.RefreshBetting(
             playerTurn,
             canAcceptPlayerBettingInput,
             canCall,
             IsPlayerShortAllInRequired(),
-            selectedRaiseBy,
-            maxRaiseBy);
+            selectedRaiseAmount,
+            maxRaiseAmount);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
         bool canStartNextRound = gameState.Phase == GamePhase.RoundEnd;
@@ -1652,13 +1654,13 @@ public sealed class GameplayController : MonoBehaviour
         return callAmount > gameState.PlayerChips.Count;
     }
 
-    private bool CanSelectPlayerRaise(out int maxRaiseBy)
+    private bool CanSelectPlayerRaise(out int maxRaiseAmount)
     {
-        maxRaiseBy = GetMaxPlayerRaiseBy();
-        return CanAcceptPlayerBettingInput() && maxRaiseBy > 0;
+        maxRaiseAmount = GetMaxRaiseAmount();
+        return CanAcceptPlayerBettingInput() && maxRaiseAmount > 0;
     }
 
-    private int GetMaxPlayerRaiseBy()
+    private int GetMaxRaiseAmount()
     {
         if (gameState == null)
         {
@@ -1670,14 +1672,14 @@ public sealed class GameplayController : MonoBehaviour
         return gameState.PlayerChips.Count - callAmount;
     }
 
-    private void ClampSelectedRaiseBy(int maxRaiseBy)
+    private void ClampRaiseAmount(int maxRaiseAmount)
     {
-        selectedRaiseBy = maxRaiseBy > 0
-            ? Mathf.Clamp(selectedRaiseBy, 1, maxRaiseBy)
+        selectedRaiseAmount = maxRaiseAmount > 0
+            ? Mathf.Clamp(selectedRaiseAmount, 1, maxRaiseAmount)
             : 1;
     }
 
-    private void ResetDisplayedRoundResult()
+    private void ResetRoundResult()
     {
         playerHandRank = HandRank.None;
         dealerHandRank = HandRank.None;

@@ -87,7 +87,7 @@ public sealed class RefreshCardVisualTests
         SetField(ui, "gameplayView", view);
         SetField(ui, "itemSystem", itemSystem);
         SetField(ui, "cardVisualController", controller);
-        Invoke(ui, "CreateDebugGame");
+        Invoke(ui, "CreateGame");
 
         // P4/D1/C4/C2에서 P2/D4/C1/C4로 교체해 개인·공개 카드 변경을 보장한다.
         gameState = new GameState(20, 20,

@@ -1885,6 +1885,7 @@ GameObject:
   - component: {fileID: 214340532}
   - component: {fileID: 214340531}
   - component: {fileID: 214340530}
+  - component: {fileID: 2100000200}
   - component: {fileID: 214340535}
   - component: {fileID: 214340536}
   m_Layer: 0
@@ -1910,18 +1911,31 @@ MonoBehaviour:
   dealerStartingChips: 20
   firstTurn: 1
   maxLogLines: 8
-  uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
   itemSystem: {fileID: 2094210441}
+  gameplayView: {fileID: 2100000200}
   minDealerThinkDelay: 0.6
   maxDealerThinkDelay: 5
   cardVisualController: {fileID: 1964738050}
   chipVisualController: {fileID: 1964738051}
   dealerAnimationController: {fileID: 1705455214}
+  showdownResultDelay: 1
+--- !u!114 &2100000200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214340529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a54c13f86de74deead6f0f842216bd48, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
   resultOverlay: {fileID: 453150125}
   resultTitleText: {fileID: 89805412}
   resultDetailText: {fileID: 1833342101}
   restartButton: {fileID: 1541923312}
-  showdownResultDelay: 1
   roundText: {fileID: 953414833}
   dealerHandRankUI: {fileID: 1870027819}
   dealerHandRankText: {fileID: 1815269373}

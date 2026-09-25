@@ -178,7 +178,7 @@ public sealed class RoundFirstTurnTests
         SetField(ui, "playerStartingChips", 100);
         SetField(ui, "dealerStartingChips", 100);
         SetField(ui, "itemSystem", itemSystem);
-        InvokePrivate(ui, "CreateDebugGame");
+        InvokePrivate(ui, "CreateGame");
         return ui;
     }
 

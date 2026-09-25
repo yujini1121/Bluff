@@ -310,7 +310,7 @@ public sealed class GameModeTests
         GameplayController ui =
             gameObject.AddComponent<GameplayController>();
         SetField(ui, "itemSystem", itemSystem);
-        InvokePrivate(ui, "CreateDebugGame");
+        InvokePrivate(ui, "CreateGame");
         return ui;
     }
 
