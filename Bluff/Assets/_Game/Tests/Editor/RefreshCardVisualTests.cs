@@ -99,7 +99,6 @@ public sealed class RefreshCardVisualTests
         gameState.TrySetPhase(GamePhase.Betting);
         gameState.Turn.TrySet(TurnOwner.Player);
         SetField(ui, "gameState", gameState);
-        SetField(ui, "dealerAi", new DealerAi());
         itemSystem.Initialize(new ItemGameApi(gameState));
         controller.Initialize(gameState);
         AssertVisualsMatchCurrentCards();

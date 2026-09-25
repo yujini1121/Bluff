@@ -10,6 +10,8 @@ public sealed class DealerItemFlowTests
         BindingFlags.Instance | BindingFlags.NonPublic;
 
     private readonly List<Object> createdObjects = new List<Object>();
+    private readonly List<string> logs = new List<string>();
+    private ItemSystem itemSystem;
 
     [TearDown]
     public void TearDown()
@@ -23,6 +25,8 @@ public sealed class DealerItemFlowTests
         }
 
         createdObjects.Clear();
+        logs.Clear();
+        itemSystem = null;
     }
 
     [TestCase(false)]
@@ -30,13 +34,13 @@ public sealed class DealerItemFlowTests
     public void NoSelectedItem_KeepsExistingAction(bool ownsIneligibleItem)
     {
         GameState gameState = CreateGame(20);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         GameObject item = ownsIneligibleItem
             ? AddItem(inventory, ItemType.chipPocket)
             : null;
         DealerActionPlan expected = new DealerAi().Decide(gameState, 99, 0);
 
-        Assert.That(TryPrepare(ui, 99, 0, out DealerActionPlan actual), Is.True);
+        Assert.That(dealerTurn.TryPrepareAction(99, 0, out DealerActionPlan actual), Is.True);
 
         AssertSamePlan(actual, expected);
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(20));
@@ -45,8 +49,8 @@ public sealed class DealerItemFlowTests
             Assert.That(item == null, Is.False);
             Assert.That(inventory.HasItem(TurnOwner.Dealer, item), Is.True);
         }
-        AssertLog(ui, "DEALER ITEM NONE");
-        Assert.That(new DealerAi().TryExecute(gameState, actual), Is.True);
+        AssertLog("DEALER ITEM NONE");
+        Assert.That(dealerTurn.TryExecute(actual), Is.True);
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
     }
 
@@ -60,12 +64,12 @@ public sealed class DealerItemFlowTests
         Assert.That(gameState.TrySetDealerCard(new Card(1)), Is.True);
         Assert.That(gameState.TrySetCommunityCards(new Card(4), new Card(2)), Is.True);
         Assert.That(gameState.Pot.TryAdd(2), Is.True);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.refreshCard);
         DealerActionPlan previous = new DealerAi().Decide(gameState, 20, 0);
         Assert.That(previous.Decision, Is.EqualTo(DealerDecision.Fold));
 
-        Assert.That(TryPrepare(ui, 20, 0, out DealerActionPlan actual), Is.True);
+        Assert.That(dealerTurn.TryPrepareAction(20, 0, out DealerActionPlan actual), Is.True);
 
         Assert.That(item == null, Is.True);
         Assert.That(inventory.dealerItemInventory, Is.All.Null);
@@ -74,8 +78,8 @@ public sealed class DealerItemFlowTests
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
         AssertSamePlan(actual, new DealerAi().Decide(gameState, 20, 0));
         Assert.That(actual.Decision, Is.EqualTo(DealerDecision.Raise));
-        AssertLog(ui, "일반 행동 재계산");
-        Assert.That(new DealerAi().TryExecute(gameState, actual), Is.True);
+        AssertLog("일반 행동 재계산");
+        Assert.That(dealerTurn.TryExecute(actual), Is.True);
         Assert.That(gameState.FoldedBy, Is.EqualTo(TurnOwner.None));
     }
 
@@ -83,19 +87,19 @@ public sealed class DealerItemFlowTests
     public void ChipPocket_RecalculatesBetFromIncreasedChips()
     {
         GameState gameState = CreateGame(5);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.chipPocket);
         DealerActionPlan previous = new DealerAi().Decide(gameState, 99, 99);
 
-        Assert.That(TryPrepare(ui, 99, 99, out DealerActionPlan actual), Is.True);
+        Assert.That(dealerTurn.TryPrepareAction(99, 99, out DealerActionPlan actual), Is.True);
 
         Assert.That(item == null, Is.True);
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(7));
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(20));
         AssertSamePlan(actual, new DealerAi().Decide(gameState, 99, 99));
         Assert.That(actual.RaiseBy, Is.Not.EqualTo(previous.RaiseBy));
-        AssertLog(ui, "일반 행동 재계산");
-        Assert.That(new DealerAi().TryExecute(gameState, actual), Is.True);
+        AssertLog("일반 행동 재계산");
+        Assert.That(dealerTurn.TryExecute(actual), Is.True);
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.Player));
     }
 
@@ -108,11 +112,11 @@ public sealed class DealerItemFlowTests
         Assert.That(gameState.TrySetCommunityCards(new Card(4), new Card(2)), Is.True);
         Assert.That(gameState.Turn.TrySet(TurnOwner.Player), Is.True);
         Assert.That(gameState.TryRaise(2), Is.True);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.prizmChip);
         AddItem(inventory, ItemType.chipPocket);
 
-        Assert.That(TryPrepare(ui, 0, 0, out DealerActionPlan actual), Is.False);
+        Assert.That(dealerTurn.TryPrepareAction(0, 0, out DealerActionPlan actual), Is.False);
 
         Assert.That(item == null, Is.True);
         Assert.That(gameState.FoldedBy, Is.EqualTo(TurnOwner.Dealer));
@@ -120,8 +124,8 @@ public sealed class DealerItemFlowTests
         Assert.That(actual.Decision, Is.EqualTo(DealerDecision.None));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(20));
         Assert.That(inventory.dealerItemInventory[1] == null, Is.False);
-        AssertLog(ui, "추가 행동 없음");
-        Assert.That(GetLogs(ui), Has.None.Contains("일반 행동 재계산"));
+        AssertLog("추가 행동 없음");
+        Assert.That(logs, Has.None.Contains("일반 행동 재계산"));
     }
 
     [Test]
@@ -130,29 +134,29 @@ public sealed class DealerItemFlowTests
         GameState gameState = CreateGame(6);
         Assert.That(gameState.Turn.TrySet(TurnOwner.Player), Is.True);
         Assert.That(gameState.TryRaise(3), Is.True);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, ItemType.defy);
 
-        Assert.That(TryPrepare(ui, 10, 0, out DealerActionPlan actual), Is.False);
+        Assert.That(dealerTurn.TryPrepareAction(10, 0, out DealerActionPlan actual), Is.False);
 
         Assert.That(item == null, Is.True);
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
         Assert.That(actual.Decision, Is.EqualTo(DealerDecision.None));
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(6));
-        AssertLog(ui, "추가 행동 없음");
-        Assert.That(GetLogs(ui), Has.None.Contains("일반 행동 재계산"));
+        AssertLog("추가 행동 없음");
+        Assert.That(logs, Has.None.Contains("일반 행동 재계산"));
     }
 
     [Test]
     public void OneOpportunity_ConsumesOnlyOneOfTwoEligibleItems()
     {
         GameState gameState = CreateGame(2);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         GameObject first = AddItem(inventory, ItemType.chipPocket);
         GameObject second = AddItem(inventory, ItemType.chipPocket);
 
-        Assert.That(TryPrepare(ui, 99, 0, out DealerActionPlan actual), Is.True);
+        Assert.That(dealerTurn.TryPrepareAction(99, 0, out DealerActionPlan actual), Is.True);
 
         Assert.That(first == null, Is.True);
         Assert.That(second == null, Is.False);
@@ -160,7 +164,7 @@ public sealed class DealerItemFlowTests
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(4));
         Assert.That(new DealerItemAi().Decide(
             gameState, new[] { ItemType.chipPocket }, actual).ShouldUseItem, Is.True);
-        Assert.That(new DealerAi().TryExecute(gameState, actual), Is.True);
+        Assert.That(dealerTurn.TryExecute(actual), Is.True);
         Assert.That(inventory.HasItem(TurnOwner.Dealer, second), Is.True);
     }
 
@@ -168,35 +172,31 @@ public sealed class DealerItemFlowTests
     public void FailedItemRequest_RecalculatesWithoutConsumingItem()
     {
         GameState gameState = CreateGame(5);
-        GameplayController ui = CreateUi(gameState, out Inventory inventory);
-        ItemSystem itemSystem = (ItemSystem)GetField(ui, "itemSystem");
+        DealerTurnController dealerTurn = CreateDealerTurn(gameState, out Inventory inventory);
         SetField(itemSystem, "chipPocketAmount", 0);
         GameObject item = AddItem(inventory, ItemType.chipPocket);
 
-        Assert.That(TryPrepare(ui, 99, 0, out DealerActionPlan actual), Is.True);
+        Assert.That(dealerTurn.TryPrepareAction(99, 0, out DealerActionPlan actual), Is.True);
 
         Assert.That(item == null, Is.False);
         Assert.That(inventory.HasItem(TurnOwner.Dealer, item), Is.True);
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(5));
         AssertSamePlan(actual, new DealerAi().Decide(gameState, 99, 0));
-        AssertLog(ui, "사용 실패");
-        AssertLog(ui, "일반 행동 재계산");
+        AssertLog("사용 실패");
+        AssertLog("일반 행동 재계산");
     }
 
-    private GameplayController CreateUi(GameState gameState, out Inventory inventory)
+    private DealerTurnController CreateDealerTurn(GameState gameState, out Inventory inventory)
     {
         inventory = Track(ScriptableObject.CreateInstance<Inventory>());
         var gameObject = Track(new GameObject("Dealer Item Flow Test"));
         gameObject.SetActive(false);
-        ItemSystem itemSystem = gameObject.AddComponent<ItemSystem>();
+        itemSystem = gameObject.AddComponent<ItemSystem>();
         SetField(itemSystem, "inventory", inventory);
         itemSystem.Initialize(new ItemGameApi(gameState));
-        GameplayController ui = gameObject.AddComponent<GameplayController>();
-        SetField(ui, "gameState", gameState);
-        SetField(ui, "dealerAi", new DealerAi());
-        SetField(ui, "itemSystem", itemSystem);
-        SetField(ui, "maxLogLines", 20);
-        return ui;
+        var dealerTurn = new DealerTurnController();
+        dealerTurn.Initialize(gameState, itemSystem, logs.Add);
+        return dealerTurn;
     }
 
     private GameObject AddItem(Inventory inventory, ItemType type)
@@ -221,39 +221,15 @@ public sealed class DealerItemFlowTests
         return gameState;
     }
 
-    private static bool TryPrepare(GameplayController ui, int actionRoll, int raiseRoll,
-        out DealerActionPlan actionPlan)
-    {
-        MethodInfo method = typeof(GameplayController).GetMethod(
-            "TryPrepareDealerActionPlan", PrivateInstance);
-        Assert.That(method, Is.Not.Null);
-        object[] arguments = { actionRoll, raiseRoll, null };
-        bool result = (bool)method.Invoke(ui, arguments);
-        actionPlan = (DealerActionPlan)arguments[2];
-        return result;
-    }
-
     private static void AssertSamePlan(DealerActionPlan actual, DealerActionPlan expected)
     {
         Assert.That(actual.Decision, Is.EqualTo(expected.Decision));
         Assert.That(actual.RaiseBy, Is.EqualTo(expected.RaiseBy));
     }
 
-    private static void AssertLog(GameplayController ui, string fragment)
+    private void AssertLog(string fragment)
     {
-        Assert.That(GetLogs(ui), Has.Some.Contains(fragment));
-    }
-
-    private static List<string> GetLogs(GameplayController ui)
-    {
-        return (List<string>)GetField(ui, "logs");
-    }
-
-    private static object GetField(object target, string name)
-    {
-        FieldInfo field = target.GetType().GetField(name, PrivateInstance);
-        Assert.That(field, Is.Not.Null);
-        return field.GetValue(target);
+        Assert.That(logs, Has.Some.Contains(fragment));
     }
 
     private static void SetField(object target, string name, object value)

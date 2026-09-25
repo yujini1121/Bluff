@@ -90,7 +90,6 @@ public sealed class PlayerItemPresentationTests
             Set(view, field, CreateObject(field, ui.transform));
         Set(view, "bettingActionButtons", new[] { CreateObject("Betting button", ui.transform).AddComponent<Button>() });
         uiObject.SetActive(true);
-        Set(ui, "dealerAi", new DealerAi());
         Invoke(ui, "SubscribeToItemSystemEvents");
         Bind(NewRound(TurnOwner.Player));
     }
@@ -358,6 +357,9 @@ public sealed class PlayerItemPresentationTests
         game = state;
         Set(ui, "gameState", game);
         items.Initialize(new ItemGameApi(game));
+        var dealerTurn = new DealerTurnController();
+        dealerTurn.Initialize(game, items, message => Invoke(ui, "AddLog", message));
+        Set(ui, "dealerTurn", dealerTurn);
         cards.Initialize(game);
         ExpectChipRemovals();
         chips.Initialize(game);

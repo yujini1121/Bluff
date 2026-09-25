@@ -40,8 +40,7 @@ public sealed class GameplayController : MonoBehaviour
     private GameState gameState;
     private ItemSystem subscribedItemSystem;
     private TurnOwner nextRoundFirstTurn;
-    private DealerAi dealerAi;
-    private readonly DealerItemAi dealerItemAi = new DealerItemAi();
+    private DealerTurnController dealerTurn;
     private Coroutine dealerActionCoroutine;
     private Coroutine showdownPresentationCoroutine;
     private HandRank playerHandRank;
@@ -119,7 +118,6 @@ public sealed class GameplayController : MonoBehaviour
 
         gameplayView.Initialize();
         debugPanelOpen = false;
-        dealerAi = new DealerAi();
         CreateGame();
         RefreshView();
     }
@@ -338,6 +336,8 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         itemSystem.Initialize(new ItemGameApi(gameState));
+        dealerTurn = new DealerTurnController();
+        dealerTurn.Initialize(gameState, itemSystem, AddLog);
         SubscribeToItemSystemEvents();
 
         if (cardVisualController != null)
@@ -762,7 +762,7 @@ public sealed class GameplayController : MonoBehaviour
             int dealerChipsBefore = gameState.DealerChips.Count;
             int potBefore = gameState.Pot.Amount;
 
-            if (!TryPrepareDealerActionPlan(actionRoll, raiseRoll, out DealerActionPlan actionPlan))
+            if (!dealerTurn.TryPrepareAction(actionRoll, raiseRoll, out DealerActionPlan actionPlan))
             {
                 bool isDealerItemFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
@@ -815,7 +815,7 @@ public sealed class GameplayController : MonoBehaviour
             potBefore = gameState.Pot.Amount;
             DealerDecision decision = actionPlan.Decision;
 
-            if (dealerAi.TryExecute(gameState, actionPlan))
+            if (dealerTurn.TryExecute(actionPlan))
             {
                 if (decision == DealerDecision.Call ||
                     decision == DealerDecision.Raise ||
@@ -878,43 +878,6 @@ public sealed class GameplayController : MonoBehaviour
             dealerActionCoroutine = null;
             RefreshView();
         }
-    }
-
-    private bool TryPrepareDealerActionPlan(
-        int actionRoll,
-        int raiseRoll,
-        out DealerActionPlan actionPlan)
-    {
-        actionPlan = dealerAi.Decide(gameState, actionRoll, raiseRoll);
-        IReadOnlyList<ItemType> ownedItems = itemSystem != null
-            ? itemSystem.GetOwnedItemTypes(TurnOwner.Dealer)
-            : Array.Empty<ItemType>();
-        DealerItemPlan itemPlan = dealerItemAi.Decide(gameState, ownedItems, actionPlan);
-
-        if (!itemPlan.ShouldUseItem)
-        {
-            AddLog("DEALER ITEM NONE - 아이템을 사용하지 않음");
-            return true;
-        }
-
-        ItemType selectedItemType = itemPlan.SelectedItem.Value;
-        bool itemUsed = itemSystem.TryUseItem(TurnOwner.Dealer, selectedItemType);
-        AddLog(itemUsed
-            ? $"DEALER ITEM {selectedItemType} 사용"
-            : $"DEALER ITEM {selectedItemType} 사용 실패");
-
-        // 사용 요청이 실패했더라도 효과가 상태를 일부 변경했을 수 있으므로 다시 확인
-        if (gameState.Phase != GamePhase.Betting ||
-            gameState.CurrentTurn != TurnOwner.Dealer)
-        {
-            AddLog($"DEALER ITEM 이후 추가 행동 없음 - Phase: {gameState.Phase}, Turn: {gameState.CurrentTurn}");
-            actionPlan = DealerActionPlan.None;
-            return false;
-        }
-
-        AddLog("DEALER ITEM 이후 일반 행동 재계산");
-        actionPlan = dealerAi.Decide(gameState, actionRoll, raiseRoll);
-        return true;
     }
 
     private void TryStartCardDeal()
