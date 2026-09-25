@@ -1914,66 +1914,10 @@ MonoBehaviour:
   maxLogLines: 8
   itemSystem: {fileID: 2094210441}
   gameplayView: {fileID: 2100000200}
-  presentation: {fileID: 2100000300}
   minDealerThinkDelay: 0.6
   maxDealerThinkDelay: 5
+  presentation: {fileID: 2100000300}
   showdownResultDelay: 1
---- !u!114 &2100000300
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 214340529}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c541fec2132d4d7e8e278f5e48b88b4f, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  cardVisualController: {fileID: 1964738050}
-  chipVisualController: {fileID: 1964738051}
-  dealerAnimationController: {fileID: 1705455214}
---- !u!114 &2100000200
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 214340529}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a54c13f86de74deead6f0f842216bd48, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
-  resultOverlay: {fileID: 453150125}
-  resultTitleText: {fileID: 89805412}
-  resultDetailText: {fileID: 1833342101}
-  restartButton: {fileID: 1541923312}
-  roundText: {fileID: 953414833}
-  dealerHandRankUI: {fileID: 1870027819}
-  dealerHandRankText: {fileID: 1815269373}
-  switchCamera: {fileID: 1769829635}
-  debugPanel: {fileID: 951970242}
-  debugInfoText: {fileID: 1813150521}
-  messageText: {fileID: 1252183279}
-  debugToggleButton: {fileID: 317883957}
-  playerActionBar: {fileID: 1778255335}
-  contextActionArea: {fileID: 56889103}
-  bettingActionButtons:
-  - {fileID: 1094694083}
-  - {fileID: 1791137059}
-  - {fileID: 1611211668}
-  - {fileID: 1221418959}
-  - {fileID: 1181233477}
-  resolveShowdownButton: {fileID: 1930191123}
-  nextRoundButton: {fileID: 517923735}
-  raiseDecreaseButton: {fileID: 1611211668}
-  raiseAmountText: {fileID: 1638112134}
-  raiseIncreaseButton: {fileID: 1221418959}
-  raiseMaxButton: {fileID: 1181233477}
-  raiseExecuteButton: {fileID: 2100000104}
-  raiseExecuteText: {fileID: 2100000113}
 --- !u!114 &214340531
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2814,7 +2758,7 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 1
+  m_RenderPostProcessing: 0
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -3070,7 +3014,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
       propertyPath: itemList.Array.size
-      value: 1
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
       propertyPath: itemList.Array.data[0]
@@ -3078,6 +3022,14 @@ PrefabInstance:
       objectReference: {fileID: 9109885737611708634, guid: 988b413a0a059fc46990422995127199, type: 3}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
       propertyPath: itemList.Array.data[1]
+      value: 
+      objectReference: {fileID: 4180414832903803173, guid: ea3f1f036d32d194badd323d20b6556a, type: 3}
+    - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
+      propertyPath: itemList.Array.data[2]
+      value: 
+      objectReference: {fileID: 6493617705365993511, guid: 443ad5786f4de564aa65e170b157400c, type: 3}
+    - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
+      propertyPath: itemList.Array.data[3]
       value: 
       objectReference: {fileID: 4266628273308215506, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
@@ -20805,6 +20757,62 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2100000200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214340529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a54c13f86de74deead6f0f842216bd48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  uiFont: {fileID: 11400000, guid: 3398ed2f18e2bd2438dfaaab4035a18a, type: 2}
+  resultOverlay: {fileID: 453150125}
+  resultTitleText: {fileID: 89805412}
+  resultDetailText: {fileID: 1833342101}
+  restartButton: {fileID: 1541923312}
+  roundText: {fileID: 953414833}
+  dealerHandRankUI: {fileID: 1870027819}
+  dealerHandRankText: {fileID: 1815269373}
+  switchCamera: {fileID: 1769829635}
+  debugPanel: {fileID: 951970242}
+  debugInfoText: {fileID: 1813150521}
+  messageText: {fileID: 1252183279}
+  debugToggleButton: {fileID: 317883957}
+  playerActionBar: {fileID: 1778255335}
+  contextActionArea: {fileID: 56889103}
+  bettingActionButtons:
+  - {fileID: 1094694083}
+  - {fileID: 1791137059}
+  - {fileID: 1611211668}
+  - {fileID: 1221418959}
+  - {fileID: 1181233477}
+  resolveShowdownButton: {fileID: 1930191123}
+  nextRoundButton: {fileID: 517923735}
+  raiseDecreaseButton: {fileID: 1611211668}
+  raiseAmountText: {fileID: 1638112134}
+  raiseIncreaseButton: {fileID: 1221418959}
+  raiseMaxButton: {fileID: 1181233477}
+  raiseExecuteButton: {fileID: 2100000104}
+  raiseExecuteText: {fileID: 2100000113}
+--- !u!114 &2100000300
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214340529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c541fec2132d4d7e8e278f5e48b88b4f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  cardVisualController: {fileID: 1964738050}
+  chipVisualController: {fileID: 1964738051}
+  dealerAnimationController: {fileID: 1705455214}
 --- !u!1001 &2109470231
 PrefabInstance:
   m_ObjectHideFlags: 0

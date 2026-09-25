@@ -37,6 +37,7 @@ public sealed class GameplayController : MonoBehaviour
     private ItemSystem subscribedItemSystem;
     private TurnOwner nextRoundFirstTurn;
     private DealerTurnController dealerTurn;
+    private GameplaySoundController soundController;
     private Coroutine dealerActionCoroutine;
     private Coroutine showdownPresentationCoroutine;
     private HandRank playerHandRank;
@@ -115,6 +116,7 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
+        soundController = new GameplaySoundController(presentation);
         gameplayView.Initialize();
         debugPanelOpen = false;
         CreateGame();
@@ -172,6 +174,7 @@ public sealed class GameplayController : MonoBehaviour
     private void OnDestroy()
     {
         UnsubscribeFromItemSystemEvents();
+        soundController?.Dispose();
     }
 
     public void OnCallClicked()
@@ -180,23 +183,20 @@ public sealed class GameplayController : MonoBehaviour
         {
             RunPlayerBettingAction(
                 "올인",
-                () => gameState.TryAllIn(),
-                playChipSfx: true);
+                () => gameState.TryAllIn());
             return;
         }
 
         RunPlayerBettingAction(
             "콜",
-            () => gameState.TryCall(),
-            playChipSfx: true);
+            () => gameState.TryCall());
     }
 
     public void OnFoldClicked()
     {
         RunPlayerBettingAction(
             "폴드",
-            () => gameState.TryFold(),
-            playChipSfx: false);
+            () => gameState.TryFold());
     }
 
     public void OnRaiseDecreaseClicked()
@@ -260,8 +260,7 @@ public sealed class GameplayController : MonoBehaviour
                 }
 
                 return succeeded;
-            },
-            playChipSfx: true);
+            });
     }
 
     public void OnResolveShowdownClicked()
@@ -387,8 +386,7 @@ public sealed class GameplayController : MonoBehaviour
             : "ITEM";
         RunPlayerBettingAction(
             actionName,
-            () => itemSystem.UseItem(TurnOwner.Player, item),
-            playChipSfx: false);
+            () => itemSystem.UseItem(TurnOwner.Player, item));
     }
 
     private void OnRefreshCardSucceeded()
@@ -471,8 +469,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private void RunPlayerBettingAction(
         string actionName,
-        Func<bool> action,
-        bool playChipSfx)
+        Func<bool> action)
     {
         if (!CanAcceptPlayerBettingInput() || action == null)
         {
@@ -490,11 +487,6 @@ public sealed class GameplayController : MonoBehaviour
             {
                 AddLog($"{OwnerText(TurnOwner.Player)} {actionName} 실패");
                 return;
-            }
-
-            if (playChipSfx)
-            {
-                SoundSystem.Instance.PlayChipStackSFX();
             }
 
             bool isPlayerFold =
@@ -760,13 +752,6 @@ public sealed class GameplayController : MonoBehaviour
 
             if (dealerTurn.TryExecute(actionPlan))
             {
-                if (decision == DealerDecision.Call ||
-                    decision == DealerDecision.Raise ||
-                    decision == DealerDecision.AllIn)
-                {
-                    SoundSystem.Instance.PlayChipStackSFX();
-                }
-
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
                     gameState.FoldedBy == TurnOwner.Dealer;
@@ -830,11 +815,6 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        SoundSystem soundSystem = SoundSystem.Instance;
-        soundSystem.PlayCardSFX();
-        soundSystem.PlayCardSFX();
-        soundSystem.PlayCardSFX();
-        soundSystem.PlayCardSFX();
         itemSystem.GetItem();
     }
 

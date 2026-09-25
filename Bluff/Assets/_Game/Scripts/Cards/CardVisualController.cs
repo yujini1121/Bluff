@@ -47,6 +47,7 @@ public sealed class CardVisualController : MonoBehaviour
     [SerializeField, Min(0f)] private float refreshShuffleStrength = 0.04f;
 
     private GameState gameState;
+    private Action<GameplayPresentationCue> presentationCueRaised;
     private Sequence dealSequence;
     private CardVisual[] activeDealVisuals;
     private Transform[] activeDealTransforms;
@@ -76,9 +77,12 @@ public sealed class CardVisualController : MonoBehaviour
         public Vector3 LocalScale;
     }
 
-    public void Initialize(GameState state)
+    public void Initialize(
+        GameState state,
+        Action<GameplayPresentationCue> presentationCueRaised)
     {
         gameState = state;
+        this.presentationCueRaised = presentationCueRaised;
 
         if (deckStackVisual == null)
         {
@@ -729,6 +733,7 @@ public sealed class CardVisualController : MonoBehaviour
         }
 
         activeDealVisuals[index].SetVisible(true);
+        presentationCueRaised?.Invoke(GameplayPresentationCue.CardDeal);
     }
 
     private void CompleteDeal()

@@ -13,6 +13,8 @@ public sealed class GameplayPresentationController : MonoBehaviour
     private bool isCardAnimating;
     private bool isFoldRevealComplete;
 
+    public event Action<GameplayPresentationCue> CueRaised;
+
     public bool IsChipAnimating => isChipAnimating;
     public bool IsCardAnimating => isCardAnimating;
     public bool IsBusy => isChipAnimating || isCardAnimating;
@@ -21,7 +23,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
     {
         this.gameState = gameState;
         this.presentationChanged = presentationChanged;
-        cardVisualController?.Initialize(gameState);
+        cardVisualController?.Initialize(gameState, RaiseCue);
         chipVisualController?.Initialize(gameState);
     }
 
@@ -71,6 +73,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
                 OnPlayerBetChipsMoved,
                 OnPlayerBetChipsMoveFailed))
         {
+            RaiseCue(GameplayPresentationCue.ChipBet);
             return true;
         }
 
@@ -190,6 +193,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
         if (animationStarted)
         {
+            RaiseCue(GameplayPresentationCue.ChipBet);
             return true;
         }
 
@@ -691,5 +695,10 @@ public sealed class GameplayPresentationController : MonoBehaviour
     private void NotifyChanged()
     {
         presentationChanged?.Invoke();
+    }
+
+    private void RaiseCue(GameplayPresentationCue cue)
+    {
+        CueRaised?.Invoke(cue);
     }
 }
