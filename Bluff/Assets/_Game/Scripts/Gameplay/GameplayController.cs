@@ -26,12 +26,8 @@ public sealed class GameplayController : MonoBehaviour
     [SerializeField, Min(0f)]
     private float maxDealerThinkDelay = 1.5f;
 
-    [Header("3D 카드 표시")]
-    [SerializeField] private CardVisualController cardVisualController;
-
-    [Header("3D 칩 표시")]
-    [SerializeField] private ChipVisualController chipVisualController;
-    [SerializeField] private DealerAnimationController dealerAnimationController;
+    [Header("3D 연출")]
+    [SerializeField] private GameplayPresentationController presentation;
 
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
@@ -48,8 +44,6 @@ public sealed class GameplayController : MonoBehaviour
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
     private bool isActionProcessing;
-    private bool isChipAnimating;
-    private bool isCardAnimating;
     private bool isShowdownResultVisible;
     private bool isFoldResultVisible;
     private bool isShuttingDown;
@@ -80,10 +74,8 @@ public sealed class GameplayController : MonoBehaviour
              gameState.Phase == GamePhase.GameOver))
         {
             recoverFoldPresentationOnEnable = false;
-            isCardAnimating = false;
             isFoldResultVisible = true;
-            cardVisualController?.ShowShowdownCardsImmediately();
-            chipVisualController?.RefreshChips();
+            presentation.RecoverShowdown();
             return;
         }
 
@@ -98,10 +90,8 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         recoverShowdownPresentationOnEnable = false;
-        isCardAnimating = false;
         isShowdownResultVisible = true;
-        cardVisualController?.ShowShowdownCardsImmediately();
-        chipVisualController?.RefreshChips();
+        presentation.RecoverShowdown();
     }
 
     private void Awake()
@@ -111,6 +101,15 @@ public sealed class GameplayController : MonoBehaviour
             Debug.LogError(
                 "인디언 홀덤 UI 참조가 연결되지 않았습니다. " +
                 "Inspector에서 UI 참조를 확인해주세요.",
+                this);
+            enabled = false;
+            return;
+        }
+
+        if (presentation == null)
+        {
+            Debug.LogError(
+                "GameplayPresentationController 참조가 연결되지 않았습니다.",
                 this);
             enabled = false;
             return;
@@ -147,18 +146,20 @@ public sealed class GameplayController : MonoBehaviour
     {
         UnsubscribeFromItemSystemEvents(unsubscribePlayerRequests: false);
         recoverFoldPresentationOnEnable =
-            isCardAnimating &&
+            presentation != null &&
+            presentation.IsCardAnimating &&
             gameState != null &&
             gameState.RoundEndReason == RoundEndReason.Fold &&
             !isFoldResultVisible;
         recoverShowdownPresentationOnEnable =
-            isCardAnimating &&
+            presentation != null &&
+            presentation.IsCardAnimating &&
             gameState != null &&
             gameState.RoundEndReason == RoundEndReason.Showdown &&
             roundWinner != RoundWinner.None;
         isShuttingDown = true;
         isActionProcessing = false;
-        isCardAnimating = false;
+        presentation?.FinishCardPresentation();
         CancelDealerAction();
 
         if (showdownPresentationCoroutine != null)
@@ -339,16 +340,7 @@ public sealed class GameplayController : MonoBehaviour
         dealerTurn = new DealerTurnController();
         dealerTurn.Initialize(gameState, itemSystem, AddLog);
         SubscribeToItemSystemEvents();
-
-        if (cardVisualController != null)
-        {
-            cardVisualController.Initialize(gameState);
-        }
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.Initialize(gameState);
-        }
+        presentation.Initialize(gameState, RefreshView);
 
         ResetRoundResult();
     }
@@ -401,48 +393,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private void OnRefreshCardSucceeded()
     {
-        // 시작 연출 중에는 기존 딜 완료/실패 경로가 최신 카드를 동기화
-        if (isCardAnimating || isChipAnimating)
-        {
-            return;
-        }
-
-        isCardAnimating = true;
-
-        bool refreshStarted =
-            cardVisualController != null &&
-            cardVisualController.TryPlayRefresh(
-                OnRefreshPresentationCompleted,
-                OnRefreshPresentationFailed);
-
-        if (!refreshStarted)
-        {
-            isCardAnimating = false;
-            cardVisualController?.RefreshCards();
-        }
-    }
-
-    private void OnRefreshPresentationCompleted()
-    {
-        if (!CanHandlePresentationCallback())
-        {
-            return;
-        }
-
-        isCardAnimating = false;
-        RefreshView();
-    }
-
-    private void OnRefreshPresentationFailed()
-    {
-        if (!CanHandlePresentationCallback())
-        {
-            return;
-        }
-
-        cardVisualController?.RefreshCards();
-        isCardAnimating = false;
-        RefreshView();
+        presentation.PlayRefresh();
     }
 
     private void StartRound()
@@ -451,7 +402,7 @@ public sealed class GameplayController : MonoBehaviour
 
         if (!gameState.TryStartRound(roundFirstTurn))
         {
-            isCardAnimating = false;
+            presentation.FinishCardPresentation();
             AddLog("라운드 시작 실패 - 남은 카드와 현재 단계를 확인하세요");
             return;
         }
@@ -460,11 +411,7 @@ public sealed class GameplayController : MonoBehaviour
         ResetRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
-        if (!TryStartRoundAnteAnimation())
-        {
-            chipVisualController?.RefreshChips();
-            TryStartCardDeal();
-        }
+        presentation.PlayRoundStart();
     }
 
     private void PrepareAndStartNextRound()
@@ -480,7 +427,7 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         nextRoundFirstTurn = resolvedNextFirstTurn;
-        cardVisualController?.RefreshCards();
+        presentation.RefreshCards();
         ResetRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
@@ -553,12 +500,18 @@ public sealed class GameplayController : MonoBehaviour
             bool isPlayerFold =
                 gameState.RoundEndReason == RoundEndReason.Fold &&
                 gameState.FoldedBy == TurnOwner.Player;
-            bool foldSettlementStarted =
-                isPlayerFold &&
-                TryStartFoldSettlement(
+            if (isPlayerFold)
+            {
+                presentation.PlayFold(
                     TurnOwner.Player,
                     potBefore,
-                    gameState.FoldPenaltyAmount);
+                    gameState.FoldPenaltyAmount,
+                    playerChipsBefore,
+                    dealerChipsBefore,
+                    potBefore,
+                    CompleteFoldCardReveal);
+            }
+
             int potIncrease = gameState.Pot.Amount - potBefore;
             int playerChipDecrease =
                 playerChipsBefore - gameState.PlayerChips.Count;
@@ -566,19 +519,14 @@ public sealed class GameplayController : MonoBehaviour
                 !isPlayerFold &&
                 potIncrease > 0 &&
                 playerChipDecrease == potIncrease &&
-                TryStartPlayerBetAnimation(potIncrease);
+                presentation.PlayPlayerBet(potIncrease);
 
-            if (!foldSettlementStarted && !playerBetAnimationStarted)
+            if (!isPlayerFold && !playerBetAnimationStarted)
             {
-                RefreshChipsIfChanged(
+                presentation.RefreshChipsIfChanged(
                     playerChipsBefore,
                     dealerChipsBefore,
                     potBefore);
-            }
-
-            if (isPlayerFold && !foldSettlementStarted)
-            {
-                StartFoldCardReveal();
             }
 
             AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
@@ -616,8 +564,7 @@ public sealed class GameplayController : MonoBehaviour
         return gameState != null &&
                !isRestarting &&
                !isActionProcessing &&
-               !isChipAnimating &&
-               !isCardAnimating &&
+               !presentation.IsBusy &&
                dealerActionCoroutine == null &&
                gameState.Phase == GamePhase.Betting &&
                gameState.CurrentTurn == TurnOwner.Player;
@@ -628,8 +575,7 @@ public sealed class GameplayController : MonoBehaviour
         return gameState != null &&
                !isRestarting &&
                !isActionProcessing &&
-               !isChipAnimating &&
-               !isCardAnimating &&
+               !presentation.IsBusy &&
                dealerActionCoroutine == null &&
                gameState.Phase == requiredPhase;
     }
@@ -645,8 +591,7 @@ public sealed class GameplayController : MonoBehaviour
             gameState.Phase != GamePhase.GameOver ||
             gameState.FinalWinner == GameWinner.None ||
             isActionProcessing ||
-            isChipAnimating ||
-            isCardAnimating ||
+            presentation.IsBusy ||
             dealerActionCoroutine != null ||
             showdownPresentationCoroutine != null)
         {
@@ -680,8 +625,7 @@ public sealed class GameplayController : MonoBehaviour
     {
         if (isRestarting ||
             isActionProcessing ||
-            isChipAnimating ||
-            isCardAnimating ||
+            presentation.IsBusy ||
             dealerActionCoroutine != null ||
             gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
@@ -711,10 +655,7 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        if (dealerAnimationController != null)
-        {
-            dealerAnimationController.StopThink();
-        }
+        presentation.StopDealerThink();
 
         StopCoroutine(dealerActionCoroutine);
         dealerActionCoroutine = null;
@@ -722,9 +663,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private IEnumerator PerformDealerActionAfterDelay()
     {
-        bool thinkStarted =
-            dealerAnimationController != null &&
-            dealerAnimationController.TryPlayThink();
+        bool thinkStarted = presentation.TryPlayDealerThink();
 
         float minimumThinkDelay = Mathf.Max(
             0f,
@@ -737,13 +676,12 @@ public sealed class GameplayController : MonoBehaviour
             maximumThinkDelay);
         yield return new WaitForSeconds(thinkDelay);
 
-        if (thinkStarted && dealerAnimationController != null)
+        if (thinkStarted)
         {
-            dealerAnimationController.StopThink();
+            presentation.StopDealerThink();
         }
 
-        if (isChipAnimating ||
-            isCardAnimating ||
+        if (presentation.IsBusy ||
             gameState.Phase != GamePhase.Betting ||
             gameState.CurrentTurn != TurnOwner.Dealer)
         {
@@ -767,28 +705,30 @@ public sealed class GameplayController : MonoBehaviour
                 bool isDealerItemFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
                     gameState.FoldedBy == TurnOwner.Dealer;
-                bool foldPresentationStarted =
-                    isDealerItemFold &&
-                    TryStartDealerFoldPresentation(
+                if (isDealerItemFold)
+                {
+                    presentation.PlayFold(
                         TurnOwner.Dealer,
                         potBefore,
-                        gameState.FoldPenaltyAmount);
-
-                if (!foldPresentationStarted)
-                {
-                    RefreshChipsIfChanged(playerChipsBefore, dealerChipsBefore, potBefore);
+                        gameState.FoldPenaltyAmount,
+                        playerChipsBefore,
+                        dealerChipsBefore,
+                        potBefore,
+                        CompleteFoldCardReveal);
                 }
-
-                if (isDealerItemFold && !foldPresentationStarted)
+                else
                 {
-                    StartFoldCardReveal();
+                    presentation.RefreshChipsIfChanged(
+                        playerChipsBefore,
+                        dealerChipsBefore,
+                        potBefore);
                 }
 
                 AddBettingResultLog();
                 yield break;
             }
 
-            while (isCardAnimating)
+            while (presentation.IsCardAnimating)
             {
                 if (isShuttingDown ||
                     isRestarting ||
@@ -809,7 +749,10 @@ public sealed class GameplayController : MonoBehaviour
                 yield break;
             }
 
-            RefreshChipsIfChanged(playerChipsBefore, dealerChipsBefore, potBefore);
+            presentation.RefreshChipsIfChanged(
+                playerChipsBefore,
+                dealerChipsBefore,
+                potBefore);
             playerChipsBefore = gameState.PlayerChips.Count;
             dealerChipsBefore = gameState.DealerChips.Count;
             potBefore = gameState.Pot.Amount;
@@ -827,12 +770,17 @@ public sealed class GameplayController : MonoBehaviour
                 bool isDealerFold =
                     gameState.RoundEndReason == RoundEndReason.Fold &&
                     gameState.FoldedBy == TurnOwner.Dealer;
-                bool foldPresentationStarted =
-                    isDealerFold &&
-                    TryStartDealerFoldPresentation(
+                if (isDealerFold)
+                {
+                    presentation.PlayFold(
                         TurnOwner.Dealer,
                         potBefore,
-                        gameState.FoldPenaltyAmount);
+                        gameState.FoldPenaltyAmount,
+                        playerChipsBefore,
+                        dealerChipsBefore,
+                        potBefore,
+                        CompleteFoldCardReveal);
+                }
                 int movedChipCount =
                     dealerChipsBefore - gameState.DealerChips.Count;
                 bool isAllInCall =
@@ -847,21 +795,16 @@ public sealed class GameplayController : MonoBehaviour
                      decision == DealerDecision.Raise ||
                      decision == DealerDecision.AllIn) &&
                     movedChipCount > 0 &&
-                    TryStartDealerBetAnimation(
+                    presentation.PlayDealerBet(
                         movedChipCount,
                         useAllInAnimation);
 
-                if (!foldPresentationStarted && !betAnimationStarted)
+                if (!isDealerFold && !betAnimationStarted)
                 {
-                    RefreshChipsIfChanged(
+                    presentation.RefreshChipsIfChanged(
                         playerChipsBefore,
                         dealerChipsBefore,
                         potBefore);
-                }
-
-                if (isDealerFold && !foldPresentationStarted)
-                {
-                    StartFoldCardReveal();
                 }
 
                 AddLog($"DEALER {DealerDecisionText(decision)}");
@@ -880,27 +823,6 @@ public sealed class GameplayController : MonoBehaviour
         }
     }
 
-    private void TryStartCardDeal()
-    {
-        if (cardVisualController == null)
-        {
-            isCardAnimating = false;
-            return;
-        }
-
-        isCardAnimating = true;
-
-        if (cardVisualController.TryPlayDeal(
-                OnCardDealCompleted,
-                OnCardDealFailed))
-        {
-            return;
-        }
-
-        isCardAnimating = false;
-        cardVisualController.RefreshCards();
-    }
-
     private void RunRoundStartEffects()
     {
         if (!isActiveAndEnabled)
@@ -916,358 +838,6 @@ public sealed class GameplayController : MonoBehaviour
         itemSystem.GetItem();
     }
 
-    private bool TryStartRoundAnteAnimation()
-    {
-        if (chipVisualController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (chipVisualController.TryBeginRoundAnte(
-                OnRoundAnteChipsMoved,
-                OnRoundAnteChipsMoveFailed))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private void OnRoundAnteChipsMoved(GameObject[] chips)
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompleteRoundAnte(chips);
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelRoundAnte();
-            chipVisualController.RefreshChips();
-        }
-
-        TryStartCardDeal();
-        RefreshView();
-    }
-
-    private void OnRoundAnteChipsMoveFailed(GameObject[] chips)
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelRoundAnte();
-            chipVisualController.RefreshChips();
-        }
-
-        TryStartCardDeal();
-        RefreshView();
-    }
-
-    private void OnCardDealCompleted()
-    {
-        isCardAnimating = false;
-        cardVisualController?.RefreshCards();
-        RefreshView();
-    }
-
-    private void OnCardDealFailed()
-    {
-        isCardAnimating = false;
-        cardVisualController?.RefreshCards();
-        RefreshView();
-    }
-
-    private bool TryStartPlayerBetAnimation(int chipCount)
-    {
-        if (chipVisualController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (chipVisualController.TryBeginPlayerBet(
-                chipCount,
-                OnPlayerBetChipsMoved,
-                OnPlayerBetChipsMoveFailed))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private void OnPlayerBetChipsMoved(GameObject[] chips)
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompletePlayerBet(chips);
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelPlayerBet();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private void OnPlayerBetChipsMoveFailed(GameObject[] chips)
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelPlayerBet();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private bool TryStartPlayerCollect(int chipCount)
-    {
-        if (chipVisualController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (chipVisualController.TryBeginPlayerCollect(
-                chipCount,
-                OnPlayerCollectCompleted,
-                OnPlayerCollectFailed))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private void OnPlayerCollectCompleted(GameObject[] chips)
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompletePlayerCollect(chips);
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelPlayerCollect();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private void OnPlayerCollectFailed(GameObject[] chips)
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelPlayerCollect();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private bool TryStartDrawSettlement()
-    {
-        if (chipVisualController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (chipVisualController.TryBeginDrawSettlement(
-                OnDrawSettlementCompleted,
-                OnDrawSettlementFailed))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private void OnDrawSettlementCompleted(GameObject[] chips)
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompleteDrawSettlement(chips);
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelDrawSettlement();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private void OnDrawSettlementFailed(GameObject[] chips)
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelDrawSettlement();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private bool TryStartFoldSettlement(
-        TurnOwner foldedBy,
-        int potChipCount,
-        int penaltyChipCount)
-    {
-        if (chipVisualController == null)
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (chipVisualController.TryBeginFoldSettlement(
-                foldedBy,
-                potChipCount,
-                penaltyChipCount,
-                OnFoldSettlementCompleted,
-                OnFoldSettlementFailed))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return false;
-    }
-
-    private bool TryStartDealerFoldPresentation(
-        TurnOwner foldedBy,
-        int potChipCount,
-        int penaltyChipCount)
-    {
-        isChipAnimating = true;
-
-        if (dealerAnimationController != null &&
-            dealerAnimationController.TryPlayFold(
-                () => OnDealerFoldAnimationFinished(
-                    foldedBy,
-                    potChipCount,
-                    penaltyChipCount),
-                () => OnDealerFoldAnimationFinished(
-                    foldedBy,
-                    potChipCount,
-                    penaltyChipCount)))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        return TryStartFoldSettlement(
-            foldedBy,
-            potChipCount,
-            penaltyChipCount);
-    }
-
-    private void OnDealerFoldAnimationFinished(
-        TurnOwner foldedBy,
-        int potChipCount,
-        int penaltyChipCount)
-    {
-        isChipAnimating = false;
-
-        if (!TryStartFoldSettlement(
-                foldedBy,
-                potChipCount,
-                penaltyChipCount))
-        {
-            chipVisualController?.RefreshChips();
-            StartFoldCardReveal();
-        }
-    }
-
-    private void OnFoldSettlementCompleted()
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompleteFoldSettlement();
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelFoldSettlement();
-            chipVisualController.RefreshChips();
-        }
-
-        StartFoldCardReveal();
-    }
-
-    private void OnFoldSettlementFailed()
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelFoldSettlement();
-            chipVisualController.RefreshChips();
-        }
-
-        StartFoldCardReveal();
-    }
-
-    private void StartFoldCardReveal()
-    {
-        if (gameState == null ||
-            gameState.RoundEndReason != RoundEndReason.Fold ||
-            isFoldResultVisible ||
-            isCardAnimating)
-        {
-            return;
-        }
-
-        isFoldResultVisible = false;
-        isCardAnimating = true;
-
-        bool revealStarted =
-            cardVisualController != null &&
-            cardVisualController.TryPlayShowdownReveal(
-                CompleteFoldCardReveal,
-                () =>
-                {
-                    cardVisualController?.ShowShowdownCardsImmediately();
-                    CompleteFoldCardReveal();
-                });
-
-        if (!revealStarted)
-        {
-            cardVisualController?.ShowShowdownCardsImmediately();
-            CompleteFoldCardReveal();
-            return;
-        }
-
-        RefreshView();
-    }
-
     private void CompleteFoldCardReveal()
     {
         if (!CanHandlePresentationCallback())
@@ -1275,136 +845,9 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        isCardAnimating = false;
         isFoldResultVisible = true;
         RefreshView();
     }
-
-    private bool TryStartDealerBetAnimation(
-        int chipCount,
-        bool useAllInAnimation)
-    {
-        if (chipVisualController == null ||
-            dealerAnimationController == null ||
-            !chipVisualController.TryBeginDealerBet(
-                chipCount,
-                out GameObject[] chips,
-                out Vector3[] betAreaTargetPositions))
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-        bool animationStarted = useAllInAnimation
-            ? dealerAnimationController.TryPlayAllInChips(
-                chips,
-                betAreaTargetPositions,
-                OnDealerBetChipsMoved,
-                OnDealerBetChipsMoveFailed)
-            : dealerAnimationController.TryPlayCallChips(
-                chips,
-                betAreaTargetPositions,
-                OnDealerBetChipsMoved,
-                OnDealerBetChipsMoveFailed);
-
-        if (animationStarted)
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        chipVisualController.CancelDealerBet();
-        return false;
-    }
-
-    private void OnDealerBetChipsMoved(GameObject[] chips)
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompleteDealerBet(chips);
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelDealerBet();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private void OnDealerBetChipsMoveFailed(GameObject[] chips)
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelDealerBet();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private bool TryStartDealerCollectAnimation(int chipCount)
-    {
-        if (chipVisualController == null ||
-            dealerAnimationController == null ||
-            !chipVisualController.TryBeginDealerCollect(
-                chipCount,
-                out GameObject[] chips,
-                out Vector3[] dealerTargetPositions))
-        {
-            return false;
-        }
-
-        isChipAnimating = true;
-
-        if (dealerAnimationController.TryPlayCollectChips(
-                chips,
-                dealerTargetPositions,
-                OnDealerCollectCompleted,
-                OnDealerCollectFailed))
-        {
-            return true;
-        }
-
-        isChipAnimating = false;
-        chipVisualController.CancelDealerCollect();
-        return false;
-    }
-
-    private void OnDealerCollectCompleted(GameObject[] chips)
-    {
-        bool moveCompleted =
-            chipVisualController != null &&
-            chipVisualController.CompleteDealerCollect(chips);
-
-        isChipAnimating = false;
-
-        if (!moveCompleted && chipVisualController != null)
-        {
-            chipVisualController.CancelDealerCollect();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
-    private void OnDealerCollectFailed(GameObject[] chips)
-    {
-        isChipAnimating = false;
-
-        if (chipVisualController != null)
-        {
-            chipVisualController.CancelDealerCollect();
-            chipVisualController.RefreshChips();
-        }
-
-        RefreshView();
-    }
-
     private void ResolveShowdown()
     {
         gameState.TryGetHandRank(TurnOwner.Player, out playerHandRank);
@@ -1420,7 +863,6 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         isShowdownResultVisible = false;
-        isCardAnimating = true;
 
         Action continuePresentation = () =>
             ContinueShowdownAfterReveal(
@@ -1428,21 +870,7 @@ public sealed class GameplayController : MonoBehaviour
                 dealerChipsBefore,
                 potBeforeSettlement);
 
-        bool revealStarted =
-            cardVisualController != null &&
-            cardVisualController.TryPlayShowdownReveal(
-                continuePresentation,
-                () =>
-                {
-                    cardVisualController?.ShowShowdownCardsImmediately();
-                    continuePresentation();
-                });
-
-        if (!revealStarted)
-        {
-            cardVisualController?.ShowShowdownCardsImmediately();
-            continuePresentation();
-        }
+        presentation.PlayShowdownReveal(continuePresentation);
     }
 
     private void ContinueShowdownAfterReveal(
@@ -1492,7 +920,7 @@ public sealed class GameplayController : MonoBehaviour
             yield break;
         }
 
-        isCardAnimating = false;
+        presentation.FinishCardPresentation();
         bool collectAnimationStarted = false;
 
         if (potBeforeSettlement > 0)
@@ -1500,22 +928,22 @@ public sealed class GameplayController : MonoBehaviour
             if (roundWinner == RoundWinner.Player)
             {
                 collectAnimationStarted =
-                    TryStartPlayerCollect(potBeforeSettlement);
+                    presentation.PlayPlayerCollect(potBeforeSettlement);
             }
             else if (roundWinner == RoundWinner.Dealer)
             {
                 collectAnimationStarted =
-                    TryStartDealerCollectAnimation(potBeforeSettlement);
+                    presentation.PlayDealerCollect(potBeforeSettlement);
             }
             else if (roundWinner == RoundWinner.Draw)
             {
-                collectAnimationStarted = TryStartDrawSettlement();
+                collectAnimationStarted = presentation.PlayDrawSettlement();
             }
         }
 
         if (!collectAnimationStarted)
         {
-            RefreshChipsIfChanged(
+            presentation.RefreshChipsIfChanged(
                 playerChipsBefore,
                 dealerChipsBefore,
                 potBeforeSettlement);
@@ -1531,22 +959,6 @@ public sealed class GameplayController : MonoBehaviour
                isActiveAndEnabled &&
                gameObject.scene.IsValid() &&
                gameObject.scene.isLoaded;
-    }
-
-    private void RefreshChipsIfChanged(
-        int playerChipsBefore,
-        int dealerChipsBefore,
-        int potBefore)
-    {
-        if (chipVisualController == null ||
-            (playerChipsBefore == gameState.PlayerChips.Count &&
-             dealerChipsBefore == gameState.DealerChips.Count &&
-             potBefore == gameState.Pot.Amount))
-        {
-            return;
-        }
-
-        chipVisualController.RefreshChips();
     }
 
     private void UpdateVisibleHandRanks()

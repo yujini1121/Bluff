@@ -20,6 +20,7 @@ public sealed class RefreshCardVisualTests
     private ItemSystem itemSystem;
     private GameplayController ui;
     private GameplayView view;
+    private GameplayPresentationController presentation;
     private CardVisualController controller;
     private DeckStackVisual deckStackVisual;
     private Transform playerRoot;
@@ -84,9 +85,11 @@ public sealed class RefreshCardVisualTests
         SetField(itemSystem, "inventory", inventory);
         ui = uiObject.AddComponent<GameplayController>();
         view = uiObject.AddComponent<GameplayView>();
+        presentation = uiObject.AddComponent<GameplayPresentationController>();
         SetField(ui, "gameplayView", view);
+        SetField(ui, "presentation", presentation);
         SetField(ui, "itemSystem", itemSystem);
-        SetField(ui, "cardVisualController", controller);
+        SetField(presentation, "cardVisualController", controller);
         Invoke(ui, "CreateGame");
 
         // P4/D1/C4/C2에서 P2/D4/C1/C4로 교체해 개인·공개 카드 변경을 보장한다.
@@ -100,7 +103,7 @@ public sealed class RefreshCardVisualTests
         gameState.Turn.TrySet(TurnOwner.Player);
         SetField(ui, "gameState", gameState);
         itemSystem.Initialize(new ItemGameApi(gameState));
-        controller.Initialize(gameState);
+        presentation.Initialize(gameState, () => Invoke(ui, "RefreshView"));
         AssertVisualsMatchCurrentCards();
     }
 
@@ -159,7 +162,7 @@ public sealed class RefreshCardVisualTests
 
         UseRefresh(TurnOwner.Player);
 
-        Assert.That(GetField(ui, "isCardAnimating"), Is.EqualTo(true));
+        Assert.That(presentation.IsCardAnimating, Is.True);
         Assert.That(GetVisualRanks(), Is.EqualTo(previousRanks));
         var refresh = (Sequence)GetField(controller, "refreshSequence");
         Assert.That(refresh, Is.Not.Null);
@@ -292,7 +295,7 @@ public sealed class RefreshCardVisualTests
     public void RefreshDuringRoundStart_UsesExistingDealCompletionSynchronization(string flag)
     {
         ConfigureView();
-        SetField(ui, flag, true);
+        SetField(presentation, flag, true);
         foreach (CardVisual visual in visuals)
         {
             visual.SetVisible(false);
@@ -305,8 +308,8 @@ public sealed class RefreshCardVisualTests
         {
             Assert.That(renderer.enabled, Is.False);
         }
-        SetField(ui, "isChipAnimating", false);
-        Invoke(ui, "OnCardDealCompleted");
+        SetField(presentation, "isChipAnimating", false);
+        Invoke(presentation, "OnCardDealCompleted");
         AssertVisualsMatchCurrentCards();
     }
 

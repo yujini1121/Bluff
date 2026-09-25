@@ -20,6 +20,7 @@ public sealed class PlayerItemPresentationTests
     private Inventory inventory;
     private GameplayController ui;
     private GameplayView view;
+    private GameplayPresentationController presentation;
     private ChipVisualController chips;
     private CardVisualController cards;
     private Random.State previousRandom;
@@ -77,10 +78,12 @@ public sealed class PlayerItemPresentationTests
         Set(items, "inventory", inventory);
         ui = uiObject.AddComponent<GameplayController>();
         view = uiObject.AddComponent<GameplayView>();
+        presentation = uiObject.AddComponent<GameplayPresentationController>();
         Set(ui, "gameplayView", view);
+        Set(ui, "presentation", presentation);
         Set(ui, "itemSystem", items);
-        Set(ui, "cardVisualController", cards);
-        Set(ui, "chipVisualController", chips);
+        Set(presentation, "cardVisualController", cards);
+        Set(presentation, "chipVisualController", chips);
         Set(ui, "maxLogLines", 30);
         foreach (string field in new[] { "roundText", "debugInfoText", "messageText", "raiseAmountText", "raiseExecuteText", "resultTitleText", "resultDetailText" })
             Set(view, field, CreateObject(field, ui.transform).AddComponent<TextMeshProUGUI>());
@@ -128,14 +131,14 @@ public sealed class PlayerItemPresentationTests
         first.GetComponent<Item>().Use();
 
         Assert.That(first == null, Is.True);
-        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(true));
+        Assert.That(presentation.IsCardAnimating, Is.True);
         Assert.That(Get(cards, "refreshSequence"), Is.Not.Null);
         second.GetComponent<Item>().Use();
         Assert.That(inventory.HasItem(TurnOwner.Player, second), Is.True);
 
         CompleteRefreshPresentation();
 
-        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(false));
+        Assert.That(presentation.IsCardAnimating, Is.False);
         Assert.That(Get(cards, "refreshSequence"), Is.Null);
         Assert.That(Get(cards, "dealSequence"), Is.Null);
     }
@@ -162,7 +165,7 @@ public sealed class PlayerItemPresentationTests
 
         Assert.That(routine.MoveNext(), Is.True);
         Assert.That(routine.MoveNext(), Is.True);
-        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(true));
+        Assert.That(presentation.IsCardAnimating, Is.True);
         Assert.That(game.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
         Assert.That(routine.MoveNext(), Is.True);
@@ -191,15 +194,15 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.FoldPenaltyAmount, Is.Zero);
         Assert.That(game.PlayerChips.Count, Is.EqualTo(playerBefore));
         Assert.That(game.DealerChips.Count, Is.EqualTo(dealerBefore + potBefore));
-        Assert.That(Get(ui, "isChipAnimating"), Is.EqualTo(true));
+        Assert.That(presentation.IsChipAnimating, Is.True);
         Assert.That(((List<GameObject>)Get(chips, "pendingChips")).Count, Is.EqualTo(potBefore));
         CompleteChipMoves();
         CompleteCardReveal();
         AssertChipVisuals();
         Assert.That(Get(ui, "isFoldResultVisible"), Is.EqualTo(true));
         Assert.That(((GameObject)Get(view, "resultOverlay")).activeSelf, Is.True);
-        Assert.That(Get(ui, "isChipAnimating"), Is.EqualTo(false));
-        Assert.That(Get(ui, "isCardAnimating"), Is.EqualTo(false));
+        Assert.That(presentation.IsChipAnimating, Is.False);
+        Assert.That(presentation.IsCardAnimating, Is.False);
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.None));
         Assert.That(game.Phase, Is.EqualTo(finalRound ? GamePhase.GameOver : GamePhase.RoundEnd));
         Button restart = (Button)Get(view, "restartButton");
@@ -275,7 +278,10 @@ public sealed class PlayerItemPresentationTests
         int potBefore = game.Pot.Amount;
         int dealerBefore = game.DealerChips.Count;
         GameObject item = Add(TurnOwner.Player, type);
-        Set(ui, flag, true);
+        Set(
+            flag == "isActionProcessing" ? (object)ui : presentation,
+            flag,
+            true);
         item.GetComponent<Item>().Use();
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
         Assert.That(game.Pot.Amount, Is.EqualTo(potBefore));
@@ -360,9 +366,8 @@ public sealed class PlayerItemPresentationTests
         var dealerTurn = new DealerTurnController();
         dealerTurn.Initialize(game, items, message => Invoke(ui, "AddLog", message));
         Set(ui, "dealerTurn", dealerTurn);
-        cards.Initialize(game);
         ExpectChipRemovals();
-        chips.Initialize(game);
+        presentation.Initialize(game, () => Invoke(ui, "RefreshView"));
     }
     private void RefreshChips() { ExpectChipRemovals(); chips.RefreshChips(); }
     private void ExpectChipRemovals()
@@ -426,7 +431,7 @@ public sealed class PlayerItemPresentationTests
         if (!Application.isPlaying)
         {
             Invoke(cards, "CompleteRefreshDeal");
-            Invoke(ui, "OnRefreshPresentationCompleted");
+            Invoke(presentation, "OnRefreshCompleted");
         }
     }
     private int FindDealerSeed(ItemType type)

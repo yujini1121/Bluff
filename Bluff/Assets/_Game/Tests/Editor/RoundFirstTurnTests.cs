@@ -173,11 +173,14 @@ public sealed class RoundFirstTurnTests
         ItemSystem itemSystem = gameObject.AddComponent<ItemSystem>();
         GameplayController ui =
             gameObject.AddComponent<GameplayController>();
+        GameplayPresentationController presentation =
+            gameObject.AddComponent<GameplayPresentationController>();
 
         SetField(ui, "firstTurn", firstTurn);
         SetField(ui, "playerStartingChips", 100);
         SetField(ui, "dealerStartingChips", 100);
         SetField(ui, "itemSystem", itemSystem);
+        SetField(ui, "presentation", presentation);
         InvokePrivate(ui, "CreateGame");
         return ui;
     }

@@ -1886,6 +1886,7 @@ GameObject:
   - component: {fileID: 214340531}
   - component: {fileID: 214340530}
   - component: {fileID: 2100000200}
+  - component: {fileID: 2100000300}
   - component: {fileID: 214340535}
   - component: {fileID: 214340536}
   m_Layer: 0
@@ -1913,12 +1914,25 @@ MonoBehaviour:
   maxLogLines: 8
   itemSystem: {fileID: 2094210441}
   gameplayView: {fileID: 2100000200}
+  presentation: {fileID: 2100000300}
   minDealerThinkDelay: 0.6
   maxDealerThinkDelay: 5
+  showdownResultDelay: 1
+--- !u!114 &2100000300
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214340529}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c541fec2132d4d7e8e278f5e48b88b4f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
   cardVisualController: {fileID: 1964738050}
   chipVisualController: {fileID: 1964738051}
   dealerAnimationController: {fileID: 1705455214}
-  showdownResultDelay: 1
 --- !u!114 &2100000200
 MonoBehaviour:
   m_ObjectHideFlags: 0

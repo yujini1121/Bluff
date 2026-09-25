@@ -309,7 +309,10 @@ public sealed class GameModeTests
         ItemSystem itemSystem = gameObject.AddComponent<ItemSystem>();
         GameplayController ui =
             gameObject.AddComponent<GameplayController>();
+        GameplayPresentationController presentation =
+            gameObject.AddComponent<GameplayPresentationController>();
         SetField(ui, "itemSystem", itemSystem);
+        SetField(ui, "presentation", presentation);
         InvokePrivate(ui, "CreateGame");
         return ui;
     }
