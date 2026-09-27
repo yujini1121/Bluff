@@ -105,14 +105,14 @@ public sealed class PlayerItemPresentationTests
     }
 
     [Test]
-    public void PlayerPocket_ImmediatelyAddsTwoVisualChipsAndConsumesOnlyOneItem()
+    public void PlayerPocket_ImmediatelyAddsThreeVisualChipsAndConsumesOnlyOneItem()
     {
         Invoke(ui, "OnEnable");
         Invoke(ui, "OnEnable");
         GameObject first = Add(TurnOwner.Player, ItemType.chipPocket);
         GameObject second = Add(TurnOwner.Player, ItemType.chipPocket);
         first.GetComponent<Item>().Use();
-        Assert.That(game.PlayerChips.Count, Is.EqualTo(21));
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(22));
         Assert.That(first == null, Is.True);
         Assert.That(inventory.HasItem(TurnOwner.Player, second), Is.True);
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Player));
@@ -299,7 +299,7 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.PlayerChips.Count, Is.EqualTo(19));
         ui.enabled = true;
         item.GetComponent<Item>().Use();
-        Assert.That(game.PlayerChips.Count, Is.EqualTo(21));
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(22));
         Assert.That(item == null, Is.True);
         AssertChipVisuals();
     }
@@ -341,7 +341,7 @@ public sealed class PlayerItemPresentationTests
             Assert.That(((GameObject)Get(view, "resultOverlay")).activeSelf, Is.True);
             if (type == ItemType.chipPocket)
             {
-                Assert.That(game.DealerChips.Count, Is.EqualTo(7));
+                Assert.That(game.DealerChips.Count, Is.EqualTo(8));
                 Assert.That(logs, Has.Some.Contains("일반 행동 재계산"));
             }
             else

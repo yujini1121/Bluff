@@ -94,7 +94,7 @@ public sealed class DealerItemFlowTests
         Assert.That(dealerTurn.TryPrepareAction(99, 99, out DealerActionPlan actual), Is.True);
 
         Assert.That(item == null, Is.True);
-        Assert.That(gameState.DealerChips.Count, Is.EqualTo(7));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(8));
         Assert.That(gameState.PlayerChips.Count, Is.EqualTo(20));
         AssertSamePlan(actual, new DealerAi().Decide(gameState, 99, 99));
         Assert.That(actual.RaiseBy, Is.Not.EqualTo(previous.RaiseBy));
@@ -161,7 +161,7 @@ public sealed class DealerItemFlowTests
         Assert.That(first == null, Is.True);
         Assert.That(second == null, Is.False);
         Assert.That(inventory.HasItem(TurnOwner.Dealer, second), Is.True);
-        Assert.That(gameState.DealerChips.Count, Is.EqualTo(4));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(5));
         Assert.That(new DealerItemAi().Decide(
             gameState, new[] { ItemType.chipPocket }, actual).ShouldUseItem, Is.True);
         Assert.That(dealerTurn.TryExecute(actual), Is.True);

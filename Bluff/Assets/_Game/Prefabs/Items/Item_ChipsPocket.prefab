@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7926339741780193762}
   - component: {fileID: 3961983683828119587}
   - component: {fileID: 2242824965417995522}
+  - component: {fileID: -2287958714718101837}
   m_Layer: 0
   m_Name: Item_ChipsPocket
   m_TagString: Untagged
@@ -92,6 +93,33 @@ MonoBehaviour:
   tooltip: {fileID: 0}
   gameUi: {fileID: 0}
   tooltipAnchor: {fileID: 885239127608611489}
+--- !u!114 &-2287958714718101837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4266628273308215506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1fbc36f1d3984c128590ad11708840cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  itemRoot: {fileID: 2424209158716137352}
+  chip01: {fileID: 4050711325031386212}
+  chip02: {fileID: 7337915770706449380}
+  chip03: {fileID: 276502491562146753}
+  chipTarget: {fileID: 0}
+  liftHeight: 0.08
+  liftDuration: 0.18
+  liftScale: 1.08
+  wiggleAngle: 5
+  wiggleDuration: 0.12
+  chipJumpPower: 0.1
+  chipMoveDuration: 0.34
+  chipStagger: 0.06
+  chipTargetSpread: 0.025
+  consumeDuration: 0.16
 --- !u!1 &4363631915411786462
 GameObject:
   m_ObjectHideFlags: 0

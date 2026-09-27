@@ -18,7 +18,7 @@ public class ItemSystem : MonoBehaviour
     [SerializeField] private GameObject[] dealerItemSpawnPos = new GameObject[4]; // 딜러 아이템 스폰 위치
 
     [Header("아이템 수치")]
-    [SerializeField] private int chipPocketAmount = 2; // 칩 포켓 아이템으로 얻는 칩 수량
+    [SerializeField] private int chipPocketAmount = 3; // 칩 포켓 아이템으로 얻는 칩 수량
 
     public void Initialize(ItemGameApi itemGameApi)
     {
