@@ -92,7 +92,7 @@ public sealed class GameplayView : MonoBehaviour
         if (dealerHandRankText == null ||
             switchCamera == null ||
             gameState.Phase != GamePhase.Betting ||
-            switchCamera.CurrentView != CameraView.Dealer ||
+            !switchCamera.IsDealerCameraSettled ||
             !gameState.TryGetVisibleDealerHandRank(
                 out HandRank visibleDealerHandRank))
         {
