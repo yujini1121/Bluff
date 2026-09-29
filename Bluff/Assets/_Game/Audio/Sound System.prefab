@@ -57,6 +57,11 @@ MonoBehaviour:
   - {fileID: 1165598145860757110}
   chipStackSFX: {fileID: 63986045119831500, guid: 75451429092969640b27f7f25207b910, type: 3}
   cardSFX: {fileID: 6443609836815082446, guid: 7dcfeb5f09e8a9c4eba471f58ef562db, type: 3}
+  itemChipsPocketSFX: {fileID: 8353446949070429668, guid: e340f960c4628c3459ffeec98ccf526b, type: 3}
+  itemDefySFX: {fileID: 2386559922514699222, guid: f56e89775fcb08043b4e993045182b42, type: 3}
+  itemPrizmChipSFX: {fileID: 8686345737536884949, guid: f802d8f72daad5248ad503dcd60efd61, type: 3}
+  itemRefreshCardSFX: {fileID: 7760031898506863341, guid: e3ae3bd5f9fb583409c6edf5febe3ded, type: 3}
+  clickSFX: {fileID: 4266792812724180463, guid: f81ee8e06cf231a47b3040a5bbd8a0b4, type: 3}
 --- !u!1001 &4489044224799699591
 PrefabInstance:
   m_ObjectHideFlags: 0
