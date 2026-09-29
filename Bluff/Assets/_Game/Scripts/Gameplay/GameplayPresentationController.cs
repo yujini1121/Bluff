@@ -326,7 +326,10 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void StopDealerThink()
     {
-        dealerAnimationController?.StopThink();
+        if (dealerAnimationController != null)
+        {
+            dealerAnimationController.StopThink();
+        }
     }
 
     public void RefreshCards()

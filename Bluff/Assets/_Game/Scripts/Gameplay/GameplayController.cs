@@ -161,7 +161,10 @@ public sealed class GameplayController : MonoBehaviour
             roundWinner != RoundWinner.None;
         isShuttingDown = true;
         isActionProcessing = false;
-        presentation?.FinishCardPresentation();
+        if (presentation != null)
+        {
+            presentation.FinishCardPresentation();
+        }
         CancelDealerAction();
 
         if (showdownPresentationCoroutine != null)
@@ -688,7 +691,10 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        presentation.StopDealerThink();
+        if (presentation != null)
+        {
+            presentation.StopDealerThink();
+        }
 
         StopCoroutine(dealerActionCoroutine);
         dealerActionCoroutine = null;

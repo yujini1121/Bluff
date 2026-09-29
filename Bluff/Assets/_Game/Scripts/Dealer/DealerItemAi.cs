@@ -25,7 +25,7 @@ public readonly struct DealerItemPlan
 public sealed class DealerItemAi
 {
     private const int InitialAnteBet = 1;
-    private const int LowChipThreshold = 5;
+    private const int LowChipThreshold = 12;
     private const double LowEquityThreshold = 0.35d;
     private const double BurdensomeCallRatio = 0.5d;
 
