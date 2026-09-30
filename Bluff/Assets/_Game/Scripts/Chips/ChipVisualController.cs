@@ -98,6 +98,41 @@ public sealed class ChipVisualController : MonoBehaviour
         return true;
     }
 
+    public bool TryGetDefyTarget(TurnOwner owner, out Vector3 position)
+    {
+        Transform area = owner == TurnOwner.Player ? dealerBetAreaPoint :
+            owner == TurnOwner.Dealer ? playerBetAreaPoint : null;
+        if (area == null)
+        {
+            position = default;
+            return false;
+        }
+
+        List<GameObject> betChips = owner == TurnOwner.Player
+            ? dealerBetChipInstances : playerBetChipInstances;
+        GameObject topChip = betChips.Count > 0 ? betChips[betChips.Count - 1] : null;
+        position = topChip != null ? topChip.transform.position : area.position;
+        return true;
+    }
+
+    public bool TryGetPrizmTarget(TurnOwner owner, out Vector3 position)
+    {
+        Transform area = owner == TurnOwner.Player ? playerChipArea :
+            owner == TurnOwner.Dealer ? dealerChipArea : null;
+        if (area == null)
+        {
+            position = default;
+            return false;
+        }
+
+        List<GameObject> chips = owner == TurnOwner.Player
+            ? playerChipInstances : dealerChipInstances;
+        RemoveMissingInstances(chips);
+        GameObject topChip = chips.Count > 0 ? chips[chips.Count - 1] : null;
+        position = topChip != null ? topChip.transform.position : area.position;
+        return true;
+    }
+
     public void RefreshChips()
     {
         if (pendingChips.Count > 0)
@@ -109,7 +144,6 @@ public sealed class ChipVisualController : MonoBehaviour
         int dealerChipCount = gameState?.DealerChips.Count ?? 0;
         int playerBetChipCount = GetPlayerBetChipCount();
         int dealerBetChipCount = GetDealerBetChipCount();
-        // Pot remains authoritative; only its 3D presentation is split.
         int potChipCount = GetCarryPotChipCount(
             playerBetChipCount,
             dealerBetChipCount);

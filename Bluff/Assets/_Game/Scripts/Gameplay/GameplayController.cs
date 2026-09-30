@@ -45,6 +45,8 @@ public sealed class GameplayController : MonoBehaviour
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
     private bool isActionProcessing;
+    // Prizm은 먼저 RoundEnd가 되므로 연출 종료까지 Dealer coroutine을 유지한다.
+    private bool isWaitingForDealerPrizmBeforeFold;
     private bool isShowdownResultVisible;
     private bool isFoldResultVisible;
     private bool isShuttingDown;
@@ -149,7 +151,7 @@ public sealed class GameplayController : MonoBehaviour
         UnsubscribeFromItemSystemEvents(unsubscribePlayerRequests: false);
         recoverFoldPresentationOnEnable =
             presentation != null &&
-            presentation.IsCardAnimating &&
+            (presentation.IsCardAnimating || presentation.IsPrizmAnimating) &&
             gameState != null &&
             gameState.RoundEndReason == RoundEndReason.Fold &&
             !isFoldResultVisible;
@@ -370,9 +372,11 @@ public sealed class GameplayController : MonoBehaviour
 
         if (subscribedItemSystem != null)
         {
-            subscribedItemSystem.RefreshCardSucceeded += OnRefreshCardSucceeded;
+            subscribedItemSystem.RefreshCardConsumed += OnRefreshCardConsumed;
             subscribedItemSystem.PlayerItemUseRequested += OnPlayerItemUseRequested;
             subscribedItemSystem.ChipPocketConsumed += OnChipPocketConsumed;
+            subscribedItemSystem.DefyConsumed += OnDefyConsumed;
+            subscribedItemSystem.PrizmChipConsumed += OnPrizmChipConsumed;
             subscribedItemSystem.ItemUseSucceeded += OnItemUseSucceeded;
         }
     }
@@ -381,8 +385,10 @@ public sealed class GameplayController : MonoBehaviour
     {
         if (subscribedItemSystem != null)
         {
-            subscribedItemSystem.RefreshCardSucceeded -= OnRefreshCardSucceeded;
+            subscribedItemSystem.RefreshCardConsumed -= OnRefreshCardConsumed;
             subscribedItemSystem.ChipPocketConsumed -= OnChipPocketConsumed;
+            subscribedItemSystem.DefyConsumed -= OnDefyConsumed;
+            subscribedItemSystem.PrizmChipConsumed -= OnPrizmChipConsumed;
             subscribedItemSystem.ItemUseSucceeded -= OnItemUseSucceeded;
             if (unsubscribePlayerRequests)
             {
@@ -413,14 +419,24 @@ public sealed class GameplayController : MonoBehaviour
             playClickCue: false);
     }
 
-    private void OnRefreshCardSucceeded()
+    private void OnRefreshCardConsumed(TurnOwner owner, GameObject item)
     {
-        presentation.PlayRefresh();
+        presentation?.PlayRefreshItem(owner, item);
     }
 
     private void OnChipPocketConsumed(TurnOwner owner, GameObject item)
     {
         presentation?.PlayChipPocket(owner, item);
+    }
+
+    private void OnDefyConsumed(TurnOwner owner, GameObject item)
+    {
+        presentation?.PlayDefy(owner, item);
+    }
+
+    private void OnPrizmChipConsumed(TurnOwner owner, GameObject item)
+    {
+        presentation?.PlayPrizm(owner, item);
     }
 
     private void OnItemUseSucceeded(TurnOwner owner, ItemType type)
@@ -535,14 +551,8 @@ public sealed class GameplayController : MonoBehaviour
                 gameState.FoldedBy == TurnOwner.Player;
             if (isPlayerFold)
             {
-                presentation.PlayFold(
-                    TurnOwner.Player,
-                    potBefore,
-                    gameState.FoldPenaltyAmount,
-                    playerChipsBefore,
-                    dealerChipsBefore,
-                    potBefore,
-                    CompleteFoldCardReveal);
+                StartPlayerFoldPresentation(
+                    potBefore, playerChipsBefore, dealerChipsBefore);
             }
 
             int potIncrease = gameState.Pot.Amount - potBefore;
@@ -570,6 +580,49 @@ public sealed class GameplayController : MonoBehaviour
             isActionProcessing = false;
             RefreshView();
         }
+    }
+
+    private void StartPlayerFoldPresentation(
+        int potBefore, int playerChipsBefore, int dealerChipsBefore)
+    {
+        int penaltyChips = gameState.FoldPenaltyAmount;
+        if (presentation.IsPrizmAnimating)
+        {
+            StartCoroutine(WaitForPlayerPrizmThenFold(
+                potBefore, penaltyChips,
+                playerChipsBefore, dealerChipsBefore));
+            return;
+        }
+
+        presentation.PlayFold(
+            TurnOwner.Player, potBefore, penaltyChips,
+            playerChipsBefore, dealerChipsBefore, potBefore,
+            CompleteFoldCardReveal);
+    }
+
+    private IEnumerator WaitForPlayerPrizmThenFold(
+        int potBefore, int penaltyChips,
+        int playerChipsBefore, int dealerChipsBefore)
+    {
+        while (presentation.IsPrizmAnimating)
+        {
+            if (isShuttingDown || isRestarting || !isActiveAndEnabled)
+            {
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        if (isShuttingDown || isRestarting || !isActiveAndEnabled)
+        {
+            yield break;
+        }
+
+        presentation.PlayFold(
+            TurnOwner.Player, potBefore, penaltyChips,
+            playerChipsBefore, dealerChipsBefore, potBefore,
+            CompleteFoldCardReveal);
     }
 
     private void RunProgressAction(GamePhase requiredPhase, Func<bool> action)
@@ -675,6 +728,7 @@ public sealed class GameplayController : MonoBehaviour
     private void CancelInvalidDealerAction()
     {
         if (dealerActionCoroutine == null ||
+            isWaitingForDealerPrizmBeforeFold ||
             (gameState.Phase == GamePhase.Betting &&
              gameState.CurrentTurn == TurnOwner.Dealer))
         {
@@ -686,6 +740,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private void CancelDealerAction()
     {
+        isWaitingForDealerPrizmBeforeFold = false;
         if (dealerActionCoroutine == null)
         {
             return;
@@ -746,28 +801,22 @@ public sealed class GameplayController : MonoBehaviour
                     gameState.FoldedBy == TurnOwner.Dealer;
                 if (isDealerItemFold)
                 {
-                    presentation.PlayFold(
-                        TurnOwner.Dealer,
-                        potBefore,
-                        gameState.FoldPenaltyAmount,
-                        playerChipsBefore,
-                        dealerChipsBefore,
-                        potBefore,
-                        CompleteFoldCardReveal);
-                }
-                else
-                {
-                    presentation.RefreshChipsIfChanged(
-                        playerChipsBefore,
-                        dealerChipsBefore,
-                        potBefore);
+                    yield return WaitForDealerPrizmThenFold(
+                        potBefore, playerChipsBefore, dealerChipsBefore);
+                    yield break;
                 }
 
+                presentation.RefreshChipsIfChanged(
+                    playerChipsBefore,
+                    dealerChipsBefore,
+                    potBefore);
                 AddBettingResultLog();
                 yield break;
             }
 
-            while (presentation.IsCardAnimating || presentation.IsChipPocketAnimating)
+            while (presentation.IsCardAnimating ||
+                   presentation.IsChipPocketAnimating ||
+                   presentation.IsRefreshItemAnimating)
             {
                 if (isShuttingDown ||
                     isRestarting ||
@@ -849,10 +898,50 @@ public sealed class GameplayController : MonoBehaviour
         }
         finally
         {
+            isWaitingForDealerPrizmBeforeFold = false;
             isActionProcessing = false;
             dealerActionCoroutine = null;
             RefreshView();
         }
+    }
+
+    private IEnumerator WaitForDealerPrizmThenFold(
+        int potBefore, int playerChipsBefore, int dealerChipsBefore)
+    {
+        if (isShuttingDown || isRestarting || !isActiveAndEnabled)
+        {
+            yield break;
+        }
+
+        if (presentation.IsPrizmAnimating)
+        {
+            isWaitingForDealerPrizmBeforeFold = true;
+            while (presentation.IsPrizmAnimating)
+            {
+                if (isShuttingDown || isRestarting || !isActiveAndEnabled)
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+
+            isWaitingForDealerPrizmBeforeFold = false;
+            if (isShuttingDown || isRestarting || !isActiveAndEnabled)
+            {
+                yield break;
+            }
+        }
+
+        presentation.PlayFold(
+            TurnOwner.Dealer,
+            potBefore,
+            gameState.FoldPenaltyAmount,
+            playerChipsBefore,
+            dealerChipsBefore,
+            potBefore,
+            CompleteFoldCardReveal);
+        AddBettingResultLog();
     }
 
     private void RunRoundStartEffects()

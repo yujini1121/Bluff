@@ -11,16 +11,32 @@ public sealed class GameplayPresentationController : MonoBehaviour
     private Action presentationChanged;
     private bool isChipAnimating;
     private bool isCardAnimating;
+    private bool isFoldRevealComplete;
+
     private bool isChipPocketAnimating;
     private ChipPocketPresentation activeChipPocket;
-    private bool isFoldRevealComplete;
+
+    private bool isDefyAnimating;
+    private DefyPresentation activeDefy;
+
+    private bool isPrizmAnimating;
+    private PrizmPresentation activePrizm;
+
+    private bool isRefreshItemAnimating;
+    private RefreshCardPresentation activeRefreshItem;
+    private bool refreshCardStartedForItem;
 
     public event Action<GameplayPresentationCue> CueRaised;
 
     public bool IsChipAnimating => isChipAnimating;
     public bool IsCardAnimating => isCardAnimating;
     public bool IsChipPocketAnimating => isChipPocketAnimating;
-    public bool IsBusy => isChipAnimating || isCardAnimating || isChipPocketAnimating;
+    public bool IsDefyAnimating => isDefyAnimating;
+    public bool IsPrizmAnimating => isPrizmAnimating;
+    public bool IsRefreshItemAnimating => isRefreshItemAnimating;
+    public bool IsBusy => isChipAnimating || isCardAnimating ||
+                          isChipPocketAnimating || isDefyAnimating ||
+                          isPrizmAnimating || isRefreshItemAnimating;
 
     public void Initialize(GameState gameState, Action presentationChanged)
     {
@@ -69,9 +85,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
         isChipPocketAnimating = true;
         activeChipPocket = pocket;
-        if (!pocket.TryPlay(targets,
-                () => chipVisualController?.RefreshChips(),
-                OnChipPocketFinished))
+        if (!pocket.TryPlay(targets, RefreshChips, OnChipPocketFinished))
         {
             isChipPocketAnimating = false;
             activeChipPocket = null;
@@ -89,9 +103,137 @@ public sealed class GameplayPresentationController : MonoBehaviour
         }
     }
 
-    private void OnDisable()
+    private void CancelChipPocketPresentation()
     {
         activeChipPocket?.Cancel();
+    }
+
+    public void PlayDefy(TurnOwner owner, GameObject item)
+    {
+        DefyPresentation defy = item != null
+            ? item.GetComponentInChildren<DefyPresentation>()
+            : null;
+        if (!isActiveAndEnabled || isDefyAnimating ||
+            chipVisualController == null || defy == null ||
+            !chipVisualController.TryGetDefyTarget(owner, out Vector3 target))
+        {
+            SyncDefyChips();
+            return;
+        }
+
+        isDefyAnimating = true;
+        activeDefy = defy;
+        if (!defy.TryPlay(target, SyncDefyChips, OnDefyFinished))
+        {
+            isDefyAnimating = false;
+            activeDefy = null;
+            SyncDefyChips();
+        }
+    }
+
+    private void SyncDefyChips()
+    {
+        if (chipVisualController != null &&
+            (!Application.isPlaying || gameObject.scene.isLoaded))
+        {
+            chipVisualController.RefreshChips();
+        }
+    }
+
+    private void OnDefyFinished()
+    {
+        isDefyAnimating = false;
+        activeDefy = null;
+        if (isActiveAndEnabled &&
+            (!Application.isPlaying || gameObject.scene.isLoaded))
+        {
+            NotifyChanged();
+        }
+    }
+
+    private void CancelDefyPresentation()
+    {
+        activeDefy?.Cancel();
+    }
+
+    public void PlayPrizm(TurnOwner owner, GameObject item)
+    {
+        PrizmPresentation prizm = item != null
+            ? item.GetComponentInChildren<PrizmPresentation>()
+            : null;
+        if (!isActiveAndEnabled || isPrizmAnimating ||
+            chipVisualController == null || prizm == null ||
+            !chipVisualController.TryGetPrizmTarget(owner, out Vector3 target))
+        {
+            return;
+        }
+
+        isPrizmAnimating = true;
+        activePrizm = prizm;
+        if (!prizm.TryPlay(target, OnPrizmFinished))
+        {
+            isPrizmAnimating = false;
+            activePrizm = null;
+        }
+    }
+
+    private void OnPrizmFinished()
+    {
+        isPrizmAnimating = false;
+        activePrizm = null;
+        if (isActiveAndEnabled &&
+            (!Application.isPlaying || gameObject.scene.isLoaded))
+        {
+            NotifyChanged();
+        }
+    }
+
+    private void CancelPrizmPresentation()
+    {
+        activePrizm?.Cancel();
+        activePrizm = null;
+        isPrizmAnimating = false;
+    }
+
+    public void PlayRefreshItem(TurnOwner owner, GameObject item)
+    {
+        RefreshCardPresentation refreshItem = item != null
+            ? item.GetComponentInChildren<RefreshCardPresentation>()
+            : null;
+        if (refreshItem == null)
+        {
+            PlayRefresh();
+            return;
+        }
+
+        isRefreshItemAnimating = true;
+        activeRefreshItem = refreshItem;
+        refreshCardStartedForItem = false;
+        if (!refreshItem.TryPlay(OnRefreshItemActivated, OnRefreshItemFinished))
+        {
+            isRefreshItemAnimating = false;
+            activeRefreshItem = null;
+            refreshCardStartedForItem = false;
+            PlayRefresh();
+        }
+    }
+
+    private void OnRefreshItemActivated()
+    {
+        if (activeRefreshItem == null) return;
+        if (!isActiveAndEnabled ||
+            (Application.isPlaying && !gameObject.scene.isLoaded))
+        {
+            activeRefreshItem.Cancel();
+            return;
+        }
+
+        refreshCardStartedForItem = true;
+        StartCardRefresh();
+        if (!isCardAnimating)
+        {
+            StartRefreshItemConsume();
+        }
     }
 
     public void PlayRefresh()
@@ -102,6 +244,11 @@ public sealed class GameplayPresentationController : MonoBehaviour
             return;
         }
 
+        StartCardRefresh();
+    }
+
+    private void StartCardRefresh()
+    {
         isCardAnimating = true;
 
         bool refreshStarted =
@@ -115,6 +262,76 @@ public sealed class GameplayPresentationController : MonoBehaviour
             isCardAnimating = false;
             cardVisualController?.RefreshCards();
         }
+    }
+
+    private void OnRefreshCompleted()
+    {
+        isCardAnimating = false;
+        if (activeRefreshItem != null) StartRefreshItemConsume();
+        else NotifyChanged();
+    }
+
+    private void OnRefreshFailed()
+    {
+        cardVisualController?.RefreshCards();
+        isCardAnimating = false;
+        if (activeRefreshItem != null) StartRefreshItemConsume();
+        else NotifyChanged();
+    }
+
+    private void StartRefreshItemConsume()
+    {
+        if (activeRefreshItem == null) return;
+
+        activeRefreshItem.Consume();
+    }
+
+    private void OnRefreshItemFinished()
+    {
+        if (activeRefreshItem == null) return;
+
+        bool startCardRefresh = !refreshCardStartedForItem;
+        isRefreshItemAnimating = false;
+        activeRefreshItem = null;
+        refreshCardStartedForItem = false;
+        if (!isActiveAndEnabled ||
+            (Application.isPlaying && !gameObject.scene.isLoaded))
+        {
+            isCardAnimating = false;
+            return;
+        }
+
+        if (startCardRefresh)
+        {
+            PlayRefresh();
+        }
+        else
+        {
+            NotifyChanged();
+        }
+    }
+
+    private void CancelRefreshPresentation()
+    {
+        RefreshCardPresentation refreshItem = activeRefreshItem;
+        activeRefreshItem = null;
+        isRefreshItemAnimating = false;
+        refreshCardStartedForItem = false;
+        isCardAnimating = false;
+        refreshItem?.Cancel();
+        if (refreshItem != null && cardVisualController != null &&
+            cardVisualController.gameObject.scene.isLoaded)
+        {
+            cardVisualController.RefreshCards();
+        }
+    }
+
+    private void OnDisable()
+    {
+        CancelPrizmPresentation();
+        CancelDefyPresentation();
+        CancelRefreshPresentation();
+        CancelChipPocketPresentation();
     }
 
     public void PlayRoundStart()
@@ -339,7 +556,10 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void RefreshChips()
     {
-        chipVisualController?.RefreshChips();
+        if (chipVisualController != null)
+        {
+            chipVisualController.RefreshChips();
+        }
     }
 
     public void RefreshChipsIfChanged(
@@ -348,6 +568,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
         int potBefore)
     {
         if (chipVisualController == null || isChipPocketAnimating ||
+            isDefyAnimating ||
             (playerChipsBefore == gameState.PlayerChips.Count &&
              dealerChipsBefore == gameState.DealerChips.Count &&
              potBefore == gameState.Pot.Amount))
@@ -368,19 +589,6 @@ public sealed class GameplayPresentationController : MonoBehaviour
     public void FinishCardPresentation()
     {
         isCardAnimating = false;
-    }
-
-    private void OnRefreshCompleted()
-    {
-        isCardAnimating = false;
-        NotifyChanged();
-    }
-
-    private void OnRefreshFailed()
-    {
-        cardVisualController?.RefreshCards();
-        isCardAnimating = false;
-        NotifyChanged();
     }
 
     private bool TryStartRoundAnte()

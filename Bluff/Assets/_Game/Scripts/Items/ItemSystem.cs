@@ -9,8 +9,10 @@ public class ItemSystem : MonoBehaviour
 
     private ItemGameApi itemGameApi;
 
-    public event System.Action RefreshCardSucceeded;
+    public event System.Action<TurnOwner, GameObject> RefreshCardConsumed;
     public event System.Action<TurnOwner, GameObject> ChipPocketConsumed;
+    public event System.Action<TurnOwner, GameObject> DefyConsumed;
+    public event System.Action<TurnOwner, GameObject> PrizmChipConsumed;
     public event System.Action<TurnOwner, ItemType> ItemUseSucceeded;
     internal event System.Action<GameObject> PlayerItemUseRequested;
 
@@ -102,7 +104,6 @@ public class ItemSystem : MonoBehaviour
             return false;
         }
 
-        // The item has been consumed. A presentation listener must not undo gameplay.
         try
         {
             ItemUseSucceeded?.Invoke(owner, type);
@@ -164,18 +165,28 @@ public class ItemSystem : MonoBehaviour
             return false;
         }
 
-        // The effect is already committed. Let the presentation detach its visuals
-        // while the consumed item still exists.
-        if (type == ItemType.chipPocket)
+        try
         {
-            try
+            if (type == ItemType.refreshCard)
+            {
+                RefreshCardConsumed?.Invoke(owner, item);
+            }
+            else if (type == ItemType.chipPocket)
             {
                 ChipPocketConsumed?.Invoke(owner, item);
             }
-            catch (System.Exception exception)
+            else if (type == ItemType.defy)
             {
-                Debug.LogException(exception, this);
+                DefyConsumed?.Invoke(owner, item);
             }
+            else if (type == ItemType.prizmChip)
+            {
+                PrizmChipConsumed?.Invoke(owner, item);
+            }
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogException(exception, this);
         }
 
         if (Application.isPlaying)
@@ -314,8 +325,6 @@ public class ItemSystem : MonoBehaviour
             return false;
         }
 
-        // Refresh 성공 이벤트 신호 발생 -> 카드 비주얼 업데이트 갱신
-        RefreshCardSucceeded?.Invoke();
         Debug.Log("'새로고침 카드' 아이템이 사용되었습니다. 시드 카드와 각 플레이어의 카드를 재설정합니다.");
         return true;
     }

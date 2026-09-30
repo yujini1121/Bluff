@@ -152,6 +152,30 @@ public sealed class ItemSystemTests
         Assert.That(item == null, Is.True);
     }
 
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void RefreshCardConsumed_FiresAfterCommitAndInventoryRemoval(
+        TurnOwner owner)
+    {
+        GameState gameState = CreateRefreshRound(owner, false);
+        ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
+        GameObject item = AddItem(inventory, owner, ItemType.refreshCard);
+        Card previousCard = gameState.PlayerCard;
+        bool notifiedAfterCommit = false;
+        itemSystem.RefreshCardConsumed += (eventOwner, consumedItem) =>
+        {
+            notifiedAfterCommit = eventOwner == owner &&
+                ReferenceEquals(consumedItem, item) &&
+                consumedItem != null &&
+                !inventory.HasItem(owner, consumedItem) &&
+                !ReferenceEquals(gameState.PlayerCard, previousCard);
+        };
+
+        Assert.That(itemSystem.UseItem(owner, item), Is.True);
+        Assert.That(notifiedAfterCommit, Is.True);
+        Assert.That(item == null, Is.True);
+    }
+
     [Test]
     public void TryUseItem_DealerPrizmChipFoldsWithoutPenalty()
     {
@@ -171,6 +195,29 @@ public sealed class ItemSystemTests
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(20));
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.RoundEnd));
         Assert.That(inventory.dealerItemInventory, Is.All.Null);
+    }
+
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void PrizmChipConsumed_FiresAfterFoldAndInventoryRemoval(TurnOwner owner)
+    {
+        GameState gameState = CreateBettingGame(owner);
+        ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
+        GameObject item = AddItem(inventory, owner, ItemType.prizmChip);
+        bool notifiedAfterCommit = false;
+        itemSystem.PrizmChipConsumed += (eventOwner, consumedItem) =>
+        {
+            notifiedAfterCommit = eventOwner == owner &&
+                ReferenceEquals(consumedItem, item) &&
+                consumedItem != null &&
+                !inventory.HasItem(owner, consumedItem) &&
+                gameState.FoldedBy == owner &&
+                gameState.FoldPenaltyAmount == 0;
+        };
+
+        Assert.That(itemSystem.UseItem(owner, item), Is.True);
+        Assert.That(notifiedAfterCommit, Is.True);
+        Assert.That(item == null, Is.True);
     }
 
     [Test]
@@ -193,6 +240,33 @@ public sealed class ItemSystemTests
         Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
         Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
         Assert.That(inventory.dealerItemInventory, Is.All.Null);
+    }
+
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void DefyConsumed_FiresAfterRefundAndInventoryRemoval(TurnOwner owner)
+    {
+        TurnOwner raiser = owner == TurnOwner.Player
+            ? TurnOwner.Dealer : TurnOwner.Player;
+        GameState gameState = CreateBettingGame(raiser);
+        Assert.That(gameState.TryRaise(4), Is.True);
+        ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
+        GameObject item = AddItem(inventory, owner, ItemType.defy);
+        bool notifiedAfterCommit = false;
+        itemSystem.DefyConsumed += (eventOwner, consumedItem) =>
+        {
+            notifiedAfterCommit = eventOwner == owner &&
+                ReferenceEquals(consumedItem, item) &&
+                consumedItem != null &&
+                !inventory.HasItem(owner, consumedItem) &&
+                gameState.PlayerChips.Count == 20 &&
+                gameState.DealerChips.Count == 20 &&
+                gameState.Phase == GamePhase.Showdown;
+        };
+
+        Assert.That(itemSystem.UseItem(owner, item), Is.True);
+        Assert.That(notifiedAfterCommit, Is.True);
+        Assert.That(item == null, Is.True);
     }
 
     [Test]

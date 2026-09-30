@@ -138,7 +138,7 @@ public sealed class RefreshCardVisualTests
         // 성공 통지 뒤 적용한 위치를 두 번째 RefreshCards 호출이 다시 초기화하는지 검사한다.
         Vector3 markerPosition = new Vector3(7, 8, 9);
         int notifications = 0;
-        itemSystem.RefreshCardSucceeded += () =>
+        itemSystem.RefreshCardConsumed += (eventOwner, consumedItem) =>
         {
             notifications++;
             AssertVisualsMatchCurrentCards();
@@ -150,6 +150,136 @@ public sealed class RefreshCardVisualTests
         Assert.That(notifications, Is.EqualTo(1));
         Assert.That(playerRoot.position, Is.EqualTo(markerPosition));
         AssertVisualsMatchCurrentCards();
+    }
+
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void RefreshActivation_PrecedesCardRefreshAndConsumesAfterIt(TurnOwner owner)
+    {
+        ConfigureView();
+        controller.gameObject.SetActive(true);
+        int[] previousRanks = GetVisualRanks();
+        RefreshCardPresentation activation = UseRefreshWithActivation(owner,
+            out GameObject item);
+
+        Assert.That(item == null, Is.True);
+        Assert.That(inventory.HasItem(owner, item), Is.False);
+        Assert.That(activation == null, Is.False);
+        Assert.That(activation.transform.parent, Is.Null);
+        Assert.That(gameState.PlayerCard.Rank, Is.EqualTo(2));
+        Assert.That(presentation.IsRefreshItemAnimating, Is.True);
+        Assert.That(presentation.IsBusy, Is.True);
+        Assert.That(presentation.IsCardAnimating, Is.False);
+        Assert.That(GetField(controller, "refreshSequence"), Is.Null);
+        Assert.That(GetVisualRanks(), Is.EqualTo(previousRanks));
+
+        var itemSequence = (Sequence)GetField(activation, "sequence");
+        itemSequence.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+
+        Assert.That(presentation.IsRefreshItemAnimating, Is.True);
+        Assert.That(presentation.IsCardAnimating, Is.True);
+        Assert.That(activation == null, Is.False);
+        var refresh = (Sequence)GetField(controller, "refreshSequence");
+        Assert.That(refresh, Is.Not.Null);
+        refresh.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+
+        var deal = (Sequence)GetField(controller, "dealSequence");
+        Assert.That(deal, Is.Not.Null);
+        deal.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+        Invoke(controller, "CompleteRefreshDeal");
+        Invoke(presentation, "OnRefreshCompleted");
+
+        Assert.That(presentation.IsRefreshItemAnimating, Is.True);
+        Assert.That(presentation.IsBusy, Is.True);
+        Assert.That(activation == null, Is.False);
+        var consume = (Sequence)GetField(activation, "sequence");
+        Assert.That(consume, Is.Not.Null);
+        consume.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+
+        Assert.That(activation == null, Is.True);
+        Assert.That(presentation.IsBusy, Is.False);
+        AssertVisualsMatchCurrentCards();
+    }
+
+    [Test]
+    public void RefreshWithoutActivation_UsesExistingCardPresentation()
+    {
+        controller.gameObject.SetActive(true);
+        UseRefresh(TurnOwner.Player);
+
+        Assert.That(presentation.IsRefreshItemAnimating, Is.False);
+        Assert.That(presentation.IsCardAnimating, Is.True);
+        Assert.That(GetField(controller, "refreshSequence"), Is.Not.Null);
+    }
+
+    [Test]
+    public void RefreshActivationThatCannotStart_UsesExistingCardPresentation()
+    {
+        controller.gameObject.SetActive(true);
+        GameObject item = AddItem(TurnOwner.Player, ItemType.refreshCard);
+        GameObject root = CreateObject("VisualRoot");
+        root.transform.SetParent(item.transform, false);
+        RefreshCardPresentation activation =
+            root.AddComponent<RefreshCardPresentation>();
+        SetField(activation, "finished", true);
+
+        Assert.That(itemSystem.TryUseItem(TurnOwner.Player, ItemType.refreshCard),
+            Is.True);
+
+        Assert.That(item == null, Is.True);
+        Assert.That(presentation.IsRefreshItemAnimating, Is.False);
+        Assert.That(presentation.IsCardAnimating, Is.True);
+        Assert.That(GetField(controller, "refreshSequence"), Is.Not.Null);
+    }
+
+    [Test]
+    public void CancelingActivation_StartsExistingCardPresentation()
+    {
+        controller.gameObject.SetActive(true);
+        RefreshCardPresentation activation = UseRefreshWithActivation(
+            TurnOwner.Player, out _);
+
+        activation.Cancel();
+
+        Assert.That(activation == null, Is.True);
+        Assert.That(presentation.IsRefreshItemAnimating, Is.False);
+        Assert.That(presentation.IsCardAnimating, Is.True);
+        Assert.That(GetField(controller, "refreshSequence"), Is.Not.Null);
+    }
+
+    [Test]
+    public void DisablingPresentation_CancelsRefreshActivationAndClearsBusy()
+    {
+        RefreshCardPresentation activation = UseRefreshWithActivation(
+            TurnOwner.Player, out _);
+        Assert.That(presentation.IsBusy, Is.True);
+
+        presentation.enabled = false;
+        Invoke(presentation, "OnDisable");
+
+        Assert.That(activation == null, Is.True);
+        Assert.That(presentation.IsBusy, Is.False);
+        AssertVisualsMatchCurrentCards();
+    }
+
+    [Test]
+    public void RefreshPrefab_HasVisualRootPresentation()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Prefabs/Items/Item_RefreshCard.prefab");
+        Assert.That(prefab, Is.Not.Null);
+        GameObject instance = Track((GameObject)PrefabUtility.InstantiatePrefab(prefab));
+        RefreshCardPresentation activation =
+            instance.GetComponentInChildren<RefreshCardPresentation>();
+
+        Assert.That(activation, Is.Not.Null);
+        Assert.That(activation.transform.name, Is.EqualTo("VisualRoot"));
+        Assert.That(activation.transform.parent, Is.EqualTo(instance.transform));
+        Assert.That(activation.transform.GetChild(0).name, Is.EqualTo("MD_Card"));
     }
 
     [Test]
@@ -263,7 +393,7 @@ public sealed class RefreshCardVisualTests
             Assert.That(gameState.TryRaise(1), Is.True);
         }
         int notifications = 0;
-        itemSystem.RefreshCardSucceeded += () => notifications++;
+        itemSystem.RefreshCardConsumed += (owner, item) => notifications++;
         Vector3 markerPosition = new Vector3(7, 8, 9);
         playerRoot.position = markerPosition;
         AddItem(TurnOwner.Player, type);
@@ -280,7 +410,7 @@ public sealed class RefreshCardVisualTests
     {
         Assert.That(gameState.Deck.TryDraw(out _), Is.True);
         int notifications = 0;
-        itemSystem.RefreshCardSucceeded += () => notifications++;
+        itemSystem.RefreshCardConsumed += (owner, item) => notifications++;
         GameObject item = AddItem(TurnOwner.Player, ItemType.refreshCard);
 
         Assert.That(itemSystem.TryUseItem(TurnOwner.Player, ItemType.refreshCard), Is.False);
@@ -333,6 +463,19 @@ public sealed class RefreshCardVisualTests
         GameObject item = AddItem(owner, ItemType.refreshCard);
         Assert.That(itemSystem.TryUseItem(owner, ItemType.refreshCard), Is.True);
         Assert.That(item == null, Is.True);
+    }
+
+    private RefreshCardPresentation UseRefreshWithActivation(
+        TurnOwner owner, out GameObject item)
+    {
+        gameState.Turn.TrySet(owner);
+        item = AddItem(owner, ItemType.refreshCard);
+        GameObject root = CreateObject("VisualRoot");
+        root.transform.SetParent(item.transform, false);
+        RefreshCardPresentation activation =
+            root.AddComponent<RefreshCardPresentation>();
+        Assert.That(itemSystem.TryUseItem(owner, ItemType.refreshCard), Is.True);
+        return activation;
     }
 
     private int[] GetVisualRanks()
@@ -400,7 +543,8 @@ public sealed class RefreshCardVisualTests
 
     private int SubscriberCount()
     {
-        var handlers = (System.Action)GetField(itemSystem, "RefreshCardSucceeded");
+        var handlers = (System.Action<TurnOwner, GameObject>)
+            GetField(itemSystem, "RefreshCardConsumed");
         return handlers?.GetInvocationList().Length ?? 0;
     }
 

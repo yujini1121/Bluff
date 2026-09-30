@@ -196,7 +196,7 @@ public sealed class PlayerItemPresentationTests
         var cues = new List<GameplayPresentationCue>();
         presentation.CueRaised += cues.Add;
 
-        ui.OnCallClicked(); // No outstanding bet: rejected.
+        ui.OnCallClicked();
         ui.OnRaiseIncreaseClicked();
         ui.OnRaiseDecreaseClicked();
         ui.OnRaiseDecreaseClicked();
@@ -251,7 +251,7 @@ public sealed class PlayerItemPresentationTests
     }
 
     [Test]
-    public void PlayerPocket_LidSeparatesBeforeFirstChipLaunch()
+    public void PlayerPocket_PartsStayUnderVisualRootDuringFlight()
     {
         GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
         ChipPocketPresentation pocket = AttachPocketVisual(item);
@@ -267,9 +267,11 @@ public sealed class PlayerItemPresentationTests
             (float)Get(pocket, "afterLidPopDelay") * 0.5f;
         DOTween.ManualUpdate(beforeFirstChipLaunch, beforeFirstChipLaunch);
 
-        Assert.That(lid.parent, Is.Null);
+        Assert.That(lid.parent, Is.EqualTo(pocket.transform));
         Assert.That(firstChip.parent, Is.EqualTo(pocket.transform));
         Assert.That(presentation.IsChipPocketAnimating, Is.True);
+        DOTween.ManualUpdate(0.08f, 0.08f);
+        Assert.That(firstChip.parent, Is.EqualTo(pocket.transform));
         CompletePocket(pocket);
         AssertChipVisuals();
     }
@@ -285,6 +287,48 @@ public sealed class PlayerItemPresentationTests
         pocket.Cancel();
 
         Assert.That(presentation.IsChipPocketAnimating, Is.False);
+        Assert.That(presentation.IsBusy, Is.False);
+        AssertChipVisuals();
+    }
+
+    [Test]
+    public void PlayerPocket_SyncsAtArrivalBeforePocketDisappears()
+    {
+        GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
+        ChipPocketPresentation pocket = AttachPocketVisual(item);
+        Transform firstChip = (Transform)Get(pocket, "chip01");
+        int before = Count("playerChipInstances");
+        item.GetComponent<Item>().Use();
+
+        Sequence animation = (Sequence)Get(pocket, "sequence");
+        animation.SetUpdate(UpdateType.Manual);
+        float arrivalTime =
+            (float)Get(pocket, "liftDuration") +
+            (float)Get(pocket, "lidPopDuration") +
+            (float)Get(pocket, "afterLidPopDelay") +
+            2f * (float)Get(pocket, "chipStagger") +
+            (float)Get(pocket, "chipLaunchDuration") +
+            (float)Get(pocket, "chipMoveDuration") + 0.01f;
+        DOTween.ManualUpdate(arrivalTime, arrivalTime);
+
+        Assert.That(pocket == null, Is.False);
+        Assert.That(presentation.IsChipPocketAnimating, Is.True);
+        Assert.That(firstChip.gameObject.activeSelf, Is.False);
+        Assert.That(Count("playerChipInstances"), Is.EqualTo(before + 3));
+        CompletePocket(pocket);
+        Assert.That(presentation.IsChipPocketAnimating, Is.False);
+    }
+
+    [Test]
+    public void PlayerPocket_DisablingPresentationCancelsWithoutLeavingBusy()
+    {
+        GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
+        AttachPocketVisual(item);
+        item.GetComponent<Item>().Use();
+
+        presentation.enabled = false;
+
+        Assert.That(presentation.IsBusy, Is.False);
         AssertChipVisuals();
     }
 
@@ -298,8 +342,9 @@ public sealed class PlayerItemPresentationTests
         ChipPocketPresentation pocket =
             instance.GetComponentInChildren<ChipPocketPresentation>();
         Assert.That(pocket, Is.Not.Null);
-        Transform caseRoot = (Transform)Get(pocket, "caseTransform");
+        Transform caseRoot = pocket.transform.Find("Case");
         Transform lidRoot = (Transform)Get(pocket, "rightLid");
+        Assert.That(caseRoot, Is.Not.Null);
         MeshFilter body = caseRoot.GetComponent<MeshFilter>();
         MeshFilter cap = lidRoot.GetComponentInChildren<MeshFilter>();
         Assert.That(body, Is.Not.Null);
@@ -357,7 +402,8 @@ public sealed class PlayerItemPresentationTests
         state.TrySetPhase(GamePhase.Betting);
         state.Turn.TrySet(TurnOwner.Dealer);
         Bind(state);
-        Add(TurnOwner.Dealer, ItemType.refreshCard);
+        GameObject item = Add(TurnOwner.Dealer, ItemType.refreshCard);
+        RefreshCardPresentation activation = AttachRefreshVisual(item);
         Set(ui, "minDealerThinkDelay", 0f);
         Set(ui, "maxDealerThinkDelay", 0f);
         Random.InitState(FindDealerSeed(ItemType.refreshCard));
@@ -365,14 +411,28 @@ public sealed class PlayerItemPresentationTests
 
         Assert.That(routine.MoveNext(), Is.True);
         Assert.That(routine.MoveNext(), Is.True);
-        Assert.That(presentation.IsCardAnimating, Is.True);
+        Assert.That(item == null, Is.True);
+        Assert.That(presentation.IsRefreshItemAnimating, Is.True);
+        Assert.That(presentation.IsCardAnimating, Is.False);
         Assert.That(game.Phase, Is.EqualTo(GamePhase.Betting));
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        Assert.That(routine.MoveNext(), Is.True);
+
+        CompleteRefreshItemSequence(activation);
+
+        Assert.That(presentation.IsRefreshItemAnimating, Is.True);
+        Assert.That(presentation.IsCardAnimating, Is.True);
         Assert.That(routine.MoveNext(), Is.True);
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
 
         CompleteRefreshPresentation();
 
+        Assert.That(presentation.IsRefreshItemAnimating, Is.True);
+        Assert.That(activation == null, Is.False);
+        Assert.That(routine.MoveNext(), Is.True);
+        CompleteRefreshItemSequence(activation);
+
+        Assert.That(presentation.IsBusy, Is.False);
         Assert.That(routine.MoveNext(), Is.False);
         Assert.That(
             game.Phase != GamePhase.Betting ||
@@ -444,6 +504,135 @@ public sealed class PlayerItemPresentationTests
         else Assert.That(((TMP_Text)Get(view, "resultDetailText")).text, Is.EqualTo("PLAYER FOLD"));
     }
 
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void PrizmVisual_MovesToOwnChipAreaAndClearsBusy(TurnOwner owner)
+    {
+        Bind(NewRound(owner));
+        Transform area = (Transform)Get(chips,
+            owner == TurnOwner.Player ? "playerChipArea" : "dealerChipArea");
+        area.position = owner == TurnOwner.Player
+            ? new Vector3(-2f, 0f, 0f) : new Vector3(2f, 0f, 0f);
+        RefreshChips();
+        GameObject item = Add(owner, ItemType.prizmChip);
+        PrizmPresentation prizm = AttachPrizmVisual(item);
+
+        Assert.That(items.UseItem(owner, item), Is.True);
+        Assert.That(item == null, Is.True);
+        Assert.That(inventory.HasItem(owner, item), Is.False);
+        Assert.That(prizm.transform.parent, Is.Null);
+        Assert.That(game.FoldPenaltyAmount, Is.Zero);
+        Assert.That(presentation.IsPrizmAnimating, Is.True);
+        Assert.That(presentation.IsBusy, Is.True);
+        Assert.That(presentation.IsChipAnimating, Is.False);
+        Assert.That(presentation.IsCardAnimating, Is.False);
+
+        Sequence sequence = (Sequence)Get(prizm, "sequence");
+        sequence.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.4f, 0.4f);
+        Assert.That(prizm.transform.position.x,
+            Is.EqualTo(area.position.x).Within(0.001f));
+        Assert.That(presentation.IsBusy, Is.True);
+
+        DOTween.ManualUpdate(10f, 10f);
+        Assert.That(prizm == null, Is.True);
+        Assert.That(presentation.IsPrizmAnimating, Is.False);
+        Assert.That(presentation.IsBusy, Is.False);
+    }
+
+    [Test]
+    public void PrizmPrefab_DetachesOnlyItsVisualRoot()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Prefabs/Items/Item_PrizmChip.prefab");
+        Assert.That(prefab, Is.Not.Null);
+        Assert.That(prefab.GetComponent<Item>(), Is.Not.Null);
+        Assert.That(prefab.GetComponent<Collider>(), Is.Not.Null);
+        Transform visualRoot = prefab.transform.Find("VisualRoot");
+        Assert.That(visualRoot, Is.Not.Null);
+        Assert.That(visualRoot.Find("MD_Chip"), Is.Not.Null);
+        Assert.That(visualRoot.GetComponent<PrizmPresentation>(), Is.Not.Null);
+        Assert.That(prefab.transform.Find("TooltipAnchor"), Is.Not.Null);
+    }
+
+    [Test]
+    public void PlayerPrizm_WaitsForVisualBeforeFoldSettlement()
+    {
+        int potBefore = game.Pot.Amount;
+        GameObject item = Add(TurnOwner.Player, ItemType.prizmChip);
+        PrizmPresentation prizm = AttachPrizmVisual(item);
+        Assert.That(items.UseItem(TurnOwner.Player, item), Is.True);
+
+        var wait = (IEnumerator)Invoke(ui, "WaitForPlayerPrizmThenFold",
+            potBefore, game.FoldPenaltyAmount, 19, 19);
+        Assert.That(wait.MoveNext(), Is.True);
+        Assert.That(presentation.IsChipAnimating, Is.False);
+
+        CompletePrizm(prizm);
+        Assert.That(wait.MoveNext(), Is.False);
+        Assert.That(presentation.IsChipAnimating, Is.True);
+        CompleteChipMoves();
+        CompleteCardReveal();
+        Assert.That(Get(ui, "isFoldResultVisible"), Is.EqualTo(true));
+        AssertChipVisuals();
+    }
+
+    [Test]
+    public void CancelingPrizm_ClearsBusyAndAllowsExistingFold()
+    {
+        int potBefore = game.Pot.Amount;
+        GameObject item = Add(TurnOwner.Player, ItemType.prizmChip);
+        PrizmPresentation prizm = AttachPrizmVisual(item);
+        Assert.That(items.UseItem(TurnOwner.Player, item), Is.True);
+        var wait = (IEnumerator)Invoke(ui, "WaitForPlayerPrizmThenFold",
+            potBefore, game.FoldPenaltyAmount, 19, 19);
+        Assert.That(wait.MoveNext(), Is.True);
+
+        prizm.Cancel();
+        Assert.That(presentation.IsBusy, Is.False);
+        Assert.That(wait.MoveNext(), Is.False);
+        Assert.That(presentation.IsChipAnimating, Is.True);
+        Assert.That(game.FoldPenaltyAmount, Is.Zero);
+    }
+
+    [Test]
+    public void DealerPrizm_WaitsForVisualBeforeFoldSettlement()
+    {
+        var state = new GameState(20, 20, Deck.CreateIndianHoldemDeck());
+        Assert.That(state.TryStartRound(TurnOwner.Player), Is.True);
+        state.TrySetPlayerCard(new Card(4));
+        state.TrySetDealerCard(new Card(1));
+        state.TrySetCommunityCards(new Card(4), new Card(2));
+        Assert.That(state.TryRaise(2), Is.True);
+        Bind(state);
+        RefreshChips();
+        GameObject item = Add(TurnOwner.Dealer, ItemType.prizmChip);
+        PrizmPresentation prizm = AttachPrizmVisual(item);
+        Set(ui, "minDealerThinkDelay", 0f);
+        Set(ui, "maxDealerThinkDelay", 0f);
+        Random.InitState(FindDealerSeed(ItemType.prizmChip));
+        var routine = (IEnumerator)Invoke(ui, "PerformDealerActionAfterDelay");
+
+        Assert.That(routine.MoveNext(), Is.True);
+        Assert.That(routine.MoveNext(), Is.True);
+        Assert.That(routine.Current, Is.InstanceOf<IEnumerator>());
+        var fold = (IEnumerator)routine.Current;
+        Assert.That(fold.MoveNext(), Is.True);
+        Assert.That(game.FoldPenaltyAmount, Is.Zero);
+        Assert.That(presentation.IsPrizmAnimating, Is.True);
+        Assert.That(presentation.IsChipAnimating, Is.False);
+        Assert.That(Get(ui, "isWaitingForDealerPrizmBeforeFold"), Is.EqualTo(true));
+
+        CompletePrizm(prizm);
+        Assert.That(fold.MoveNext(), Is.False);
+        Assert.That(routine.MoveNext(), Is.False);
+        Assert.That(presentation.IsChipAnimating, Is.True);
+        Assert.That(Get(ui, "isWaitingForDealerPrizmBeforeFold"), Is.EqualTo(false));
+        CompleteChipMoves();
+        CompleteCardReveal();
+        Assert.That(Get(ui, "isFoldResultVisible"), Is.EqualTo(true));
+    }
+
     [Test]
     public void PlayerDefy_ImmediatelySynchronizesRefundThenCompletesExistingShowdown()
     {
@@ -473,6 +662,135 @@ public sealed class PlayerItemPresentationTests
         AssertChipVisuals();
         Assert.That(game.PlayerChips.Count, Is.EqualTo(22));
         Assert.That(game.Phase, Is.EqualTo(GamePhase.RoundEnd));
+    }
+
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void DefyVisual_SyncsRefundAtOpponentBetAreaImpact(TurnOwner owner)
+    {
+        TurnOwner raiser = owner == TurnOwner.Player
+            ? TurnOwner.Dealer : TurnOwner.Player;
+        Bind(NewRound(raiser));
+        Assert.That(game.TryRaise(3), Is.True);
+        ((Transform)Get(chips, "playerBetAreaPoint")).position =
+            new Vector3(-2f, 0f, 0f);
+        ((Transform)Get(chips, "dealerBetAreaPoint")).position =
+            new Vector3(2f, 0f, 0f);
+        RefreshChips();
+
+        string opponentChips = owner == TurnOwner.Player
+            ? "dealerChipInstances" : "playerChipInstances";
+        int visualChipsBefore = Count(opponentChips);
+        int playerChipsBefore = game.PlayerChips.Count;
+        int dealerChipsBefore = game.DealerChips.Count;
+        int potBefore = game.Pot.Amount;
+        GameObject item = Add(owner, ItemType.defy);
+        DefyPresentation defy = AttachDefyVisual(item);
+
+        Assert.That(items.UseItem(owner, item), Is.True);
+        Assert.That(item == null, Is.True);
+        Assert.That(inventory.HasItem(owner, item), Is.False);
+        Assert.That(defy == null, Is.False);
+        Assert.That(defy.transform.parent, Is.Null);
+        Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(presentation.IsDefyAnimating, Is.True);
+        Assert.That(presentation.IsBusy, Is.True);
+        Assert.That(Count(opponentChips), Is.EqualTo(visualChipsBefore));
+
+        presentation.RefreshChipsIfChanged(
+            playerChipsBefore, dealerChipsBefore, potBefore);
+        Assert.That(Count(opponentChips), Is.EqualTo(visualChipsBefore));
+
+        Sequence sequence = (Sequence)Get(defy, "sequence");
+        sequence.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.3f, 0.3f);
+        Assert.That(Count(opponentChips), Is.EqualTo(visualChipsBefore));
+        DOTween.ManualUpdate(0.2f, 0.2f);
+        AssertChipVisuals();
+        float targetX = owner == TurnOwner.Player ? 2f : -2f;
+        Assert.That(defy.transform.position.x,
+            Is.EqualTo(targetX).Within(0.001f));
+        Assert.That(presentation.IsBusy, Is.True);
+
+        DOTween.ManualUpdate(10f, 10f);
+        Assert.That(defy == null, Is.True);
+        Assert.That(presentation.IsDefyAnimating, Is.False);
+        Assert.That(presentation.IsBusy, Is.False);
+    }
+
+    [Test]
+    public void CancelingDefyVisual_SyncsRefundAndClearsBusy()
+    {
+        Bind(NewRound(TurnOwner.Dealer));
+        Assert.That(game.TryRaise(3), Is.True);
+        RefreshChips();
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        DefyPresentation defy = AttachDefyVisual(item);
+
+        Assert.That(items.UseItem(TurnOwner.Player, item), Is.True);
+        Assert.That(presentation.IsBusy, Is.True);
+        defy.Cancel();
+
+        Assert.That(defy == null, Is.True);
+        Assert.That(presentation.IsDefyAnimating, Is.False);
+        Assert.That(presentation.IsBusy, Is.False);
+        AssertChipVisuals();
+    }
+
+    [Test]
+    public void DisablingPresentation_CancelsDefyAndClearsBusy()
+    {
+        Bind(NewRound(TurnOwner.Dealer));
+        Assert.That(game.TryRaise(3), Is.True);
+        RefreshChips();
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        DefyPresentation defy = AttachDefyVisual(item);
+
+        Assert.That(items.UseItem(TurnOwner.Player, item), Is.True);
+        presentation.enabled = false;
+        Invoke(presentation, "OnDisable");
+
+        Assert.That(defy == null, Is.True);
+        Assert.That(presentation.IsDefyAnimating, Is.False);
+        Assert.That(presentation.IsBusy, Is.False);
+        AssertChipVisuals();
+    }
+
+    [Test]
+    public void DefyVisualThatCannotStart_ImmediatelySyncsRefund()
+    {
+        Bind(NewRound(TurnOwner.Dealer));
+        Assert.That(game.TryRaise(3), Is.True);
+        RefreshChips();
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        DefyPresentation defy = AttachDefyVisual(item);
+        defy.enabled = false;
+
+        Assert.That(items.UseItem(TurnOwner.Player, item), Is.True);
+        Assert.That(item == null, Is.True);
+        Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(presentation.IsDefyAnimating, Is.False);
+        Assert.That(presentation.IsBusy, Is.False);
+        AssertChipVisuals();
+    }
+
+    [Test]
+    public void DefyPrefab_SeparatesVisualRootFromItemComponents()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Prefabs/Items/Item_Defy.prefab");
+        Assert.That(prefab, Is.Not.Null);
+        GameObject instance = Track(Object.Instantiate(prefab));
+        DefyPresentation defy =
+            instance.GetComponentInChildren<DefyPresentation>();
+
+        Assert.That(defy, Is.Not.Null);
+        Assert.That(defy.transform.parent, Is.EqualTo(instance.transform));
+        Assert.That(defy.transform.name, Is.EqualTo("VisualRoot"));
+        Assert.That(defy.transform.Find("Defy"), Is.Not.Null);
+        Assert.That(instance.GetComponent<Item>(), Is.Not.Null);
+        Assert.That(instance.GetComponent<BoxCollider>(), Is.Not.Null);
+        Assert.That(instance.transform.Find("TooltipAnchor"), Is.Not.Null);
     }
 
     [TestCase(ItemType.chipPocket)]
@@ -559,6 +877,12 @@ public sealed class PlayerItemPresentationTests
         Random.InitState(seed);
         var routine = (IEnumerator)Invoke(ui, "PerformDealerActionAfterDelay");
         Assert.That(routine.MoveNext(), Is.True);
+        if (type == ItemType.prizmChip)
+        {
+            Assert.That(routine.MoveNext(), Is.True);
+            Assert.That(routine.Current, Is.InstanceOf<IEnumerator>());
+            Assert.That(((IEnumerator)routine.Current).MoveNext(), Is.False);
+        }
         Assert.That(routine.MoveNext(), Is.False);
         Assert.That(first == null, Is.True);
         Assert.That(inventory.HasItem(TurnOwner.Dealer, second), Is.True);
@@ -586,6 +910,43 @@ public sealed class PlayerItemPresentationTests
             }
         }
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.None));
+        AssertChipVisuals();
+    }
+
+    [Test]
+    public void DealerDefy_WaitsForVisualBeforeShowdownInput()
+    {
+        var state = new GameState(20, 7, Deck.CreateIndianHoldemDeck());
+        Assert.That(state.TryStartRound(TurnOwner.Player), Is.True);
+        state.TrySetPlayerCard(new Card(1));
+        state.TrySetDealerCard(new Card(2));
+        state.TrySetCommunityCards(new Card(4), new Card(7));
+        Assert.That(state.TryRaise(3), Is.True);
+        Bind(state);
+        RefreshChips();
+        GameObject item = Add(TurnOwner.Dealer, ItemType.defy);
+        DefyPresentation defy = AttachDefyVisual(item);
+        Set(ui, "minDealerThinkDelay", 0f);
+        Set(ui, "maxDealerThinkDelay", 0f);
+        Random.InitState(FindDealerSeed(ItemType.defy));
+        var routine = (IEnumerator)Invoke(ui, "PerformDealerActionAfterDelay");
+
+        Assert.That(routine.MoveNext(), Is.True);
+        Assert.That(routine.MoveNext(), Is.False);
+        Assert.That(item == null, Is.True);
+        Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(presentation.IsDefyAnimating, Is.True);
+        Assert.That(presentation.IsBusy, Is.True);
+        Assert.That(((Button)Get(view, "resolveShowdownButton")).interactable,
+            Is.False);
+
+        Sequence sequence = (Sequence)Get(defy, "sequence");
+        sequence.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+
+        Assert.That(presentation.IsBusy, Is.False);
+        Assert.That(((Button)Get(view, "resolveShowdownButton")).interactable,
+            Is.True);
         AssertChipVisuals();
     }
 
@@ -622,13 +983,46 @@ public sealed class PlayerItemPresentationTests
     {
         Transform root = CreateObject("VisualRoot", item.transform).transform;
         ChipPocketPresentation pocket = root.gameObject.AddComponent<ChipPocketPresentation>();
-        Set(pocket, "visualRoot", root);
-        Set(pocket, "caseTransform", CreateObject("Case", root).transform);
+        CreateObject("Case", root);
         Set(pocket, "rightLid", CreateObject("RightLid", root).transform);
         Set(pocket, "chip01", CreateObject("Chip_01", root).transform);
         Set(pocket, "chip02", CreateObject("Chip_02", root).transform);
         Set(pocket, "chip03", CreateObject("Chip_03", root).transform);
         return pocket;
+    }
+
+    private RefreshCardPresentation AttachRefreshVisual(GameObject item)
+    {
+        Transform root = CreateObject("VisualRoot", item.transform).transform;
+        return root.gameObject.AddComponent<RefreshCardPresentation>();
+    }
+
+    private DefyPresentation AttachDefyVisual(GameObject item)
+    {
+        Transform root = CreateObject("VisualRoot", item.transform).transform;
+        return root.gameObject.AddComponent<DefyPresentation>();
+    }
+
+    private PrizmPresentation AttachPrizmVisual(GameObject item)
+    {
+        Transform root = CreateObject("VisualRoot", item.transform).transform;
+        return root.gameObject.AddComponent<PrizmPresentation>();
+    }
+
+    private void CompletePrizm(PrizmPresentation prizm)
+    {
+        Sequence animation = (Sequence)Get(prizm, "sequence");
+        Assert.That(animation, Is.Not.Null);
+        animation.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
+    }
+
+    private void CompleteRefreshItemSequence(RefreshCardPresentation activation)
+    {
+        Sequence animation = (Sequence)Get(activation, "sequence");
+        Assert.That(animation, Is.Not.Null);
+        animation.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(10f, 10f);
     }
 
     private void CompletePocket(ChipPocketPresentation pocket)
