@@ -11,6 +11,7 @@ public class ItemSystem : MonoBehaviour
 
     public event System.Action RefreshCardSucceeded;
     public event System.Action<TurnOwner, GameObject> ChipPocketConsumed;
+    public event System.Action<TurnOwner, ItemType> ItemUseSucceeded;
     internal event System.Action<GameObject> PlayerItemUseRequested;
 
     public List<GameObject> itemList = new List<GameObject>(); // 전체 아이템 목록
@@ -96,7 +97,22 @@ public class ItemSystem : MonoBehaviour
             return false;
         }
 
-        return RemoveUsedItem(owner, item, type);
+        if (!RemoveUsedItem(owner, item, type))
+        {
+            return false;
+        }
+
+        // The item has been consumed. A presentation listener must not undo gameplay.
+        try
+        {
+            ItemUseSucceeded?.Invoke(owner, type);
+        }
+        catch (System.Exception exception)
+        {
+            Debug.LogException(exception, this);
+        }
+
+        return true;
     }
 
     // 사용할 ItemType 가져오기

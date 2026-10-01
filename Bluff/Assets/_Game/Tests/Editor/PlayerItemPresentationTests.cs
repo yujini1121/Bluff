@@ -120,6 +120,112 @@ public sealed class PlayerItemPresentationTests
         AssertChipVisuals();
     }
 
+    [TestCase(TurnOwner.Player, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
+    [TestCase(TurnOwner.Dealer, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
+    [TestCase(TurnOwner.Player, ItemType.refreshCard, GameplayPresentationCue.Item_RefreshCard)]
+    [TestCase(TurnOwner.Dealer, ItemType.refreshCard, GameplayPresentationCue.Item_RefreshCard)]
+    [TestCase(TurnOwner.Player, ItemType.defy, GameplayPresentationCue.Item_Defy)]
+    [TestCase(TurnOwner.Dealer, ItemType.defy, GameplayPresentationCue.Item_Defy)]
+    [TestCase(TurnOwner.Player, ItemType.prizmChip, GameplayPresentationCue.Item_PrizmChip)]
+    [TestCase(TurnOwner.Dealer, ItemType.prizmChip, GameplayPresentationCue.Item_PrizmChip)]
+    public void ConsumedItem_RaisesOnlyItsCueWithoutSoundSystem(
+        TurnOwner owner,
+        ItemType type,
+        GameplayPresentationCue expectedCue)
+    {
+        Assert.That(SoundSystem.Instance, Is.Null);
+        Bind(NewRound(type == ItemType.defy
+            ? (owner == TurnOwner.Player ? TurnOwner.Dealer : TurnOwner.Player)
+            : owner));
+        if (type == ItemType.defy)
+        {
+            Assert.That(game.TryRaise(1), Is.True);
+        }
+
+        GameObject item = Add(owner, type);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        Assert.That(items.UseItem(owner, item), Is.True);
+        Assert.That(item == null, Is.True);
+        Assert.That(cues, Is.EqualTo(new[] { expectedCue }));
+        Assert.That(cues, Has.None.EqualTo(GameplayPresentationCue.Click));
+    }
+
+    [Test]
+    public void PlayerPocketClick_RaisesItemCueOnceWithoutGenericClick()
+    {
+        GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        item.GetComponent<Item>().Use();
+
+        Assert.That(item == null, Is.True);
+        Assert.That(cues, Is.EqualTo(new[] { GameplayPresentationCue.Item_ChipsPocket }));
+    }
+
+    [Test]
+    public void FailedItemUse_RaisesNoItemCue()
+    {
+        Set(items, "chipPocketAmount", 0);
+        GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        item.GetComponent<Item>().Use();
+
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+        Assert.That(cues, Is.Empty);
+    }
+
+    [Test]
+    public void UnsupportedItemType_RaisesNoCue()
+    {
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        presentation.PlayItemUseCue((ItemType)999);
+
+        Assert.That(cues, Is.Empty);
+    }
+
+    [Test]
+    public void RaiseAmountButton_RaisesClickOnlyForAcceptedChange()
+    {
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        ui.OnCallClicked(); // No outstanding bet: rejected.
+        ui.OnRaiseIncreaseClicked();
+        ui.OnRaiseDecreaseClicked();
+        ui.OnRaiseDecreaseClicked();
+
+        Assert.That(cues, Is.EqualTo(new[]
+        {
+            GameplayPresentationCue.Click,
+            GameplayPresentationCue.Click
+        }));
+    }
+
+    [TestCase("itemChipsPocketSFX", "ChipPocket SFX.prefab")]
+    [TestCase("itemDefySFX", "Defy SFX.prefab")]
+    [TestCase("itemPrizmChipSFX", "PrizmChip SFX.prefab")]
+    [TestCase("itemRefreshCardSFX", "RefreshCard SFX.prefab")]
+    [TestCase("clickSFX", "Click SFX.prefab")]
+    public void SoundSystemPrefab_ReferencesNewAudioSources(string field, string prefabName)
+    {
+        GameObject soundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Audio/Sound System.prefab");
+        Assert.That(soundPrefab, Is.Not.Null);
+        var serialized = new SerializedObject(soundPrefab.GetComponent<SoundSystem>());
+        SerializedProperty property = serialized.FindProperty(field);
+        Assert.That(property, Is.Not.Null);
+        Assert.That(property.objectReferenceValue, Is.TypeOf<AudioSource>());
+        Assert.That(AssetDatabase.GetAssetPath(property.objectReferenceValue),
+            Is.EqualTo("Assets/_Game/Audio/SFX/" + prefabName));
+    }
+
     [Test]
     public void PlayerPocket_DetachesVisualAndSyncsOnlyAfterArrival()
     {

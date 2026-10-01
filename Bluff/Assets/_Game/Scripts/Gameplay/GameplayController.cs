@@ -161,7 +161,10 @@ public sealed class GameplayController : MonoBehaviour
             roundWinner != RoundWinner.None;
         isShuttingDown = true;
         isActionProcessing = false;
-        presentation?.FinishCardPresentation();
+        if (presentation != null)
+        {
+            presentation.FinishCardPresentation();
+        }
         CancelDealerAction();
 
         if (showdownPresentationCoroutine != null)
@@ -207,7 +210,12 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         ClampRaiseAmount(maxRaiseAmount);
+        if (selectedRaiseAmount <= 1)
+        {
+            return;
+        }
         selectedRaiseAmount = Mathf.Max(1, selectedRaiseAmount - 1);
+        presentation.PlayClickCue();
         RefreshView();
     }
 
@@ -219,7 +227,12 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         ClampRaiseAmount(maxRaiseAmount);
+        if (selectedRaiseAmount >= maxRaiseAmount)
+        {
+            return;
+        }
         selectedRaiseAmount = Mathf.Min(maxRaiseAmount, selectedRaiseAmount + 1);
+        presentation.PlayClickCue();
         RefreshView();
     }
 
@@ -230,7 +243,12 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
+        if (selectedRaiseAmount == maxRaiseAmount)
+        {
+            return;
+        }
         selectedRaiseAmount = maxRaiseAmount;
+        presentation.PlayClickCue();
         RefreshView();
     }
 
@@ -299,6 +317,7 @@ public sealed class GameplayController : MonoBehaviour
         isActionProcessing = true;
         gameplayView.SetRestartEnabled(false);
         CancelDealerAction();
+        presentation.PlayClickCue();
         SceneManager.LoadScene(buildIndex);
     }
 
@@ -354,6 +373,7 @@ public sealed class GameplayController : MonoBehaviour
             subscribedItemSystem.RefreshCardSucceeded += OnRefreshCardSucceeded;
             subscribedItemSystem.PlayerItemUseRequested += OnPlayerItemUseRequested;
             subscribedItemSystem.ChipPocketConsumed += OnChipPocketConsumed;
+            subscribedItemSystem.ItemUseSucceeded += OnItemUseSucceeded;
         }
     }
 
@@ -363,6 +383,7 @@ public sealed class GameplayController : MonoBehaviour
         {
             subscribedItemSystem.RefreshCardSucceeded -= OnRefreshCardSucceeded;
             subscribedItemSystem.ChipPocketConsumed -= OnChipPocketConsumed;
+            subscribedItemSystem.ItemUseSucceeded -= OnItemUseSucceeded;
             if (unsubscribePlayerRequests)
             {
                 subscribedItemSystem.PlayerItemUseRequested -= OnPlayerItemUseRequested;
@@ -388,7 +409,8 @@ public sealed class GameplayController : MonoBehaviour
             : "ITEM";
         RunPlayerBettingAction(
             actionName,
-            () => itemSystem.UseItem(TurnOwner.Player, item));
+            () => itemSystem.UseItem(TurnOwner.Player, item),
+            playClickCue: false);
     }
 
     private void OnRefreshCardSucceeded()
@@ -399,6 +421,11 @@ public sealed class GameplayController : MonoBehaviour
     private void OnChipPocketConsumed(TurnOwner owner, GameObject item)
     {
         presentation?.PlayChipPocket(owner, item);
+    }
+
+    private void OnItemUseSucceeded(TurnOwner owner, ItemType type)
+    {
+        presentation?.PlayItemUseCue(type);
     }
 
     private void StartRound()
@@ -419,7 +446,7 @@ public sealed class GameplayController : MonoBehaviour
         presentation.PlayRoundStart();
     }
 
-    private void PrepareAndStartNextRound()
+    private bool PrepareAndStartNextRound()
     {
         int carriedPot = gameState.Pot.Amount;
         TurnOwner resolvedNextFirstTurn =
@@ -428,7 +455,7 @@ public sealed class GameplayController : MonoBehaviour
         if (!gameState.TryPrepareNextRound())
         {
             AddLog("다음 라운드 준비 실패");
-            return;
+            return false;
         }
 
         nextRoundFirstTurn = resolvedNextFirstTurn;
@@ -436,6 +463,7 @@ public sealed class GameplayController : MonoBehaviour
         ResetRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
         StartRound();
+        return true;
     }
 
     private TurnOwner GetNextRoundFirstTurnFromRoundResult()
@@ -476,7 +504,8 @@ public sealed class GameplayController : MonoBehaviour
 
     private void RunPlayerBettingAction(
         string actionName,
-        Func<bool> action)
+        Func<bool> action,
+        bool playClickCue = true)
     {
         if (!CanAcceptPlayerBettingInput() || action == null)
         {
@@ -494,6 +523,11 @@ public sealed class GameplayController : MonoBehaviour
             {
                 AddLog($"{OwnerText(TurnOwner.Player)} {actionName} 실패");
                 return;
+            }
+
+            if (playClickCue)
+            {
+                presentation.PlayClickCue();
             }
 
             bool isPlayerFold =
@@ -538,7 +572,7 @@ public sealed class GameplayController : MonoBehaviour
         }
     }
 
-    private void RunProgressAction(GamePhase requiredPhase, Action action)
+    private void RunProgressAction(GamePhase requiredPhase, Func<bool> action)
     {
         if (!CanAcceptProgressInput(requiredPhase) || action == null)
         {
@@ -549,7 +583,10 @@ public sealed class GameplayController : MonoBehaviour
 
         try
         {
-            action();
+            if (action())
+            {
+                presentation.PlayClickCue();
+            }
         }
         finally
         {
@@ -654,7 +691,10 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        presentation.StopDealerThink();
+        if (presentation != null)
+        {
+            presentation.StopDealerThink();
+        }
 
         StopCoroutine(dealerActionCoroutine);
         dealerActionCoroutine = null;
@@ -835,7 +875,7 @@ public sealed class GameplayController : MonoBehaviour
         isFoldResultVisible = true;
         RefreshView();
     }
-    private void ResolveShowdown()
+    private bool ResolveShowdown()
     {
         gameState.TryGetHandRank(TurnOwner.Player, out playerHandRank);
         gameState.TryGetHandRank(TurnOwner.Dealer, out dealerHandRank);
@@ -846,7 +886,7 @@ public sealed class GameplayController : MonoBehaviour
         if (!gameState.TrySettleShowdown(out roundWinner))
         {
             AddLog("쇼다운 정산 실패");
-            return;
+            return false;
         }
 
         isShowdownResultVisible = false;
@@ -858,6 +898,7 @@ public sealed class GameplayController : MonoBehaviour
                 potBeforeSettlement);
 
         presentation.PlayShowdownReveal(continuePresentation);
+        return true;
     }
 
     private void ContinueShowdownAfterReveal(

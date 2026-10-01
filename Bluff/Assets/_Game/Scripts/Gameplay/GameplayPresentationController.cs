@@ -30,6 +30,30 @@ public sealed class GameplayPresentationController : MonoBehaviour
         chipVisualController?.Initialize(gameState);
     }
 
+    public void PlayItemUseCue(ItemType type)
+    {
+        switch (type)
+        {
+            case ItemType.refreshCard:
+                RaiseCue(GameplayPresentationCue.Item_RefreshCard);
+                break;
+            case ItemType.prizmChip:
+                RaiseCue(GameplayPresentationCue.Item_PrizmChip);
+                break;
+            case ItemType.chipPocket:
+                RaiseCue(GameplayPresentationCue.Item_ChipsPocket);
+                break;
+            case ItemType.defy:
+                RaiseCue(GameplayPresentationCue.Item_Defy);
+                break;
+        }
+    }
+
+    public void PlayClickCue()
+    {
+        RaiseCue(GameplayPresentationCue.Click);
+    }
+
     public void PlayChipPocket(TurnOwner owner, GameObject item)
     {
         ChipPocketPresentation pocket = item != null
@@ -302,7 +326,10 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void StopDealerThink()
     {
-        dealerAnimationController?.StopThink();
+        if (dealerAnimationController != null)
+        {
+            dealerAnimationController.StopThink();
+        }
     }
 
     public void RefreshCards()

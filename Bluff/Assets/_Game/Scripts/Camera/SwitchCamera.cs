@@ -17,6 +17,23 @@ public class SwitchCamera : MonoBehaviour
 
     public CameraView CurrentView { get; private set; }
 
+    public bool IsDealerCameraSettled
+    {
+        get
+        {
+            if (CurrentView != CameraView.Dealer || dealerCam == null)
+            {
+                return false;
+            }
+
+            CinemachineBrain brain = CinemachineCore.Instance.FindPotentialTargetBrain(dealerCam);
+            return brain != null &&
+                   brain.isActiveAndEnabled &&
+                   !brain.IsBlending &&
+                   brain.ActiveVirtualCamera == (ICinemachineCamera)dealerCam;
+        }
+    }
+
     private void Start()
     {
         SwitchToPlayerCam();

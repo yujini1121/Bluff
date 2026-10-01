@@ -21,6 +21,11 @@ public sealed class GameplaySoundController : IDisposable
 
     private void OnPresentationCue(GameplayPresentationCue cue)
     {
+        if (SoundSystem.Instance == null)
+        {
+            return;
+        }
+
         switch (cue)
         {
             case GameplayPresentationCue.CardDeal:

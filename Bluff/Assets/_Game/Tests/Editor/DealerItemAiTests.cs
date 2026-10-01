@@ -231,7 +231,7 @@ public sealed class DealerItemAiTests
     {
         GameState gameState = CreateBettingGame(
             20,
-            5,
+            12,
             1,
             2,
             4,
@@ -251,7 +251,7 @@ public sealed class DealerItemAiTests
     {
         GameState gameState = CreateBettingGame(
             20,
-            6,
+            13,
             1,
             2,
             4,
