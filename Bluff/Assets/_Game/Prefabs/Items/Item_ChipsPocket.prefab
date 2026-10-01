@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 2424209158716137352}
   - component: {fileID: 7926339741780193762}
   - component: {fileID: 3961983683828119587}
-  - component: {fileID: 2242824965417995522}
+  - component: {fileID: -2409358986521314971}
   m_Layer: 0
   m_Name: Item_ChipsPocket
   m_TagString: Untagged
@@ -73,7 +73,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemSystem: {fileID: 0}
   itemData: {fileID: 11400000, guid: 22a3dbae72f2caa4cb5374dd93813a91, type: 2}
---- !u!114 &2242824965417995522
+--- !u!114 &-2409358986521314971
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -82,13 +82,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 4266628273308215506}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7fb1d45f0bab4a87a33cbd88f3528092, type: 3}
+  m_Script: {fileID: 11500000, guid: d486bc83147148644b71bd67fe2cee5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: 3
-  tooltip: {fileID: 0}
-  gameUi: {fileID: 0}
-  tooltipAnchor: {fileID: 885239127608611489}
+  targetText: {fileID: 0}
+  hoverDescription: 
 --- !u!1 &4363631915411786462
 GameObject:
   m_ObjectHideFlags: 0

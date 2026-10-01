@@ -7,22 +7,17 @@ public class SetActiveButton : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 
-    public void On()
+    public void OnOff()
     {
-        target.SetActive(true);
-    }
-
-    public void Off()
-    {
-        target.SetActive(false);
+        target.SetActive(!target.activeSelf);
     }
 }

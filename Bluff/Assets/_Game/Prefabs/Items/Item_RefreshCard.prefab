@@ -42,7 +42,7 @@ GameObject:
   - component: {fileID: 5975978037722972884}
   - component: {fileID: 7273840287344862191}
   - component: {fileID: 6184781084264365292}
-  - component: {fileID: 5853681762783348551}
+  - component: {fileID: 4089578336046110751}
   m_Layer: 0
   m_Name: Item_RefreshCard
   m_TagString: Untagged
@@ -102,7 +102,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemSystem: {fileID: 0}
   itemData: {fileID: 11400000, guid: 1ecc527337fda3648bcf8fe514fe1a8c, type: 2}
---- !u!114 &5853681762783348551
+--- !u!114 &4089578336046110751
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -111,13 +111,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 9109885737611708634}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7fb1d45f0bab4a87a33cbd88f3528092, type: 3}
+  m_Script: {fileID: 11500000, guid: d486bc83147148644b71bd67fe2cee5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: 3
-  tooltip: {fileID: 0}
-  gameUi: {fileID: 0}
-  tooltipAnchor: {fileID: 4174223287885180938}
 --- !u!1001 &7634102165895158664
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -42,7 +42,7 @@ GameObject:
   - component: {fileID: 7388898143672740515}
   - component: {fileID: 830426582807848127}
   - component: {fileID: 8892701695503137263}
-  - component: {fileID: 1392906182022304427}
+  - component: {fileID: -4673491139462374814}
   m_Layer: 0
   m_Name: Item_PrizmChip
   m_TagString: Untagged
@@ -102,7 +102,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemSystem: {fileID: 0}
   itemData: {fileID: 11400000, guid: 7e340760057454b45acfae81f63189d7, type: 2}
---- !u!114 &1392906182022304427
+--- !u!114 &-4673491139462374814
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -111,13 +111,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 4180414832903803173}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7fb1d45f0bab4a87a33cbd88f3528092, type: 3}
+  m_Script: {fileID: 11500000, guid: d486bc83147148644b71bd67fe2cee5e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: 3
-  tooltip: {fileID: 0}
-  gameUi: {fileID: 0}
-  tooltipAnchor: {fileID: 5239223134548653091}
 --- !u!1001 &4245277149671710510
 PrefabInstance:
   m_ObjectHideFlags: 0
