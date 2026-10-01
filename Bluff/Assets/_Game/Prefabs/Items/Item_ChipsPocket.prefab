@@ -174,18 +174,18 @@ MonoBehaviour:
   chip02: {fileID: 7337915770706449380}
   chip03: {fileID: 276502491562146753}
   liftHeight: 0.015
-  liftDuration: 0.085
+  liftDuration: 0.1275
   liftScale: 1.015
   lidPopOffset: {x: -0.27, y: -0.11, z: 0.16}
   lidPopEulerAngles: {x: 0, y: -5.82, z: -8.48}
-  lidPopDuration: 0.135
-  afterLidPopDelay: 0.055
+  lidPopDuration: 0.2025
+  afterLidPopDelay: 0.0825
   chipLaunchOffset: {x: 0, y: 0.115, z: 0.018}
-  chipLaunchDuration: 0.09
+  chipLaunchDuration: 0.135
   chipJumpPower: 0.028
-  chipMoveDuration: 0.43
-  chipStagger: 0.075
-  consumeDuration: 0.11
+  chipMoveDuration: 0.645
+  chipStagger: 0.1125
+  consumeDuration: 0.165
 --- !u!1 &7708100100000000003
 GameObject:
   m_ObjectHideFlags: 0
