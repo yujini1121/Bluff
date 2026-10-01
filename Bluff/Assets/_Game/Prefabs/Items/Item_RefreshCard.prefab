@@ -163,6 +163,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0b86d638b51430d88098ac7bd68a039, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  liftDuration: 0.165
+  rotateDuration: 0.135
+  returnDuration: 0.06
+  activationHoldDuration: 0.03
+  consumeDuration: 0.15
 --- !u!1001 &7634102165895158664
 PrefabInstance:
   m_ObjectHideFlags: 0

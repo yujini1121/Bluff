@@ -2758,7 +2758,7 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 1
+  m_RenderPostProcessing: 0
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -3014,12 +3014,12 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
       propertyPath: itemList.Array.size
-      value: 4
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
       propertyPath: itemList.Array.data[0]
       value: 
-      objectReference: {fileID: 4266628273308215506, guid: 90a7e03e80b72934891c86ae8d9a57d3, type: 3}
+      objectReference: {fileID: 4180414832903803173, guid: ea3f1f036d32d194badd323d20b6556a, type: 3}
     - target: {fileID: 8178726206918263794, guid: 118ee6f06fabbbf4fb6643fa82251675, type: 3}
       propertyPath: itemList.Array.data[1]
       value: 

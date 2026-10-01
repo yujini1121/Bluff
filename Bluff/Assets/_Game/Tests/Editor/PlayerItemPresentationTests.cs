@@ -179,6 +179,84 @@ public sealed class PlayerItemPresentationTests
         Assert.That(cues, Is.Empty);
     }
 
+    [TestCase(TurnOwner.Player, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
+    [TestCase(TurnOwner.Dealer, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
+    [TestCase(TurnOwner.Player, ItemType.defy, GameplayPresentationCue.Item_Defy)]
+    [TestCase(TurnOwner.Dealer, ItemType.defy, GameplayPresentationCue.Item_Defy)]
+    [TestCase(TurnOwner.Player, ItemType.prizmChip, GameplayPresentationCue.Item_PrizmChip)]
+    [TestCase(TurnOwner.Dealer, ItemType.prizmChip, GameplayPresentationCue.Item_PrizmChip)]
+    [TestCase(TurnOwner.Player, ItemType.refreshCard, GameplayPresentationCue.Item_RefreshCard)]
+    [TestCase(TurnOwner.Dealer, ItemType.refreshCard, GameplayPresentationCue.Item_RefreshCard)]
+    public void ItemVisual_RaisesSoundAtEffectOnce(
+        TurnOwner owner, ItemType type, GameplayPresentationCue expectedCue)
+    {
+        MonoBehaviour visual = CreateItemForSoundTest(owner, type, out GameObject item);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        Assert.That(items.UseItem(owner, item), Is.True);
+        Assert.That(cues, Is.Empty);
+
+        float effectTime = GetItemSoundTime(visual);
+        Sequence sequence = (Sequence)Get(visual, "sequence");
+        sequence.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(effectTime * 0.5f, effectTime * 0.5f);
+        Assert.That(cues, Is.Empty);
+
+        DOTween.ManualUpdate(effectTime * 0.5f + 0.005f, effectTime * 0.5f + 0.005f);
+        Assert.That(cues, Is.EqualTo(new[] { expectedCue }));
+
+        CancelItemVisual(visual);
+        Assert.That(cues, Is.EqualTo(new[] { expectedCue }));
+    }
+
+    [TestCase(TurnOwner.Player, ItemType.chipPocket)]
+    [TestCase(TurnOwner.Dealer, ItemType.chipPocket)]
+    [TestCase(TurnOwner.Player, ItemType.defy)]
+    [TestCase(TurnOwner.Dealer, ItemType.defy)]
+    [TestCase(TurnOwner.Player, ItemType.prizmChip)]
+    [TestCase(TurnOwner.Dealer, ItemType.prizmChip)]
+    [TestCase(TurnOwner.Player, ItemType.refreshCard)]
+    [TestCase(TurnOwner.Dealer, ItemType.refreshCard)]
+    public void CancelingItemVisualBeforeEffect_RaisesNoItemSound(TurnOwner owner, ItemType type)
+    {
+        MonoBehaviour visual = CreateItemForSoundTest(owner, type, out GameObject item);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        Assert.That(items.UseItem(owner, item), Is.True);
+        CancelItemVisual(visual);
+
+        Assert.That(cues, Is.Empty);
+        Assert.That(presentation.IsChipPocketAnimating, Is.False);
+        Assert.That(presentation.IsDefyAnimating, Is.False);
+        Assert.That(presentation.IsPrizmAnimating, Is.False);
+        Assert.That(presentation.IsRefreshItemAnimating, Is.False);
+    }
+
+    [TestCase(TurnOwner.Player, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
+    [TestCase(TurnOwner.Dealer, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
+    [TestCase(TurnOwner.Player, ItemType.defy, GameplayPresentationCue.Item_Defy)]
+    [TestCase(TurnOwner.Dealer, ItemType.defy, GameplayPresentationCue.Item_Defy)]
+    [TestCase(TurnOwner.Player, ItemType.prizmChip, GameplayPresentationCue.Item_PrizmChip)]
+    [TestCase(TurnOwner.Dealer, ItemType.prizmChip, GameplayPresentationCue.Item_PrizmChip)]
+    [TestCase(TurnOwner.Player, ItemType.refreshCard, GameplayPresentationCue.Item_RefreshCard)]
+    [TestCase(TurnOwner.Dealer, ItemType.refreshCard, GameplayPresentationCue.Item_RefreshCard)]
+    public void ItemVisualThatCannotStart_RaisesUseSoundOnce(
+        TurnOwner owner, ItemType type, GameplayPresentationCue expectedCue)
+    {
+        MonoBehaviour visual = CreateItemForSoundTest(owner, type, out GameObject item);
+        if (visual is PrizmPresentation || visual is RefreshCardPresentation)
+            Set(visual, "finished", true);
+        else
+            visual.enabled = false;
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        Assert.That(items.UseItem(owner, item), Is.True);
+        Assert.That(cues, Is.EqualTo(new[] { expectedCue }));
+    }
+
     [Test]
     public void UnsupportedItemType_RaisesNoCue()
     {
@@ -977,6 +1055,55 @@ public sealed class PlayerItemPresentationTests
         foreach (Tween move in moves) move.SetUpdate(UpdateType.Manual);
         DOTween.ManualUpdate(10f, 10f);
         Assert.That(((List<GameObject>)Get(chips, "pendingChips")), Is.Empty);
+    }
+
+    private MonoBehaviour CreateItemForSoundTest(TurnOwner owner, ItemType type, out GameObject item)
+    {
+        TurnOwner firstTurn = owner;
+        if (type == ItemType.defy)
+            firstTurn = owner == TurnOwner.Player ? TurnOwner.Dealer : TurnOwner.Player;
+
+        Bind(NewRound(firstTurn));
+        if (type == ItemType.defy) Assert.That(game.TryRaise(1), Is.True);
+
+        item = Add(owner, type);
+        switch (type)
+        {
+            case ItemType.chipPocket: return AttachPocketVisual(item);
+            case ItemType.defy: return AttachDefyVisual(item);
+            case ItemType.prizmChip: return AttachPrizmVisual(item);
+            case ItemType.refreshCard: return AttachRefreshVisual(item);
+            default: throw new System.ArgumentOutOfRangeException(nameof(type));
+        }
+    }
+
+    private float GetItemSoundTime(MonoBehaviour visual)
+    {
+        switch (visual)
+        {
+            case ChipPocketPresentation pocket:
+                return (float)Get(pocket, "liftDuration");
+            case DefyPresentation defy:
+                return (float)Get(defy, "activationDuration") +
+                    (float)Get(defy, "moveDuration") + (float)Get(defy, "strikeDuration");
+            case PrizmPresentation prizm:
+                return (float)Get(prizm, "activationDuration") + (float)Get(prizm, "moveDuration");
+            case RefreshCardPresentation refresh:
+                return (float)Get(refresh, "liftDuration") + (float)Get(refresh, "rotateDuration") +
+                    (float)Get(refresh, "returnDuration") + (float)Get(refresh, "activationHoldDuration");
+            default: throw new System.ArgumentOutOfRangeException(nameof(visual));
+        }
+    }
+
+    private void CancelItemVisual(MonoBehaviour visual)
+    {
+        switch (visual)
+        {
+            case ChipPocketPresentation pocket: pocket.Cancel(); break;
+            case DefyPresentation defy: defy.Cancel(); break;
+            case PrizmPresentation prizm: prizm.Cancel(); break;
+            case RefreshCardPresentation refresh: refresh.Cancel(); break;
+        }
     }
 
     private ChipPocketPresentation AttachPocketVisual(GameObject item)

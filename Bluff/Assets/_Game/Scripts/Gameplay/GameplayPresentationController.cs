@@ -51,15 +51,19 @@ public sealed class GameplayPresentationController : MonoBehaviour
         switch (type)
         {
             case ItemType.refreshCard:
+                if (isRefreshItemAnimating) return;
                 RaiseCue(GameplayPresentationCue.Item_RefreshCard);
                 break;
             case ItemType.prizmChip:
+                if (isPrizmAnimating) return;
                 RaiseCue(GameplayPresentationCue.Item_PrizmChip);
                 break;
             case ItemType.chipPocket:
+                if (isChipPocketAnimating) return;
                 RaiseCue(GameplayPresentationCue.Item_ChipsPocket);
                 break;
             case ItemType.defy:
+                if (isDefyAnimating) return;
                 RaiseCue(GameplayPresentationCue.Item_Defy);
                 break;
         }
@@ -85,7 +89,8 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
         isChipPocketAnimating = true;
         activeChipPocket = pocket;
-        if (!pocket.TryPlay(targets, RefreshChips, OnChipPocketFinished))
+        if (!pocket.TryPlay(targets, RefreshChips, OnChipPocketFinished,
+                OnChipPocketLidOpening))
         {
             isChipPocketAnimating = false;
             activeChipPocket = null;
@@ -101,6 +106,11 @@ public sealed class GameplayPresentationController : MonoBehaviour
         {
             NotifyChanged();
         }
+    }
+
+    private void OnChipPocketLidOpening()
+    {
+        RaiseCue(GameplayPresentationCue.Item_ChipsPocket);
     }
 
     private void CancelChipPocketPresentation()
@@ -123,7 +133,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
         isDefyAnimating = true;
         activeDefy = defy;
-        if (!defy.TryPlay(target, SyncDefyChips, OnDefyFinished))
+        if (!defy.TryPlay(target, SyncDefyChips, OnDefyFinished, OnDefyImpact))
         {
             isDefyAnimating = false;
             activeDefy = null;
@@ -138,6 +148,11 @@ public sealed class GameplayPresentationController : MonoBehaviour
         {
             chipVisualController.RefreshChips();
         }
+    }
+
+    private void OnDefyImpact()
+    {
+        RaiseCue(GameplayPresentationCue.Item_Defy);
     }
 
     private void OnDefyFinished()
@@ -170,7 +185,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
         isPrizmAnimating = true;
         activePrizm = prizm;
-        if (!prizm.TryPlay(target, OnPrizmFinished))
+        if (!prizm.TryPlay(target, OnPrizmFinished, OnPrizmProtect))
         {
             isPrizmAnimating = false;
             activePrizm = null;
@@ -186,6 +201,11 @@ public sealed class GameplayPresentationController : MonoBehaviour
         {
             NotifyChanged();
         }
+    }
+
+    private void OnPrizmProtect()
+    {
+        RaiseCue(GameplayPresentationCue.Item_PrizmChip);
     }
 
     private void CancelPrizmPresentation()
@@ -229,6 +249,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
         }
 
         refreshCardStartedForItem = true;
+        RaiseCue(GameplayPresentationCue.Item_RefreshCard);
         StartCardRefresh();
         if (!isCardAnimating)
         {

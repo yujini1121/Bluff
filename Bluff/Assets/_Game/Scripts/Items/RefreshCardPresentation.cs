@@ -4,6 +4,17 @@ using UnityEngine;
 
 public sealed class RefreshCardPresentation : MonoBehaviour
 {
+    [Header("Activation")]
+    [SerializeField] private float activationLiftHeight = 0.025f;
+    [SerializeField] private float activationScale = 1.07f;
+    [SerializeField] private float liftDuration = 0.165f;
+    [SerializeField] private float rotateDuration = 0.135f;
+    [SerializeField] private float returnDuration = 0.06f;
+    [SerializeField] private float activationHoldDuration = 0.03f;
+
+    [Header("Consume")]
+    [SerializeField] private float consumeDuration = 0.15f;
+
     private Sequence sequence;
     private Action onActivated;
     private Action onFinished;
@@ -25,15 +36,15 @@ public sealed class RefreshCardPresentation : MonoBehaviour
         Quaternion startRotation = transform.localRotation;
 
         sequence = DOTween.Sequence().SetAutoKill(true);
-        sequence.Append(transform.DOMoveY(startY + 0.025f, 0.11f)
+        sequence.Append(transform.DOMoveY(startY + activationLiftHeight, liftDuration)
             .SetEase(Ease.OutCubic));
-        sequence.Join(transform.DOScale(startScale * 1.07f, 0.11f)
+        sequence.Join(transform.DOScale(startScale * activationScale, liftDuration)
             .SetEase(Ease.OutCubic));
         sequence.Append(transform.DOLocalRotateQuaternion(
-            startRotation * Quaternion.Euler(0f, 18f, 0f), 0.09f)
+            startRotation * Quaternion.Euler(0f, 18f, 0f), rotateDuration)
             .SetEase(Ease.OutCubic));
-        sequence.Append(transform.DOLocalRotateQuaternion(startRotation, 0.04f));
-        sequence.AppendInterval(0.02f);
+        sequence.Append(transform.DOLocalRotateQuaternion(startRotation, returnDuration));
+        sequence.AppendInterval(activationHoldDuration);
         sequence.OnComplete(ActivationFinished);
         return true;
     }
@@ -43,7 +54,7 @@ public sealed class RefreshCardPresentation : MonoBehaviour
         if (finished || sequence != null) return;
 
         sequence = DOTween.Sequence().SetAutoKill(true);
-        sequence.Append(transform.DOScale(Vector3.zero, 0.1f)
+        sequence.Append(transform.DOScale(Vector3.zero, consumeDuration)
             .SetEase(Ease.InCubic));
         sequence.OnComplete(Finish);
     }
