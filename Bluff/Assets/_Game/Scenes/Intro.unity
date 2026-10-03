@@ -2539,7 +2539,7 @@ GameObject:
   - component: {fileID: 335430457}
   - component: {fileID: 335430458}
   m_Layer: 0
-  m_Name: DoorTrigger
+  m_Name: Door Trigger
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2557,7 +2557,8 @@ Transform:
   m_LocalPosition: {x: -1.2700005, y: 1, z: 14.932}
   m_LocalScale: {x: 4.1947, y: 1, z: 4.5536}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1491121988}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &335430457
@@ -2579,8 +2580,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1.258562, y: 1, z: 1}
+  m_Center: {x: -0.043368176, y: 0, z: 0}
 --- !u!114 &335430458
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2594,6 +2595,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   doorRevealDirector: {fileID: 775702203}
+  insidePoint: {fileID: 1491121988}
 --- !u!1001 &342902980
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4954,7 +4956,7 @@ GameObject:
   - component: {fileID: 775702202}
   - component: {fileID: 775702203}
   m_Layer: 0
-  m_Name: DoorRevealSequence
+  m_Name: Door Reveal Sequence
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9215,6 +9217,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: eeae049b32e2a5546ab46bb382bc8ce3, type: 3}
   m_PrefabInstance: {fileID: 1479385202}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1491121987
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1491121988}
+  m_Layer: 0
+  m_Name: Inside Point
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1491121988
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491121987}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.55, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 335430456}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1498153783
 GameObject:
   m_ObjectHideFlags: 0
