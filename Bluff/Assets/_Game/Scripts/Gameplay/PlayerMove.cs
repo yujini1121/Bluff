@@ -20,7 +20,8 @@ public class PlayerMove : MonoBehaviour
     Rigidbody rb;
 
     private float xRotation = 0f;
-    // Start is called before the first frame update
+
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -35,23 +36,29 @@ public class PlayerMove : MonoBehaviour
         }
     }
 
-    // Update is called once per frame
     void Update()
     {
         if (MoveInputEnabled)
         {
-            Move();
             Rotate();
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (MoveInputEnabled)
+        {
+            Move();
         }
     }
 
     private void Move()
     {
-        float x = Input.GetAxis("Horizontal"); // A, D
-        float z = Input.GetAxis("Vertical");   // W, S
+        float x = Input.GetAxisRaw("Horizontal"); // A, D
+        float z = Input.GetAxisRaw("Vertical");   // W, S
 
         Vector3 move = transform.right * x + transform.forward * z;
-        rb.MovePosition(rb.position + move * speed * Time.deltaTime);
+        rb.MovePosition(rb.position + move * speed * Time.fixedDeltaTime);
     }
 
     private void Rotate()
