@@ -98,6 +98,10 @@ public sealed class DialogueController : MonoBehaviour
         }
 
         completionRaised = true;
+        if (dialoguePanel != null)
+        {
+            dialoguePanel.SetActive(false);
+        }
         DialogueCompleted?.Invoke();
     }
 

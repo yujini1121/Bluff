@@ -1,229 +1,150 @@
-using System;
 using System.Reflection;
+using Cinemachine;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Playables;
+using UnityEngine.Timeline;
 
 public sealed class IntroFlowControllerTests
 {
-    private const BindingFlags PrivateInstance =
-        BindingFlags.Instance | BindingFlags.NonPublic;
-
-    private GameObject testObject;
-    private DialogueController dialogueController;
-    private IntroFlowController flowController;
-    private int sceneLoadCount;
-    private string loadedSceneName;
+    private GameObject root;
+    private IntroFlowController flow;
+    private PlayerMove player;
+    private DialogueController dialogue;
+    private PlayableDirector director;
+    private Transform view;
+    private Transform path;
+    private GameObject prompt;
+    private IntroHoldToSkip hold;
+    private GameObject skipPrompt;
 
     [SetUp]
     public void SetUp()
     {
-        sceneLoadCount = 0;
-        loadedSceneName = null;
-        testObject = new GameObject("IntroFlowController Test");
-        dialogueController = testObject.AddComponent<DialogueController>();
-        flowController = testObject.AddComponent<IntroFlowController>();
-
-        SetField(flowController, "dialogueController", dialogueController);
-        SetField(flowController, "steps", CreateStandardSteps());
-        SetField(
-            flowController,
-            "sceneLoader",
-            (Action<string>)(sceneName =>
-            {
-                sceneLoadCount++;
-                loadedSceneName = sceneName;
-            }));
+        root = new GameObject("Intro test");
+        root.SetActive(false);
+        var playerObject = Child("Player");
+        playerObject.AddComponent<Rigidbody>().useGravity = false;
+        player = playerObject.AddComponent<PlayerMove>();
+        view = Child("View", playerObject.transform).transform;
+        var playerCamera = view.gameObject.AddComponent<CinemachineVirtualCamera>();
+        Set(player, "cameraHolder", view);
+        var output = Child("Output").AddComponent<Camera>();
+        director = Child("Bar").AddComponent<PlayableDirector>();
+        var timeline = ScriptableObject.CreateInstance<TimelineAsset>();
+        timeline.durationMode = TimelineAsset.DurationMode.FixedLength;
+        timeline.fixedDuration = 2;
+        director.playableAsset = timeline;
+        director.extrapolationMode = DirectorWrapMode.Hold;
+        var rig = director.gameObject.AddComponent<IntroBarSequenceCamera>();
+        path = Child("Path").transform;
+        path.position = new Vector3(2, 1, 3);
+        path.rotation = Quaternion.identity;
+        var cutsceneCamera = Child("Cutscene View").AddComponent<CinemachineVirtualCamera>();
+        Set(rig, "authoredPath", path);
+        Set(rig, "director", director);
+        Set(rig, "virtualCamera", cutsceneCamera);
+        var dealer = Child("Dealer").transform;
+        dealer.position = new Vector3(2, 1, 5);
+        dialogue = root.AddComponent<DialogueController>();
+        flow = root.AddComponent<IntroFlowController>();
+        prompt = Child("E");
+        Set(flow, "playerMove", player);
+        Set(flow, "playerViewCamera", playerCamera);
+        Set(flow, "outputCamera", output);
+        Set(flow, "barDirector", director);
+        Set(flow, "barCamera", rig);
+        Set(flow, "dealerLookTarget", dealer);
+        Set(flow, "dialogueController", dialogue);
+        Set(flow, "dialogueLines", new[] { "Proposal", "Let's play" });
+        Set(flow, "interactionPrompt", prompt);
+        hold = director.gameObject.AddComponent<IntroHoldToSkip>();
+        skipPrompt = Child("ESC");
+        Set(hold, "flow", flow);
+        Set(hold, "keycap", skipPrompt);
+        Set(flow, "holdToSkip", hold);
+        root.SetActive(true);
+        flow.StartIntro();
     }
 
     [TearDown]
     public void TearDown()
     {
-        UnityEngine.Object.DestroyImmediate(testObject);
+        var timeline = director.playableAsset;
+        Object.DestroyImmediate(root);
+        Object.DestroyImmediate(timeline);
     }
 
     [Test]
-    public void StandardSteps_AdvanceInOrderAndLoadGameplayOnce()
+    public void DoorwayAndDealerAreSeparateGates_SequenceReturnsFinalPose()
     {
-        flowController.StartIntro();
-
-        AssertCurrentStep(0, IntroFlowController.IntroStepType.Cutscene);
-
-        flowController.OnInteractionCompleted();
-        AssertCurrentStep(0, IntroFlowController.IntroStepType.Cutscene);
-
-        flowController.OnCutsceneCompleted();
-        AssertCurrentDialogue(1, "Dialogue A");
-
-        flowController.OnCutsceneCompleted();
-        AssertCurrentDialogue(1, "Dialogue A");
-
-        dialogueController.Next();
-        AssertCurrentStep(2, IntroFlowController.IntroStepType.Interaction);
-
-        flowController.OnCutsceneCompleted();
-        AssertCurrentStep(2, IntroFlowController.IntroStepType.Interaction);
-
-        flowController.OnInteractionCompleted();
-        AssertCurrentDialogue(3, "Dialogue B");
-
-        flowController.OnInteractionCompleted();
-        AssertCurrentDialogue(3, "Dialogue B");
-
-        dialogueController.Next();
-        AssertCurrentStep(4, IntroFlowController.IntroStepType.Interaction);
-
-        flowController.OnInteractionCompleted();
-
-        Assert.That(flowController.CurrentStepIndex, Is.EqualTo(5));
-        Assert.That(flowController.CurrentStepType, Is.Null);
-        Assert.That(loadedSceneName, Is.EqualTo("Dev_Yujin"));
-        Assert.That(sceneLoadCount, Is.EqualTo(1));
-
-        flowController.OnCutsceneCompleted();
-        flowController.OnInteractionCompleted();
-        flowController.SkipIntro();
-        flowController.FinishIntro();
-
-        Assert.That(sceneLoadCount, Is.EqualTo(1));
-    }
-
-    [TestCase(0)]
-    [TestCase(1)]
-    [TestCase(2)]
-    [TestCase(3)]
-    [TestCase(4)]
-    public void SkipAtAnyConfiguredStep_LoadsGameplayOnce(int stepIndex)
-    {
-        AdvanceToStep(stepIndex);
-
-        flowController.SkipIntro();
-
-        Assert.That(loadedSceneName, Is.EqualTo("Dev_Yujin"));
-        Assert.That(sceneLoadCount, Is.EqualTo(1));
-
-        flowController.SkipIntro();
-        flowController.FinishIntro();
-
-        Assert.That(sceneLoadCount, Is.EqualTo(1));
+        Assert.That(player.IsMoveInputEnabled, Is.True);
+        Assert.That(flow.TryInteract(), Is.False);
+        Assert.That(flow.BeginBarSequence(), Is.True);
+        Assert.That(flow.BeginBarSequence(), Is.False);
+        Assert.That(player.IsMoveInputEnabled, Is.False);
+        Assert.That(dialogue.IsRunning, Is.False);
+        director.time = 2;
+        Invoke(flow, "Update");
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.DealerInteraction));
+        Assert.That(player.IsMoveInputEnabled, Is.True);
+        Assert.That(Vector3.Distance(view.position, path.position), Is.LessThan(0.001f));
+        Assert.That(Quaternion.Angle(view.rotation, path.rotation), Is.LessThan(0.001f));
+        Assert.That(prompt.activeSelf, Is.True);
+        Assert.That(dialogue.IsRunning, Is.False, "No automatic dialogue on arrival");
+        Assert.That(flow.TryInteract(), Is.True);
+        Assert.That(flow.TryInteract(), Is.False);
+        Assert.That(prompt.activeSelf, Is.False);
+        Assert.That(player.IsMoveInputEnabled, Is.False);
+        Assert.That(dialogue.CurrentLineIndex, Is.Zero);
     }
 
     [Test]
-    public void EmptyStepList_FinishesSafely()
+    public void HoldIsHiddenUntilPressed_ReleaseCancels_AndAvailabilitySurvivesPhases()
     {
-        SetField(
-            flowController,
-            "steps",
-            Array.Empty<IntroFlowController.IntroStep>());
-
-        flowController.StartIntro();
-
-        Assert.That(flowController.CurrentStepIndex, Is.Zero);
-        Assert.That(flowController.CurrentStepType, Is.Null);
-        Assert.That(loadedSceneName, Is.EqualTo("Dev_Yujin"));
-        Assert.That(sceneLoadCount, Is.EqualTo(1));
-
-        flowController.SkipIntro();
-        Assert.That(sceneLoadCount, Is.EqualTo(1));
+        Assert.That(hold.IsAvailable, Is.True);
+        Assert.That(skipPrompt.activeSelf, Is.False);
+        hold.Tick(true, 0.7f);
+        Assert.That(skipPrompt.activeSelf, Is.True);
+        float partial = hold.Progress;
+        hold.Tick(false, 0.02f);
+        Assert.That(hold.Progress, Is.InRange(0.01f, partial - 0.01f));
+        hold.Tick(true, 0.7f);
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Corridor));
+        hold.Tick(false, 0.2f);
+        Assert.That(hold.Progress, Is.Zero);
+        Assert.That(skipPrompt.activeSelf, Is.False);
+        flow.BeginBarSequence();
+        director.time = 2;
+        Invoke(flow, "Update");
+        Assert.That(hold.IsAvailable, Is.True);
+        Assert.That(skipPrompt.activeSelf, Is.False);
+        Assert.That(flow.TryInteract(), Is.True);
+        hold.Tick(true, 0.3f);
+        Assert.That(skipPrompt.activeSelf, Is.True);
     }
 
     [Test]
-    public void EmptyDialogue_ImmediatelyAdvancesToFollowingStep()
+    public void InteractionRequiresFacingDealerAndBeingNearby()
     {
-        SetField(
-            flowController,
-            "steps",
-            new[]
-            {
-                CreateStep(IntroFlowController.IntroStepType.Dialogue),
-                CreateStep(IntroFlowController.IntroStepType.Interaction)
-            });
-
-        flowController.StartIntro();
-
-        AssertCurrentStep(1, IntroFlowController.IntroStepType.Interaction);
-        Assert.That(sceneLoadCount, Is.Zero);
+        flow.BeginBarSequence();
+        director.time = 2;
+        Invoke(flow, "Update");
+        view.rotation = Quaternion.Euler(0, 180, 0);
+        Assert.That(flow.TryInteract(), Is.False);
+        view.rotation = Quaternion.identity;
+        view.position = new Vector3(2, 1, -20);
+        Assert.That(flow.TryInteract(), Is.False);
     }
 
-    private void AdvanceToStep(int targetStepIndex)
+    private GameObject Child(string name, Transform parent = null)
     {
-        flowController.StartIntro();
-
-        while (flowController.CurrentStepIndex < targetStepIndex)
-        {
-            switch (flowController.CurrentStepType)
-            {
-                case IntroFlowController.IntroStepType.Cutscene:
-                    flowController.OnCutsceneCompleted();
-                    break;
-
-                case IntroFlowController.IntroStepType.Dialogue:
-                    dialogueController.Next();
-                    break;
-
-                case IntroFlowController.IntroStepType.Interaction:
-                    flowController.OnInteractionCompleted();
-                    break;
-
-                default:
-                    Assert.Fail("목표 Step에 도달하기 전에 Intro가 종료되었습니다.");
-                    break;
-            }
-        }
-
-        Assert.That(flowController.CurrentStepIndex, Is.EqualTo(targetStepIndex));
+        var child = new GameObject(name);
+        child.transform.SetParent(parent != null ? parent : root.transform);
+        return child;
     }
-
-    private void AssertCurrentDialogue(int stepIndex, string expectedLine)
-    {
-        AssertCurrentStep(
-            stepIndex,
-            IntroFlowController.IntroStepType.Dialogue);
-        Assert.That(dialogueController.IsRunning, Is.True);
-        Assert.That(dialogueController.CurrentLine, Is.EqualTo(expectedLine));
-    }
-
-    private void AssertCurrentStep(
-        int stepIndex,
-        IntroFlowController.IntroStepType stepType)
-    {
-        Assert.That(flowController.CurrentStepIndex, Is.EqualTo(stepIndex));
-        Assert.That(flowController.CurrentStepType, Is.EqualTo(stepType));
-    }
-
-    private static IntroFlowController.IntroStep[] CreateStandardSteps()
-    {
-        return new[]
-        {
-            CreateStep(IntroFlowController.IntroStepType.Cutscene),
-            CreateStep(
-                IntroFlowController.IntroStepType.Dialogue,
-                "Dialogue A"),
-            CreateStep(IntroFlowController.IntroStepType.Interaction),
-            CreateStep(
-                IntroFlowController.IntroStepType.Dialogue,
-                "Dialogue B"),
-            CreateStep(IntroFlowController.IntroStepType.Interaction)
-        };
-    }
-
-    private static IntroFlowController.IntroStep CreateStep(
-        IntroFlowController.IntroStepType type,
-        params string[] dialogueLines)
-    {
-        var step = new IntroFlowController.IntroStep();
-        SetField(step, "type", type);
-        SetField(step, "dialogueLines", dialogueLines);
-        return step;
-    }
-
-    private static void SetField(
-        object target,
-        string fieldName,
-        object value)
-    {
-        FieldInfo field = target.GetType().GetField(fieldName, PrivateInstance);
-
-        Assert.That(field, Is.Not.Null);
-        field.SetValue(target, value);
-    }
+    private static void Set(object target, string field, object value) =>
+        target.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
+    private static void Invoke(object target, string name) =>
+        target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);
 }
