@@ -51,9 +51,9 @@ namespace Michsky.UI.Shift
             if (useRoundValue == true)
             {
                 if (usePercent == true)
-                    valueText.text = Mathf.Round(mainSlider.value * 1.0f).ToString() + "%";
+                    valueText.text = Mathf.Round(mainSlider.value * 1.00f).ToString() + "%";
                 else
-                    valueText.text = Mathf.Round(mainSlider.value * 1.0f).ToString();
+                    valueText.text = Mathf.Round(mainSlider.value * 1.00f).ToString();
             }
 
             else
