@@ -17,10 +17,12 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float maxPitch = 85f;  // 위로 올려다보는 최대 각도
 
     private bool MoveInputEnabled = true;
+    public bool IsMoveInputEnabled => MoveInputEnabled;
     Rigidbody rb;
 
     private float xRotation = 0f;
-    // Start is called before the first frame update
+
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -33,25 +35,33 @@ public class PlayerMove : MonoBehaviour
         {
             cameraHolder = Camera.main.transform;
         }
+
+        xRotation = Mathf.DeltaAngle(0f, cameraHolder.localEulerAngles.x);
     }
 
-    // Update is called once per frame
     void Update()
     {
         if (MoveInputEnabled)
         {
-            Move();
             Rotate();
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (MoveInputEnabled)
+        {
+            Move();
         }
     }
 
     private void Move()
     {
-        float x = Input.GetAxis("Horizontal"); // A, D
-        float z = Input.GetAxis("Vertical");   // W, S
+        float x = Input.GetAxisRaw("Horizontal"); // A, D
+        float z = Input.GetAxisRaw("Vertical");   // W, S
 
         Vector3 move = transform.right * x + transform.forward * z;
-        rb.MovePosition(rb.position + move * speed * Time.deltaTime);
+        rb.MovePosition(rb.position + move * speed * Time.fixedDeltaTime);
     }
 
     private void Rotate()
@@ -69,5 +79,29 @@ public class PlayerMove : MonoBehaviour
     public void SetMoveInputEnabled(bool enabled)
     {
         MoveInputEnabled = enabled;
+        if (!enabled && rb != null)
+        {
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+    }
+
+    public void WarpViewPose(Vector3 position, Quaternion rotation)
+    {
+        if (cameraHolder == null) return;
+        Quaternion yaw = Quaternion.Euler(0f, rotation.eulerAngles.y, 0f);
+        transform.rotation = yaw;
+        xRotation = Mathf.Clamp(Mathf.DeltaAngle(0f, rotation.eulerAngles.x), minPitch, maxPitch);
+        cameraHolder.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        transform.position += position - cameraHolder.position;
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.position = transform.position;
+            rb.rotation = yaw;
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+        Physics.SyncTransforms();
     }
 }
