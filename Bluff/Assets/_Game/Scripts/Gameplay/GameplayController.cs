@@ -119,7 +119,7 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         soundController = new GameplaySoundController(presentation);
-        gameplayView.Initialize();
+        gameplayView.Initialize(this);
         debugPanelOpen = false;
         CreateGame();
         RefreshView();
@@ -281,6 +281,14 @@ public sealed class GameplayController : MonoBehaviour
 
                 return succeeded;
             });
+    }
+
+    // Selection only. The existing OnRaiseClicked remains the sole commit path.
+    public void OnRaiseAmountSelected(int amount)
+    {
+        if (!CanSelectPlayerRaise(out int maximum)) return;
+        selectedRaiseAmount = Mathf.Clamp(amount, 1, maximum);
+        RefreshView();
     }
 
     public void OnResolveShowdownClicked()
@@ -1115,7 +1123,9 @@ public sealed class GameplayController : MonoBehaviour
             canCall,
             IsPlayerShortAllInRequired(),
             selectedRaiseAmount,
-            maxRaiseAmount);
+            maxRaiseAmount,
+            Mathf.Min(gameState.Betting.GetCallAmount(TurnOwner.Player),
+                gameState.PlayerChips.Count));
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
         bool canStartNextRound = gameState.Phase == GamePhase.RoundEnd;
@@ -1154,7 +1164,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private int GetMaxRaiseAmount()
     {
-        if (gameState == null)
+        if (gameState == null || gameState.DealerChips.Count == 0)
         {
             return 0;
         }

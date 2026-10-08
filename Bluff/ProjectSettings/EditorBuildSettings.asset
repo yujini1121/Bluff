@@ -17,4 +17,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Scenes/Intro.unity
     guid: 2bbc520a7c883b045a42af5516cff6d3
+  - enabled: 1
+    path: Assets/_Game/Scenes/UI_Yujin.unity
+    guid: 441cef3e1215492b83050aa7b5479461
+  - enabled: 1
+    path: Assets/_Game/Scenes/UI_Yujin_Shift.unity
+    guid: 5fc6d56323d04ec2b6eb9d23e570ac52
   m_configObjects: {}

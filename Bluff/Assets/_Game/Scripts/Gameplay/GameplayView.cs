@@ -28,6 +28,7 @@ public sealed class GameplayView : MonoBehaviour
     [SerializeField] private Button debugToggleButton;
 
     [Header("Action UI")]
+    [SerializeField] private RadialBettingView radialBettingView;
     [SerializeField] private GameObject playerActionBar;
     [SerializeField] private GameObject contextActionArea;
     [SerializeField] private Button[] bettingActionButtons;
@@ -45,10 +46,11 @@ public sealed class GameplayView : MonoBehaviour
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
 
-    public void Initialize()
+    public void Initialize(GameplayController controller = null)
     {
         ApplyUiFont();
         CacheCallActionTexts();
+        if (radialBettingView != null) radialBettingView.Bind(controller);
     }
 
     public bool HasReferences()
@@ -131,8 +133,16 @@ public sealed class GameplayView : MonoBehaviour
         bool canCall,
         bool useAllInText,
         int selectedRaiseBy,
-        int maxRaiseBy)
+        int maxRaiseBy,
+        int callCost = 0)
     {
+        if (radialBettingView != null)
+        {
+            playerActionBar.SetActive(false);
+            radialBettingView.Refresh(playerTurn, canAcceptPlayerBettingInput,
+                canCall, useAllInText, selectedRaiseBy, maxRaiseBy, callCost);
+            return;
+        }
         playerActionBar.SetActive(playerTurn);
 
         for (int index = 0; index < bettingActionButtons.Length; index++)
