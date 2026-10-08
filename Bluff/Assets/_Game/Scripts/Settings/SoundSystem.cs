@@ -167,4 +167,11 @@ public class SoundSystem : MonoBehaviour
 
         PlayerPrefs.SetFloat("SFXVolume", volume);
     }
+
+    void Update()
+    {
+        SetMasterVolume(MasterSlider.value);
+        SetBGMVolume(BGMVolumeSlider.value);
+        SetSFXVolume(SFXVolumeSlider.value);
+    }
 }
