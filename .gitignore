@@ -64,3 +64,4 @@ AGENTS.md
 AGENTS.override.md
 .codex/
 .agents/
+*.md
