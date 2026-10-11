@@ -26,10 +26,15 @@ public sealed class IntroKeycapOutline : MaskableGraphic
         float perimeter = 2f * (r.width + r.height - 4f * half);
         float remaining = progress * perimeter;
         for (int i = 0; i < 4; i++) AddEdge(vh, corners[i], corners[(i + 1) % 4], half, outlineColor * color);
-        for (int i = 0; i < 4 && remaining > 0f; i++)
+        // Start at twelve o'clock and trace clockwise, finishing the left half of the top edge last.
+        Vector2[] progressPath = {
+            new Vector2(r.center.x, r.yMax - half),
+            corners[1], corners[2], corners[3], corners[0]
+        };
+        for (int i = 0; i < progressPath.Length && remaining > 0f; i++)
         {
-            Vector2 start = corners[i];
-            Vector2 end = corners[(i + 1) % 4];
+            Vector2 start = progressPath[i];
+            Vector2 end = progressPath[(i + 1) % progressPath.Length];
             float length = Vector2.Distance(start, end);
             if (length <= 0f) continue;
             AddEdge(vh, start, Vector2.Lerp(start, end, Mathf.Min(remaining / length, 1f)), half, progressColor * color);
