@@ -13926,6 +13926,16 @@ MonoBehaviour:
   dialogueText: {fileID: 239634649}
   dialogueLines: []
   dialoguePanel: {fileID: 295926692}
+  characterInterval: 0.04
+  commaDelay: 0.3
+  sentenceDelay: 0.2
+  ellipsisDelay: 0.35
+  dialogueSound: {fileID: 8300000, guid: b085624f879110040b346125b48a5a4f, type: 3}
+  soundVolume: 0.5
+  charactersPerSound: 1
+  minimumSoundInterval: 0.08
+  pitchRange: {x: 0.55, y: 0.75}
+  dialogueSfxMixerGroup: {fileID: 5961459909909399892, guid: c58c4649b735c5e47924a0bb6100857e, type: 2}
 --- !u!114 &1888643799
 MonoBehaviour:
   m_ObjectHideFlags: 0

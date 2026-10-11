@@ -14,6 +14,8 @@ public sealed class IntroSceneSkeletonTests
     private bool gameplayLoaded;
     private float alphaAtLoad;
     private CanvasGroup transitionGroup;
+    private int dialogueCompletionCount;
+    private void OnDialogueCompleted() => dialogueCompletionCount++;
 
     private void OnGameplayLoaded(Scene scene, LoadSceneMode mode)
     {
@@ -128,7 +130,23 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(dialogue.CurrentLineIndex, Is.Zero);
         Capture("05_Dialogue");
         yield return Seconds(0.1f);
-        while (dialogue.IsRunning) dialogue.Next();
+        dialogueCompletionCount = 0;
+        dialogue.DialogueCompleted += OnDialogueCompleted;
+        while (dialogue.IsRunning)
+        {
+            int lineIndex = dialogue.CurrentLineIndex;
+            bool wasTyping = dialogue.IsTyping;
+            dialogue.Next();
+            if (wasTyping)
+            {
+                Assert.That(dialogue.CurrentLineIndex, Is.EqualTo(lineIndex));
+                Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Dialogue),
+                    "Completing the last line's typing must not transition to gameplay");
+                Assert.That(dialogueCompletionCount, Is.Zero);
+            }
+            yield return null;
+        }
+        Assert.That(dialogueCompletionCount, Is.EqualTo(1));
         Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Transition));
         yield return Seconds(0.3f);
         Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Intro"));
@@ -164,7 +182,6 @@ public sealed class IntroSceneSkeletonTests
         yield return new EnterPlayMode();
         for (int phase = 0; phase < 4; phase++)
         {
-            // 각 실행을 새 게임 시작과 동일하게 격리한다. 게임 씬의 영속 객체는 씬 UI를 참조한다.
             if (SoundSystem.Instance != null) UnityEngine.Object.Destroy(SoundSystem.Instance.gameObject);
             yield return null;
             SceneManager.LoadScene("Intro");
@@ -199,7 +216,7 @@ public sealed class IntroSceneSkeletonTests
             Assert.That((int)flow.State, Is.EqualTo(phase), "Released holds must not accumulate");
             hold.Tick(true, 0.6f);
             Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Transition));
-            flow.SkipIntro(); // A repeated request must not start a second transition.
+            flow.SkipIntro();
             Assert.That(hold.IsAvailable, Is.False);
             Assert.That(keycap.activeSelf, Is.False);
             Assert.That(player.IsMoveInputEnabled, Is.False);
@@ -270,7 +287,6 @@ public sealed class IntroSceneSkeletonTests
         if (!UnityEditor.SessionState.GetBool("Intro.FinalCapture", false)) return;
         System.IO.Directory.CreateDirectory("Logs/IntroPolish/Frames");
         string destination = System.IO.Path.GetFullPath("Logs/IntroPolish/Frames/" + name + ".png");
-        // Capture at a stable resolution, independent of the Editor Game View panel size.
         Camera camera = Camera.main;
         var canvases = UnityEngine.Object.FindObjectsOfType<Canvas>()
             .Where(c => c.renderMode == RenderMode.ScreenSpaceOverlay).ToArray();
