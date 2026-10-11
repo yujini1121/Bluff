@@ -31,13 +31,13 @@ public static class IntroPlayReviewEditor
             return;
         }
         EditorSceneManager.SaveScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-        Directory.CreateDirectory(Path.GetFullPath("Logs/IntroRebuildReview"));
+        Directory.CreateDirectory(Path.GetFullPath("Logs/IntroPolish"));
         SessionState.SetBool(ReviewKey, true);
         runner.Execute(new ExecutionSettings(new Filter
         {
             testMode = TestMode.EditMode,
             groupNames = new[] { "^IntroFlowControllerTests", "^DialogueControllerTests",
-                "^IntroDoorTriggerTests", "^IntroSceneSkeletonTests" }
+                "^IntroDoorTriggerTests", "^IntroSceneSkeletonTests", "^IntroDealerAnimationTests" }
         }));
     }
 
@@ -53,11 +53,11 @@ public static class IntroPlayReviewEditor
             {
                 return;
             }
-            Directory.CreateDirectory(Path.GetFullPath("Logs/IntroRebuildReview"));
-            File.WriteAllText(Path.GetFullPath("Logs/IntroRebuildReview/Results.xml"), result.ToXml().OuterXml);
+            Directory.CreateDirectory(Path.GetFullPath("Logs/IntroPolish"));
+            File.WriteAllText(Path.GetFullPath("Logs/IntroPolish/Results.xml"), result.ToXml().OuterXml);
             SessionState.SetBool(ReviewKey, false);
             Debug.Log("Intro 실제 Play Review: " + result.PassCount + " 통과 / " + result.FailCount +
-                " 실패. Game View 캡처와 결과: Logs/IntroRebuildReview");
+                " 실패. Game View 캡처와 결과: Logs/IntroPolish");
         }
     }
 }

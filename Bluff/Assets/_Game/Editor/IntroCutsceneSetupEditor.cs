@@ -16,9 +16,9 @@ using UnityEngine.UI;
 public static class IntroCutsceneSetupEditor
 {
     public const string IntroPath = "Assets/_Game/Scenes/Intro.unity";
-    public const string Folder = "Assets/_Game/Scenes/IntroSkeleton";
+    public const string Folder = "Assets/_Game/Scenes/Intro";
     public const string BarPath = Folder + "/Intro_BarSequence.playable";
-    public const string DoorPath = "Assets/_Game/Scenes/Intro_DoorOpen.playable";
+    public const string DoorPath = Folder + "/Intro_DoorOpen.playable";
 
     public static void SetupBatch()
     {

@@ -144,7 +144,7 @@ public static class IntroBarRevisionEditor
         textObject.transform.SetParent(root.transform,false);
         Stretch((RectTransform)textObject.transform);
         var text=textObject.GetComponent<TextMeshProUGUI>();
-        const string materialPath = "Assets/_Game/Scenes/IntroSkeleton/Intro_Keycap.mat";
+        const string materialPath = IntroCutsceneSetupEditor.Folder + "/Intro_Keycap.mat";
         var keyMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
         if (keyMaterial == null)
         {

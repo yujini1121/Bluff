@@ -65,14 +65,62 @@ public sealed class IntroFlowControllerTests
         Set(flow, "holdToSkip", hold);
         root.SetActive(true);
         flow.StartIntro();
+        Invoke(flow, "OnEnable");
     }
 
     [TearDown]
     public void TearDown()
     {
         var timeline = director.playableAsset;
+        Invoke(flow, "OnDisable");
         Object.DestroyImmediate(root);
         Object.DestroyImmediate(timeline);
+    }
+
+    [Test]
+    public void EntryKeepsRenderedPose_AndConvergesWithoutMovingPlayer()
+    {
+        var output = root.GetComponentInChildren<Camera>();
+        var rig = director.GetComponent<IntroBarSequenceCamera>();
+        output.transform.SetPositionAndRotation(new Vector3(-1, 1, 2), Quaternion.Euler(10, 355, 0));
+        Vector3 playerBefore = player.transform.position;
+        Assert.That(flow.BeginBarSequence(), Is.True);
+        Assert.That(Vector3.Distance(rig.VirtualCamera.transform.position, output.transform.position), Is.LessThan(0.0001f));
+        Assert.That(Quaternion.Angle(rig.VirtualCamera.transform.rotation, output.transform.rotation), Is.LessThan(0.001f));
+        Assert.That(player.transform.position, Is.EqualTo(playerBefore));
+        director.time = 1.2;
+        rig.ApplyPose();
+        Assert.That(Vector3.Distance(rig.VirtualCamera.transform.position, path.position), Is.LessThan(0.0001f));
+    }
+
+    [Test]
+    public void ExternalStopReleasesInputAndKeepsCurrentPose()
+    {
+        flow.BeginBarSequence();
+        director.time = 0.5;
+        var rig = director.GetComponent<IntroBarSequenceCamera>();
+        rig.ApplyPose();
+        Vector3 visible = rig.VirtualCamera.transform.position;
+        director.Stop();
+        Assert.That(player.IsMoveInputEnabled, Is.True);
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.DealerInteraction));
+        Assert.That(Vector3.Distance(view.position, visible), Is.LessThan(0.0001f));
+        Assert.That(rig.VirtualCamera.Priority, Is.Zero);
+    }
+
+    [Test]
+    public void DisablingFlowReleasesCameraAndReenableRestoresSkip()
+    {
+        flow.BeginBarSequence();
+        flow.enabled = false;
+        Invoke(flow, "OnDisable");
+        Assert.That(player.IsMoveInputEnabled, Is.True);
+        Assert.That(director.state, Is.Not.EqualTo(PlayState.Playing));
+        Assert.That(director.GetComponent<IntroBarSequenceCamera>().VirtualCamera.Priority, Is.Zero);
+        Assert.That(hold.IsAvailable, Is.False);
+        flow.enabled = true;
+        Invoke(flow, "OnEnable");
+        Assert.That(hold.IsAvailable, Is.True);
     }
 
     [Test]

@@ -35,11 +35,20 @@ public sealed class IntroFlowController : MonoBehaviour
     private void OnEnable()
     {
         if (dialogueController != null) dialogueController.DialogueCompleted += HandleDialogueCompleted;
+        if (barDirector != null) barDirector.stopped += HandleBarStopped;
+        if (initialized && holdToSkip != null) holdToSkip.SetAvailable(State != IntroState.Transition);
     }
 
     private void OnDisable()
     {
         if (dialogueController != null) dialogueController.DialogueCompleted -= HandleDialogueCompleted;
+        if (barDirector != null) barDirector.stopped -= HandleBarStopped;
+        if (State == IntroState.BarCutscene)
+        {
+            ReturnViewToPlayer();
+            State = IntroState.DealerInteraction;
+            if (barDirector != null) barDirector.Stop();
+        }
         SetPrompt(false);
         if (holdToSkip != null) holdToSkip.SetAvailable(false);
     }
@@ -83,7 +92,6 @@ public sealed class IntroFlowController : MonoBehaviour
         barDirector.time = 0d;
         barDirector.Play();
         barDirector.Evaluate();
-        playerMove.WarpViewPose(barCamera.AuthoredPosition, outputCamera.transform.rotation);
         barCamera.CaptureEntry(outputCamera);
         barCamera.ApplyPose();
         return true;
@@ -96,14 +104,28 @@ public sealed class IntroFlowController : MonoBehaviour
         barDirector.time = barDirector.duration;
         barDirector.Evaluate();
         barCamera.ApplyPose();
+        ReturnViewToPlayer();
+        barDirector.Stop();
+        SetPrompt(CanInteract);
+    }
+
+    private void HandleBarStopped(PlayableDirector stopped)
+    {
+        if (State != IntroState.BarCutscene) return;
+        // 외부에서 중단해도 마지막 키로 점프하지 않고 현재 시점을 돌려준다.
+        State = IntroState.DealerInteraction;
+        ReturnViewToPlayer();
+    }
+
+    private void ReturnViewToPlayer()
+    {
+        if (barCamera == null || playerMove == null || playerViewCamera == null) return;
         Transform finalView = barCamera.VirtualCamera.transform;
         playerMove.WarpViewPose(finalView.position, finalView.rotation);
         playerViewCamera.m_Lens = barCamera.VirtualCamera.m_Lens;
         playerViewCamera.ForceCameraPosition(finalView.position, finalView.rotation);
         barCamera.Release();
-        barDirector.Stop();
         playerMove.SetMoveInputEnabled(true);
-        SetPrompt(CanInteract);
     }
 
     public bool TryInteract()
@@ -128,7 +150,7 @@ public sealed class IntroFlowController : MonoBehaviour
 
     private void BeginTransition()
     {
-        if (State == IntroState.Transition || fadeController == null) return;
+        if (State == IntroState.Transition || fadeController == null || !fadeController.CanTransition) return;
         State = IntroState.Transition;
         SetPrompt(false);
         if (holdToSkip != null) holdToSkip.SetAvailable(false);
