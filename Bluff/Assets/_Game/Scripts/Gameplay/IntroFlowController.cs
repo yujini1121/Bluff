@@ -5,7 +5,7 @@ using UnityEngine.Playables;
 public sealed class IntroFlowController : MonoBehaviour
 {
     public const string GameplaySceneName = "Dev_Yujin";
-    public enum IntroState { Corridor, BarCutscene, DealerInteraction, Dialogue, Transition }
+    public enum IntroState { Corridor, BarCutscene, DealerInteraction, Dialogue, Transition, Seating }
 
     [SerializeField] private PlayerMove playerMove;
     [SerializeField] private CinemachineVirtualCamera playerViewCamera;
@@ -21,6 +21,11 @@ public sealed class IntroFlowController : MonoBehaviour
     [SerializeField] private IntroFadeController fadeController;
     [SerializeField] private IntroHoldToSkip holdToSkip;
     [SerializeField] private PlayableDirector doorDirector;
+    [SerializeField] private Transform seatedView;
+    [SerializeField, Min(0.01f)] private float seatingSpeed = 0.7f;
+    [SerializeField, Min(1f)] private float seatingTurnSpeed = 60f;
+    private Vector3 seatingPosition;
+    private Quaternion seatingRotation;
 
     public IntroState State { get; private set; } = IntroState.Corridor;
     public bool CanInteract => State == IntroState.DealerInteraction && playerViewCamera != null &&
@@ -49,6 +54,11 @@ public sealed class IntroFlowController : MonoBehaviour
             State = IntroState.DealerInteraction;
             if (barDirector != null) barDirector.Stop();
         }
+        if (State == IntroState.Seating)
+        {
+            State = IntroState.DealerInteraction;
+            playerMove.SetMoveInputEnabled(true);
+        }
         SetPrompt(false);
         if (holdToSkip != null) holdToSkip.SetAvailable(false);
     }
@@ -67,6 +77,11 @@ public sealed class IntroFlowController : MonoBehaviour
 
     private void Update()
     {
+        if (State == IntroState.Seating)
+        {
+            TickSeating(Time.deltaTime);
+            return;
+        }
         if (State == IntroState.BarCutscene && barDirector.time >= barDirector.duration - 0.001d)
             CompleteBarSequence();
 
@@ -121,7 +136,7 @@ public sealed class IntroFlowController : MonoBehaviour
     {
         if (barCamera == null || playerMove == null || playerViewCamera == null) return;
         Transform finalView = barCamera.VirtualCamera.transform;
-        playerMove.WarpViewPose(finalView.position, finalView.rotation, barCamera.CurrentHeightOffset);
+        playerMove.WarpViewPose(finalView.position, finalView.rotation);
         playerViewCamera.m_Lens = barCamera.VirtualCamera.m_Lens;
         playerViewCamera.ForceCameraPosition(finalView.position, finalView.rotation);
         barCamera.Release();
@@ -131,14 +146,47 @@ public sealed class IntroFlowController : MonoBehaviour
     public bool TryInteract()
     {
         if (!CanInteract || dialogueController == null) return false;
-        State = IntroState.Dialogue;
-        dialogueStartFrame = Time.frameCount;
         SetPrompt(false);
         playerMove.SetMoveInputEnabled(false);
+        if (seatedView != null)
+        {
+            State = IntroState.Seating;
+            Transform visible = outputCamera != null ? outputCamera.transform : playerViewCamera.transform;
+            seatingPosition = visible.position;
+            seatingRotation = visible.rotation;
+            playerViewCamera.transform.SetPositionAndRotation(seatingPosition, seatingRotation);
+            playerViewCamera.ForceCameraPosition(seatingPosition, seatingRotation);
+            var brain = outputCamera != null ? outputCamera.GetComponent<CinemachineBrain>() : null;
+            if (brain != null) brain.ActiveBlend = null;
+        }
+        else StartSeatedDialogue();
+        return true;
+    }
+
+    private void TickSeating(float deltaTime)
+    {
+        if (State != IntroState.Seating) return;
+        seatingPosition = Vector3.MoveTowards(seatingPosition, seatedView.position,
+            Mathf.Max(0.01f, seatingSpeed) * deltaTime);
+        Vector3 direction = dealerLookTarget.position - seatingPosition;
+        Quaternion facing = direction.sqrMagnitude > 0.0001f
+            ? Quaternion.LookRotation(direction) : seatingRotation;
+        seatingRotation = Quaternion.RotateTowards(seatingRotation, facing,
+            Mathf.Max(1f, seatingTurnSpeed) * deltaTime);
+        playerViewCamera.transform.SetPositionAndRotation(seatingPosition, seatingRotation);
+        playerViewCamera.ForceCameraPosition(seatingPosition, seatingRotation);
+        if (Vector3.Distance(seatingPosition, seatedView.position) < 0.0001f &&
+            Quaternion.Angle(seatingRotation, facing) < 0.1f)
+            StartSeatedDialogue();
+    }
+
+    private void StartSeatedDialogue()
+    {
+        State = IntroState.Dialogue;
+        dialogueStartFrame = Time.frameCount;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         dialogueController.StartDialogue(dialogueLines);
-        return true;
     }
 
     private void HandleDialogueCompleted()

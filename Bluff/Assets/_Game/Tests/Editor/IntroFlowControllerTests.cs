@@ -108,26 +108,41 @@ public sealed class IntroFlowControllerTests
         Assert.That(rig.VirtualCamera.Priority, Is.Zero);
     }
 
-    [TestCase(9.35, 0f)]
-    [TestCase(10.2, 0.23f)]
-    [TestCase(11.05, 0.46f)]
-    public void SeatRiseOccursNearArrival_AndHandoffKeepsBodyAtWalkingHeight(double time, float height)
+    [TestCase(-1f)]
+    [TestCase(0f)]
+    [TestCase(1f)]
+    public void InteractionSeatsFromCurrentViewAtConstantSpeed_BeforeStartingDialogue(float offset)
     {
-        var rig = director.GetComponent<IntroBarSequenceCamera>();
-        Set(rig, "seatRiseHeight", 0.46f);
-        ((TimelineAsset)director.playableAsset).fixedDuration = 12;
         flow.BeginBarSequence();
-        director.time = time;
-        rig.ApplyPose();
-        Assert.That(rig.CurrentHeightOffset, Is.EqualTo(height).Within(0.001f));
-        Assert.That(rig.VirtualCamera.transform.position.y, Is.EqualTo(path.position.y + height).Within(0.001f));
-        Vector3 visible = rig.VirtualCamera.transform.position;
-        director.Stop();
-        Assert.That(Vector3.Distance(view.position, visible), Is.LessThan(0.001f));
-        Assert.That(view.localPosition.y, Is.EqualTo(height).Within(0.001f));
-        Assert.That(player.transform.position.y, Is.EqualTo(path.position.y).Within(0.001f));
+        director.time = 2;
+        Invoke(flow, "Update");
+        view.position = new Vector3(2 + offset, 1, 3);
+        view.rotation = Quaternion.LookRotation(new Vector3(2, 1, 5) - view.position);
+        var output = root.GetComponentInChildren<Camera>();
+        output.transform.SetPositionAndRotation(view.position, view.rotation);
+        var seat = Child("Seat").transform;
+        seat.position = new Vector3(2, 1.46f, 3.8f);
+        Set(flow, "seatedView", seat);
+        Vector3 start = view.position;
+        Assert.That(flow.TryInteract(), Is.True);
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Seating));
+        Assert.That(view.position, Is.EqualTo(start));
+        Assert.That(dialogue.IsRunning, Is.False);
+        Assert.That(flow.TryInteract(), Is.False);
+        Assert.That(player.IsMoveInputEnabled, Is.False);
+        for (int i = 0; i < 100 && flow.State == IntroFlowController.IntroState.Seating; i++)
+        {
+            Vector3 previous = view.position;
+            float distance = Vector3.Distance(previous, seat.position);
+            typeof(IntroFlowController).GetMethod("TickSeating", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(flow, new object[] { 0.1f });
+            Assert.That(Vector3.Distance(previous, view.position), Is.EqualTo(Mathf.Min(distance, 0.07f)).Within(0.0001f));
+        }
+        Assert.That(view.position, Is.EqualTo(seat.position));
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Dialogue));
+        Assert.That(dialogue.IsRunning, Is.True);
+        Assert.That(Vector3.Angle(view.forward, new Vector3(2, 1, 5) - view.position), Is.LessThan(0.1f));
     }
-
     [Test]
     public void DisablingFlowReleasesCameraAndReenableRestoresSkip()
     {

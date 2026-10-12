@@ -6256,7 +6256,7 @@ Transform:
   m_GameObject: {fileID: 640817327}
   serializedVersion: 2
   m_LocalRotation: {x: 0.008472436, y: 0.9850264, z: 0.050715312, w: -0.16455728}
-  m_LocalPosition: {x: 9.65, y: 2.23, z: 14.8}
+  m_LocalPosition: {x: 8.727, y: 2.23, z: 14.305}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6316,8 +6316,6 @@ MonoBehaviour:
   dealerFocusWindow: {x: 4.1, y: 5.15}
   lensSettleWindow: {x: 5.2, y: 10.65}
   arrivalFieldOfView: 56
-  seatRiseWindow: {x: 9.35, y: 11.05}
-  seatRiseHeight: 0.46
 --- !u!320 &669671322
 PlayableDirector:
   m_ObjectHideFlags: 0
@@ -14342,6 +14340,9 @@ MonoBehaviour:
   barCamera: {fileID: 669671321}
   dealerLookTarget: {fileID: 2112315144}
   interactionPrompt: {fileID: 996949558}
+  seatedView: {fileID: 640817328}
+  seatingSpeed: 0.7
+  seatingTurnSpeed: 60
   interactionDistance: 4
   interactionAngle: 40
   dialogueController: {fileID: 1888643798}

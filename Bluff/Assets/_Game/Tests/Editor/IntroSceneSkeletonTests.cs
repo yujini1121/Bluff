@@ -17,6 +17,66 @@ public sealed class IntroSceneSkeletonTests
     private int dialogueCompletionCount;
     private void OnDialogueCompleted() => dialogueCompletionCount++;
 
+    [UnityTest]
+    public IEnumerator ActualScene_ESeatsFromCurrentPosition_ThenStartsDialogue()
+    {
+        EditorSceneManager.OpenScene(IntroCutsceneSetupEditor.IntroPath);
+        UnityEditor.SessionState.SetBool("Intro.FinalCapture", SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null);
+        yield return new EnterPlayMode();
+        SceneManager.LoadScene("Intro");
+        yield return null;
+        yield return null;
+        var flow = UnityEngine.Object.FindObjectOfType<IntroFlowController>();
+        var player = UnityEngine.Object.FindObjectOfType<PlayerMove>();
+        var view = Read<Transform>(player, "cameraHolder");
+        var dialogue = Read<DialogueController>(flow, "dialogueController");
+        Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(flow.BeginBarSequence(), Is.True);
+        float deadline = Time.realtimeSinceStartup + 20f;
+        var director = Read<PlayableDirector>(flow, "barDirector");
+        while (flow.State == IntroFlowController.IntroState.BarCutscene)
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
+            if (director.time > 1.3)
+                Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+            yield return null;
+        }
+        Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(player.IsMoveInputEnabled, Is.True);
+        Vector3 start = new Vector3(7.9f, 1.77f, 15f);
+        var target = Read<Transform>(flow, "dealerLookTarget");
+        player.WarpViewPose(start, Quaternion.LookRotation(target.position - start));
+        yield return null;
+        yield return null;
+        start = Camera.main.transform.position;
+        Capture("ESeat_01_Before");
+        Assert.That(flow.TryInteract(), Is.True);
+        Assert.That(Vector3.Distance(view.position, start), Is.LessThan(0.0001f));
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Seating));
+        Assert.That(dialogue.IsRunning, Is.False);
+        Assert.That(flow.TryInteract(), Is.False);
+        deadline = Time.realtimeSinceStartup + 10f;
+        var seat = Read<Transform>(flow, "seatedView");
+        while (flow.State == IntroFlowController.IntroState.Seating)
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
+            Vector3 previous = view.position;
+            float remaining = Vector3.Distance(previous, seat.position);
+            yield return null;
+            Assert.That(Vector3.Distance(previous, view.position),
+                Is.EqualTo(Mathf.Min(remaining, 0.7f * Time.deltaTime)).Within(0.01f));
+        }
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Dialogue));
+        Assert.That(dialogue.IsRunning, Is.True);
+        yield return Seconds(0.5f);
+        var chair = GameObject.Find("Casino_Pub_Chair (1)").transform;
+        Assert.That(view.position.x, Is.EqualTo(chair.position.x).Within(0.02f));
+        Assert.That(view.position.z, Is.EqualTo(chair.position.z).Within(0.02f));
+        Assert.That(view.position.y, Is.EqualTo(2.23f).Within(0.02f));
+        Assert.That(Vector3.Angle(view.forward, target.position - view.position), Is.LessThan(0.2f));
+        Capture("ESeat_02_Dialogue");
+        yield return new ExitPlayMode();
+    }
     private void OnGameplayLoaded(Scene scene, LoadSceneMode mode)
     {
         if (scene.name != IntroFlowController.GameplaySceneName) return;
@@ -117,7 +177,7 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(hold.IsAvailable, Is.True);
         Assert.That(Camera.main.transform.position.x, Is.EqualTo(9.65f).Within(0.02f));
         Assert.That(Camera.main.transform.position.z, Is.EqualTo(14.8f).Within(0.02f));
-        Assert.That(Camera.main.transform.position.y, Is.EqualTo(2.23f).Within(0.02f));
+        Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
         Assert.That(player.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
         Vector3 arrivalPosition = Camera.main.transform.position;
         body.useGravity = true;
@@ -127,8 +187,6 @@ public sealed class IntroSceneSkeletonTests
         Capture("04_Dealer_E_Wait");
         Assert.That(Vector3.Distance(model.position, originalDealerPosition), Is.LessThan(0.001f));
         Transform target = Read<Transform>(flow, "dealerLookTarget");
-        Assert.That(Mathf.Abs(Camera.main.transform.position.y - target.position.y), Is.LessThan(0.1f),
-            "딜러와 플레이어 눈높이 일치");
         Vector3 screen = Camera.main.WorldToViewportPoint(target.position);
         Assert.That(screen.z, Is.GreaterThan(0f));
         Assert.That(screen.x, Is.InRange(0.35f, 0.65f));
@@ -138,6 +196,7 @@ public sealed class IntroSceneSkeletonTests
         yield return Seconds(0.5f);
         Assert.That(dialogue.IsRunning, Is.False, "Waiting does not auto-start dialogue");
         Assert.That(flow.TryInteract(), Is.True, "Exercise the exact handler used by E");
+        while (flow.State == IntroFlowController.IntroState.Seating) yield return null;
         Assert.That(prompt.activeSelf, Is.False);
         Assert.That(player.IsMoveInputEnabled, Is.False);
         Assert.That(dialogue.CurrentLineIndex, Is.Zero);
@@ -193,7 +252,7 @@ public sealed class IntroSceneSkeletonTests
     {
         EditorSceneManager.OpenScene(IntroCutsceneSetupEditor.IntroPath);
         yield return new EnterPlayMode();
-        for (int phase = 0; phase < 4; phase++)
+        for (int phase = 0; phase < 5; phase++)
         {
             if (SoundSystem.Instance != null) UnityEngine.Object.Destroy(SoundSystem.Instance.gameObject);
             yield return null;
@@ -212,8 +271,19 @@ public sealed class IntroSceneSkeletonTests
                 yield return null;
                 yield return null;
             }
-            if (phase == 3) Assert.That(flow.TryInteract(), Is.True);
-            Assert.That((int)flow.State, Is.EqualTo(phase));
+            if (phase >= 3) Assert.That(flow.TryInteract(), Is.True);
+            if (phase == 4)
+            {
+                float seatingDeadline = Time.realtimeSinceStartup + 10f;
+                while (flow.State == IntroFlowController.IntroState.Seating)
+                {
+                    Assert.That(Time.realtimeSinceStartup, Is.LessThan(seatingDeadline));
+                    yield return null;
+                }
+            }
+            var expectedState = phase == 3 ? IntroFlowController.IntroState.Seating :
+                phase == 4 ? IntroFlowController.IntroState.Dialogue : (IntroFlowController.IntroState)phase;
+            Assert.That(flow.State, Is.EqualTo(expectedState));
             Assert.That(hold.IsAvailable, Is.True);
             Assert.That(keycap.activeSelf, Is.False, "Never show ESC before a press in any phase");
             hold.enabled = false;
@@ -226,7 +296,7 @@ public sealed class IntroSceneSkeletonTests
             Assert.That(hold.Progress, Is.Zero);
             Assert.That(keycap.activeSelf, Is.False);
             hold.Tick(true, 0.65f);
-            Assert.That((int)flow.State, Is.EqualTo(phase), "Released holds must not accumulate");
+            Assert.That(flow.State, Is.EqualTo(expectedState), "Released holds must not accumulate");
             hold.Tick(true, 0.6f);
             Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Transition));
             flow.SkipIntro();
