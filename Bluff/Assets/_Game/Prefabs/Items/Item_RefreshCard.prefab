@@ -31,6 +31,58 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5975978037722972884}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7708200100000000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7708200100000000001}
+  - component: {fileID: 7708200100000000002}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7708200100000000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7708200100000000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7961095324091939939}
+  m_Father: {fileID: 5975978037722972884}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7708200100000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7708200100000000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0b86d638b51430d88098ac7bd68a039, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  activationLiftHeight: 0.025
+  activationScale: 1.07
+  liftDuration: 0.165
+  rotateDuration: 0.135
+  returnDuration: 0.06
+  activationHoldDuration: 0.03
+  consumeDuration: 0.15
 --- !u!1 &9109885737611708634
 GameObject:
   m_ObjectHideFlags: 0
@@ -42,7 +94,7 @@ GameObject:
   - component: {fileID: 5975978037722972884}
   - component: {fileID: 7273840287344862191}
   - component: {fileID: 6184781084264365292}
-  - component: {fileID: 4089578336046110751}
+  - component: {fileID: 9209823848884451760}
   m_Layer: 0
   m_Name: Item_RefreshCard
   m_TagString: Untagged
@@ -102,7 +154,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemSystem: {fileID: 0}
   itemData: {fileID: 11400000, guid: 1ecc527337fda3648bcf8fe514fe1a8c, type: 2}
---- !u!114 &4089578336046110751
+--- !u!114 &9209823848884451760
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -111,59 +163,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 9109885737611708634}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d486bc83147148644b71bd67fe2cee5e, type: 3}
+  m_Script: {fileID: 11500000, guid: 7fb1d45f0bab4a87a33cbd88f3528092, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &7708200100000000000
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 7708200100000000001}
-  - component: {fileID: 7708200100000000002}
-  m_Layer: 0
-  m_Name: VisualRoot
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &7708200100000000001
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7708200100000000000}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 7961095324091939939}
-  m_Father: {fileID: 5975978037722972884}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7708200100000000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7708200100000000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f0b86d638b51430d88098ac7bd68a039, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  liftDuration: 0.165
-  rotateDuration: 0.135
-  returnDuration: 0.06
-  activationHoldDuration: 0.03
-  consumeDuration: 0.15
+  target: 3
+  tooltip: {fileID: 0}
+  gameUi: {fileID: 0}
+  tooltipAnchor: {fileID: 4174223287885180938}
 --- !u!1001 &7634102165895158664
 PrefabInstance:
   m_ObjectHideFlags: 0

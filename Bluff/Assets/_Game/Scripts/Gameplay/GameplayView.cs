@@ -78,8 +78,8 @@ public sealed class GameplayView : MonoBehaviour
     public void RefreshRound(GameMode gameMode, int currentRound)
     {
         roundText.text = gameMode == GameMode.RoundLimited
-            ? $"ROUND {currentRound} / {GameState.MaximumRoundCount}"
-            : $"ROUND {currentRound}";
+            ? $"Round {currentRound} / {GameState.MaximumRoundCount}"
+            : $"Round {currentRound}";
     }
 
     public void RefreshDealerHand(GameState gameState)
@@ -146,7 +146,7 @@ public sealed class GameplayView : MonoBehaviour
             callActionButtons[index].interactable = canCall;
         }
 
-        string actionText = useAllInText ? "ALL IN" : "CALL";
+        string actionText = useAllInText ? "All in" : "Call";
 
         for (int index = 0; index < callActionTexts.Count; index++)
         {
@@ -167,8 +167,8 @@ public sealed class GameplayView : MonoBehaviour
             : "+0";
         raiseExecuteText.text = maxRaiseBy > 0 &&
                                 selectedRaiseBy == maxRaiseBy
-            ? "ALL IN"
-            : "RAISE";
+            ? "All in"
+            : "Raise";
     }
 
     public void RefreshProgress(
