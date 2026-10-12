@@ -3840,7 +3840,7 @@ Transform:
   m_GameObject: {fileID: 296471149}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.62932044, z: -0, w: 0.777146}
-  m_LocalPosition: {x: 1.238, y: 2.23, z: 15.83}
+  m_LocalPosition: {x: 1.238, y: 1.77, z: 15.83}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4768,7 +4768,7 @@ Transform:
   m_GameObject: {fileID: 404452802}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.62932044, z: -0, w: 0.777146}
-  m_LocalPosition: {x: 1.238, y: 2.23, z: 15.83}
+  m_LocalPosition: {x: 1.238, y: 1.77, z: 15.83}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6316,8 +6316,8 @@ MonoBehaviour:
   dealerFocusWindow: {x: 4.1, y: 5.15}
   lensSettleWindow: {x: 5.2, y: 10.65}
   arrivalFieldOfView: 56
-  seatRiseWindow: {x: 9.35, y: 10.85}
-  seatRiseHeight: 0
+  seatRiseWindow: {x: 9.35, y: 11.05}
+  seatRiseHeight: 0.46
 --- !u!320 &669671322
 PlayableDirector:
   m_ObjectHideFlags: 0
@@ -7904,7 +7904,7 @@ Transform:
   m_GameObject: {fileID: 875688881}
   serializedVersion: 2
   m_LocalRotation: {x: 0.043619405, y: -0, z: -0, w: 0.9990483}
-  m_LocalPosition: {x: 0, y: 0.46, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -13825,7 +13825,7 @@ Transform:
   m_GameObject: {fileID: 1848766622}
   serializedVersion: 2
   m_LocalRotation: {x: 0.043619405, y: -0, z: -0, w: 0.9990483}
-  m_LocalPosition: {x: -7, y: 2.23, z: 0}
+  m_LocalPosition: {x: -7, y: 1.77, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -15601,7 +15601,7 @@ Transform:
   m_GameObject: {fileID: 2073390686}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 0.62932044, z: -0, w: 0.777146}
-  m_LocalPosition: {x: 1.238, y: 2.23, z: 15.83}
+  m_LocalPosition: {x: 1.238, y: 1.77, z: 15.83}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

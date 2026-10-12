@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Playables;
@@ -9,7 +8,7 @@ public sealed class VictoryCutsceneController : MonoBehaviour
     public enum VictoryBeat { None, Stillness, Dealer, Dialogue, RevealChip, TransferChip,
         Unlock, MemoryTransition, MemoryDealer, LastWords, ReturnToResult }
 
-    [Header("Sequence (0–4 entrance, pause for NEXT, 4–14 delivery/memory)")]
+    [Header("Timeline presentation / dialogue gate")]
     [SerializeField] private PlayableDirector director;
     [SerializeField] private CutsceneCameraRig cameraRig;
     [SerializeField] private DialogueController dialogue;
@@ -24,8 +23,6 @@ public sealed class VictoryCutsceneController : MonoBehaviour
 
     [Header("Replaceable memory chip visual (never a betting chip / Item)")]
     [SerializeField] private Transform memoryChip;
-    [SerializeField] private Transform chipRevealPoint;
-    [SerializeField] private Transform chipReceivePoint;
     [SerializeField] private Renderer chipGlow;
 
     public bool HasPlayed { get; private set; }
@@ -34,28 +31,31 @@ public sealed class VictoryCutsceneController : MonoBehaviour
     public event Action Completed;
     public event Action MemoryPlaybackStarted;
 
-    private Coroutine routine;
+    private bool finishRequested;
+    private bool resumeRequested;
+    private bool dialogueStarted;
     private bool[] inputStates;
     private HudState[] hudStates;
     private CursorLockMode cursorLock;
     private bool cursorVisible;
     private GameObject previousSelection;
-    private bool dialogueFinished;
     private int dialogueStartFrame;
     private bool memoryStarted;
-    private MaterialPropertyBlock glowProperties;
     private MaterialPropertyBlock originalGlow;
     private Vector3 chipPosition;
     private Quaternion chipRotation;
     private bool chipWasActive;
     private bool dialogueWasActive;
+    private Vector3 chipScale;
+    private float glowIntensity;
+    public bool IsWaitingForDialogue { get; private set; }
 
     private struct HudState { public float Alpha; public bool Interactable; public bool Raycasts; }
 
     public bool IsConfigured => director != null && director.playableAsset != null &&
         cameraRig != null && cameraRig.IsConfigured && dialogue != null && dialoguePanel != null &&
         overlay != null && overlay.IsConfigured && memoryChip != null &&
-        chipRevealPoint != null && chipReceivePoint != null && gameplayHud.Length > 0 &&
+        gameplayHud.Length > 0 &&
         Array.TrueForAll(gameplayHud, group => group != null);
 
     public bool TryPlay(GamePhase phase, GameWinner winner, bool settlementComplete)
@@ -71,7 +71,13 @@ public sealed class VictoryCutsceneController : MonoBehaviour
 
         IsPlaying = true;
         CapturePresentation();
-        routine = StartCoroutine(Run());
+        director.stopped += OnDirectorStopped;
+        director.timeUpdateMode = DirectorUpdateMode.UnscaledGameTime;
+        director.extrapolationMode = DirectorWrapMode.None;
+        director.time = 0d;
+        director.Play();
+        // Install the Entry override before the Brain's next update, even during a gameplay blend.
+        director.Evaluate();
         return true;
     }
 
@@ -103,13 +109,15 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         }
         chipPosition = memoryChip.position;
         chipRotation = memoryChip.rotation;
+        chipScale = memoryChip.localScale;
         chipWasActive = memoryChip.gameObject.activeSelf;
+        var glow = memoryChip.GetComponent<MemoryChipGlow>();
+        if (glow != null) glowIntensity = glow.intensity;
         memoryChip.gameObject.SetActive(false);
         if (chipGlow != null)
         {
             originalGlow = new MaterialPropertyBlock();
             chipGlow.GetPropertyBlock(originalGlow);
-            glowProperties = new MaterialPropertyBlock();
         }
         dialogueWasActive = dialogue.gameObject.activeSelf;
         dialogue.gameObject.SetActive(true);
@@ -118,98 +126,70 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         cameraRig.Capture();
     }
 
-    private IEnumerator Run()
+    // Timeline SignalReceiver callbacks; edit-mode scrubbing previews visuals only.
+    public void BeginDialogue()
     {
-        try
-        {
-            director.timeUpdateMode = DirectorUpdateMode.Manual;
-            director.extrapolationMode = DirectorWrapMode.Hold;
-            director.time = 0d;
-            director.Play();
-            yield return PlayTo(4d);
-            director.Pause();
-            Beat = VictoryBeat.Dialogue;
-            dialogueFinished = false;
-            dialogueStartFrame = Time.frameCount;
-            dialogue.StartDialogue(dealerLines);
-            while (!dialogueFinished) yield return null;
-            director.Resume();
-            yield return PlayTo(14d);
-            Beat = VictoryBeat.ReturnToResult;
-            director.Stop();
-            cameraRig.Release();
-            yield return new WaitForSecondsRealtime(0.35f);
-            yield return overlay.ClearScreen(0.65f);
-        }
-        finally { Finish(); }
+        if (!Application.isPlaying || !IsPlaying || dialogueStarted || finishRequested) return;
+        dialogueStarted = true;
+        IsWaitingForDialogue = true;
+        Beat = VictoryBeat.Dialogue;
+        dialogueStartFrame = Time.frameCount;
+        director.Pause();
+        dialogue.StartDialogue(dealerLines);
     }
 
-    private IEnumerator PlayTo(double end)
+    public void BeginMemoryPlayback()
     {
-        while (director.time < end)
-        {
-            director.time = Math.Min(end, director.time + Time.unscaledDeltaTime);
-            director.Evaluate();
-            cameraRig.Apply(director.time);
-            PresentBeat((float)director.time);
-            yield return null;
-        }
+        if (!Application.isPlaying || !IsPlaying || memoryStarted) return;
+        memoryStarted = true;
+        Beat = VictoryBeat.MemoryDealer;
+        MemoryPlaybackStarted?.Invoke();
     }
+
+    public void ReturnToGameplayCamera()
+    {
+        if (!Application.isPlaying || !IsPlaying) return;
+        Beat = VictoryBeat.ReturnToResult;
+        cameraRig.Release();
+    }
+
+    public void CompleteTimeline()
+    {
+        if (Application.isPlaying && IsPlaying) finishRequested = true;
+    }
+
+    private void OnDirectorStopped(PlayableDirector stoppedDirector) => CompleteTimeline();
 
     private void Update()
     {
         if (!IsPlaying) return;
-        if (Beat == VictoryBeat.Dialogue && Time.frameCount > dialogueStartFrame &&
+        if (finishRequested) { Finish(); return; }
+        if (resumeRequested)
+        {
+            resumeRequested = false;
+            director.Resume();
+        }
+        if (IsWaitingForDialogue && Time.frameCount > dialogueStartFrame &&
             (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.E))) dialogue.Next();
     }
 
-    private void OnDialogueCompleted() => dialogueFinished = true;
-
-    private void PresentBeat(float time)
+    private void OnDialogueCompleted()
     {
-        if (time < 1f) Beat = VictoryBeat.Stillness;
-        else if (time <= 4f) Beat = VictoryBeat.Dealer;
-        else if (time < 6f) Beat = VictoryBeat.RevealChip;
-        else if (time < 8f) Beat = VictoryBeat.TransferChip;
-        else if (time < 9f) Beat = VictoryBeat.Unlock;
-        else if (time < 9.6f) Beat = VictoryBeat.MemoryTransition;
-        else if (time < 10.4f) Beat = VictoryBeat.MemoryDealer;
-        else Beat = VictoryBeat.LastWords;
-
-        bool chipVisible = time >= 5f && time < 9.6f;
-        memoryChip.gameObject.SetActive(chipVisible);
-        float transfer = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(6f, 8f, time));
-        Vector3 position = Vector3.Lerp(chipRevealPoint.position, chipReceivePoint.position, transfer);
-        position += Vector3.up * (Mathf.Sin(transfer * Mathf.PI) * 0.08f);
-        position -= Vector3.up * (0.12f * (1f - Mathf.InverseLerp(5f, 5.7f, time)));
-        memoryChip.SetPositionAndRotation(position,
-            Quaternion.Slerp(chipRevealPoint.rotation, chipReceivePoint.rotation, transfer));
-        if (chipGlow != null)
-        {
-            float glow = Mathf.InverseLerp(8f, 8.6f, time);
-            glowProperties.SetColor("_EmissionColor", new Color(0.1f, 0.85f, 1f) * Mathf.Lerp(0.25f, 4f, glow));
-            chipGlow.SetPropertyBlock(glowProperties);
-        }
-        if (time >= 9f && !memoryStarted)
-        {
-            memoryStarted = true;
-            MemoryPlaybackStarted?.Invoke();
-        }
-        float flash = (time >= 9f && time < 9.15f) || (time >= 9.38f && time < 9.47f) ? 0.8f : 0f;
-        float darkness = Mathf.InverseLerp(10.4f, 11f, time);
-        bool lastWords = time >= 11f;
-        overlay.Present(darkness, flash,
-            lastWords, time >= 8f && time < 9f,
-            lastWords ? 1f - Mathf.InverseLerp(12.6f, 13.7f, time) : 1f);
+        if (!IsPlaying || !IsWaitingForDialogue) return;
+        IsWaitingForDialogue = false;
+        Beat = VictoryBeat.None;
+        // Resume outside the notification callback / dialogue coroutine.
+        resumeRequested = true;
     }
-
 
     public void Cancel()
     {
         if (!IsPlaying) return;
-        if (routine != null) StopCoroutine(routine);
         Finish();
     }
+
+    [ContextMenu("Skip Victory Cutscene (Play Mode)")]
+    public void Skip() => Cancel();
 
     public void ResetForGame()
     {
@@ -222,8 +202,13 @@ public sealed class VictoryCutsceneController : MonoBehaviour
     {
         if (!IsPlaying) return;
         IsPlaying = false;
-        routine = null;
-        if (director != null) director.Stop();
+        finishRequested = resumeRequested = dialogueStarted = false;
+        IsWaitingForDialogue = false;
+        if (director != null)
+        {
+            director.stopped -= OnDirectorStopped;
+            director.Stop();
+        }
         if (cameraRig != null) cameraRig.Release();
         if (dialogue != null)
         {
@@ -239,6 +224,9 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         if (memoryChip != null)
         {
             memoryChip.SetPositionAndRotation(chipPosition, chipRotation);
+            memoryChip.localScale = chipScale;
+            var glow = memoryChip.GetComponent<MemoryChipGlow>();
+            if (glow != null) glow.intensity = glowIntensity;
             memoryChip.gameObject.SetActive(chipWasActive);
         }
         if (chipGlow != null && originalGlow != null) chipGlow.SetPropertyBlock(originalGlow);

@@ -109,8 +109,8 @@ public sealed class IntroFlowControllerTests
     }
 
     [TestCase(9.35, 0f)]
-    [TestCase(10.1, 0.23f)]
-    [TestCase(10.85, 0.46f)]
+    [TestCase(10.2, 0.23f)]
+    [TestCase(11.05, 0.46f)]
     public void SeatRiseOccursNearArrival_AndHandoffKeepsBodyAtWalkingHeight(double time, float height)
     {
         var rig = director.GetComponent<IntroBarSequenceCamera>();

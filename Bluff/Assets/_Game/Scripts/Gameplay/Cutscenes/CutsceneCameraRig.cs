@@ -1,55 +1,65 @@
+using System;
 using Cinemachine;
 using UnityEngine;
 
-[DefaultExecutionOrder(-100)]
 public sealed class CutsceneCameraRig : MonoBehaviour
 {
     [SerializeField] private Camera outputCamera;
+    // The original Victory Camera becomes the runtime entry snapshot.
     [SerializeField] private CinemachineVirtualCamera virtualCamera;
-    [SerializeField] private Transform authoredPath;
+    [SerializeField] private CinemachineVirtualCamera[] shotCameras = Array.Empty<CinemachineVirtualCamera>();
+    private CameraState[] states;
     private Vector3 entryPosition;
     private Quaternion entryRotation;
-    private LensSettings previousLens;
-    private int previousPriority;
-    private bool previousEnabled;
     private bool captured;
 
-    public bool IsConfigured => outputCamera != null && virtualCamera != null && authoredPath != null &&
-        outputCamera.GetComponent<CinemachineBrain>() != null;
+    private struct CameraState
+    {
+        public LensSettings Lens;
+        public int Priority;
+        public bool Enabled, Active;
+    }
+
+    public bool IsConfigured => outputCamera != null && virtualCamera != null &&
+        outputCamera.GetComponent<CinemachineBrain>() != null && shotCameras.Length >= 5 &&
+        Array.TrueForAll(shotCameras, camera => camera != null);
 
     public void Capture()
     {
-        entryPosition = outputCamera.transform.position;
-        entryRotation = outputCamera.transform.rotation;
-        previousLens = virtualCamera.m_Lens;
-        previousPriority = virtualCamera.Priority;
-        previousEnabled = virtualCamera.enabled;
+        if (captured) return;
+        states = new CameraState[shotCameras.Length];
+        entryPosition = virtualCamera.transform.position;
+        entryRotation = virtualCamera.transform.rotation;
+        for (int i = 0; i < shotCameras.Length; i++)
+        {
+            var camera = shotCameras[i];
+            states[i] = new CameraState { Lens = camera.m_Lens, Priority = camera.Priority,
+                Enabled = camera.enabled, Active = camera.gameObject.activeSelf };
+            camera.gameObject.SetActive(true);
+            camera.enabled = true;
+        }
         captured = true;
+        // Includes an in-progress gameplay blend. Timeline owns all later shots.
         virtualCamera.m_Lens = LensSettings.FromCamera(outputCamera);
-        virtualCamera.transform.SetPositionAndRotation(entryPosition, entryRotation);
-        virtualCamera.ForceCameraPosition(entryPosition, entryRotation);
-        virtualCamera.enabled = true;
-        virtualCamera.Priority = 1000;
-    }
-
-    public void Apply(double timelineTime)
-    {
-        if (!captured) return;
-        float blend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f, 4f, (float)timelineTime));
-        virtualCamera.transform.SetPositionAndRotation(
-            Vector3.Lerp(entryPosition, authoredPath.position, blend),
-            Quaternion.Slerp(entryRotation, authoredPath.rotation, blend));
+        virtualCamera.ForceCameraPosition(outputCamera.transform.position, outputCamera.transform.rotation);
     }
 
     public void Release()
     {
         if (!captured) return;
         captured = false;
-        if (virtualCamera == null) return;
-        virtualCamera.Priority = previousPriority;
-        virtualCamera.m_Lens = previousLens;
-        virtualCamera.enabled = previousEnabled;
+        for (int i = 0; i < shotCameras.Length; i++)
+        {
+            var camera = shotCameras[i];
+            if (camera == null) continue;
+            camera.Priority = states[i].Priority;
+            camera.m_Lens = states[i].Lens;
+            camera.enabled = states[i].Enabled;
+            camera.gameObject.SetActive(states[i].Active);
+        }
+        if (virtualCamera != null) virtualCamera.ForceCameraPosition(entryPosition, entryRotation);
     }
 
     private void OnDisable() => Release();
+    private void OnDestroy() => Release();
 }

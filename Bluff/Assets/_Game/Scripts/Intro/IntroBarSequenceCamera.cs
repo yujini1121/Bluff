@@ -13,7 +13,7 @@ public sealed class IntroBarSequenceCamera : MonoBehaviour
     [SerializeField] private Vector2 dealerFocusWindow = new Vector2(4.1f, 5.15f);
     [SerializeField] private Vector2 lensSettleWindow = new Vector2(5.2f, 10.65f);
     [SerializeField, Range(30f, 90f)] private float arrivalFieldOfView = 56f;
-    [SerializeField] private Vector2 seatRiseWindow = new Vector2(9.35f, 10.85f);
+    [SerializeField] private Vector2 seatRiseWindow = new Vector2(9.35f, 11.05f);
     [SerializeField, Min(0f)] private float seatRiseHeight;
     private Vector3 entryPosition;
     private Quaternion entryRotation;

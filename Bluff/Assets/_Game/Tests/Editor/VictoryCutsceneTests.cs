@@ -13,6 +13,7 @@ using UnityEngine.Playables;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using UnityEngine.Timeline;
 using Object = UnityEngine.Object;
 
 public sealed class VictoryCutsceneTests
@@ -70,8 +71,9 @@ public sealed class VictoryCutsceneTests
         var flow = Find<VictoryCutsceneController>();
         var dialogue = Read<DialogueController>(flow, "dialogue");
         var director = flow.GetComponent<PlayableDirector>();
-        Assert.That(director.timeUpdateMode, Is.EqualTo(DirectorUpdateMode.Manual));
-        Assert.That(director.duration, Is.EqualTo(14d).Within(0.01));
+        Assert.That(director.timeUpdateMode, Is.EqualTo(DirectorUpdateMode.UnscaledGameTime));
+        Assert.That(((TimelineAsset)director.playableAsset).durationMode, Is.EqualTo(TimelineAsset.DurationMode.BasedOnClips));
+        Assert.That(director.duration + 1e-9, Is.GreaterThanOrEqualTo(Marker(director,"Finish").time));
         Assert.That(Read<Transform>(flow, "memoryChip").GetComponent<Item>(), Is.Null);
         var intro = EditorSceneManager.OpenScene("Assets/_Game/Scenes/Intro.unity", OpenSceneMode.Additive);
         try
@@ -89,14 +91,19 @@ public sealed class VictoryCutsceneTests
         Assert.That(next.onClick.GetPersistentMethodName(0), Is.EqualTo("Next"));
         Assert.That(flow.GetComponentsInChildren<Button>(true), Has.Length.EqualTo(1), "Only dialogue NEXT remains");
         var timeline = (UnityEngine.Timeline.TimelineAsset)director.playableAsset;
-        var track = timeline.GetOutputTracks().OfType<UnityEngine.Timeline.AnimationTrack>().Single();
-        var motion = ((UnityEngine.Timeline.AnimationPlayableAsset)track.GetClips().Single().asset).clip;
-        foreach (var binding in AnimationUtility.GetCurveBindings(motion))
+        var shots = timeline.GetOutputTracks().OfType<CinemachineTrack>().Single().GetClips().ToArray();
+        Assert.That(shots.Select(c => ((CinemachineShot)c.asset).VirtualCamera.Resolve(director)).Distinct().Count(), Is.EqualTo(5));
+        var memoryCamera = ((CinemachineShot)shots.Single(c=>c.displayName == "Memory Dealer").asset).VirtualCamera.Resolve(director);
+        Assert.That(memoryCamera.Follow, Is.Null);
+        Assert.That(memoryCamera.LookAt, Is.Null, "Memory placeholder must be a stable authored pose");
+        var chip = Read<Transform>(flow,"memoryChip");
+        var track = timeline.GetOutputTracks().OfType<AnimationTrack>().Single(t=>director.GetGenericBinding(t) == chip.parent.GetComponent<Animator>());
+        Assert.That(track.GetClips().Count(), Is.EqualTo(3));
+        foreach (var clip in track.GetClips())
         {
-            var curve = AnimationUtility.GetEditorCurve(motion, binding);
-            for (float time = 9.6f; time <= 10.4f; time += 0.1f)
-                Assert.That(curve.Evaluate(time), Is.EqualTo(curve.Evaluate(9.6f)).Within(0.0001f),
-                    "Dealer camera must stay still: " + binding.propertyName);
+            var bindings = AnimationUtility.GetCurveBindings(((AnimationPlayableAsset)clip.asset).clip);
+            Assert.That(bindings.Count(b=>b.type == typeof(Transform) && b.propertyName.StartsWith("m_LocalPosition")), Is.EqualTo(3));
+            Assert.That(bindings.Any(b=>b.type == typeof(MemoryChipGlow) && b.propertyName == "intensity"), Is.True);
         }
     }
 
@@ -108,6 +115,112 @@ public sealed class VictoryCutsceneTests
         // Create captured-lambda locals after EnterPlayMode's domain reload.
         yield return RunShowdownScenario();
         yield return new ExitPlayMode();
+    }
+
+    [Test]
+    public void OriginalPresentation_ChipPathRotationGlowAndVelocityMatchLegacyRule()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow=Find<VictoryCutsceneController>();
+        var director=flow.GetComponent<PlayableDirector>();
+        var chip=Read<Transform>(flow,"memoryChip");
+        var from=flow.transform.Find("Chip Reveal Point");
+        var to=flow.transform.Find("Chip Receive Point");
+        var track=((TimelineAsset)director.playableAsset).GetOutputTracks().OfType<AnimationTrack>()
+            .Single(t=>director.GetGenericBinding(t)==chip.parent.GetComponent<Animator>());
+        var transfer=((AnimationPlayableAsset)track.GetClips().Single(c=>c.displayName.StartsWith("Transfer")).asset).clip;
+        var x=AnimationUtility.GetEditorCurve(transfer,AnimationUtility.GetCurveBindings(transfer).Single(b=>b.propertyName=="m_LocalPosition.x"));
+        var z=AnimationUtility.GetEditorCurve(transfer,AnimationUtility.GetCurveBindings(transfer).Single(b=>b.propertyName=="m_LocalPosition.z"));
+        try
+        {
+            director.Play();
+            for(int i=0;i<1104;i++)
+            {
+                float time=5+i/240f;
+                director.time=time; director.Evaluate();
+                float progress=Mathf.SmoothStep(0,1,Mathf.InverseLerp(6,8,time));
+                Vector3 expected=Vector3.Lerp(from.position,to.position,progress);
+                expected+=Vector3.up*Mathf.Sin(progress*Mathf.PI)*0.08f;
+                expected-=Vector3.up*0.12f*(1-Mathf.InverseLerp(5,5.7f,time));
+                Assert.That(Vector3.Distance(chip.position,expected),Is.LessThan(0.00001f),"Original chip path at " + time);
+                Assert.That(Quaternion.Angle(chip.rotation,Quaternion.Slerp(from.rotation,to.rotation,progress)),Is.LessThan(0.01f),"Original chip rotation at " + time);
+                Assert.That(chip.GetComponent<MemoryChipGlow>().intensity,
+                    Is.EqualTo(Mathf.Lerp(0.25f,4,Mathf.InverseLerp(8,8.6f,time))).Within(0.00001f),"Original emission at " + time);
+            }
+            // Specifically catches the previous zero-tangent stops at quarter, half and three-quarter progress.
+            foreach(float time in new[] {0.5f,1,1.5f})
+            {
+                float derivative=3*(time/2)*(1-time/2);
+                Vector3 delta=chip.parent.InverseTransformPoint(to.position)-chip.parent.InverseTransformPoint(from.position);
+                Assert.That((x.Evaluate(time+0.001f)-x.Evaluate(time-0.001f))/0.002f,Is.EqualTo(delta.x*derivative).Within(0.0002f));
+                Assert.That((z.Evaluate(time+0.001f)-z.Evaluate(time-0.001f))/0.002f,Is.EqualTo(delta.z*derivative).Within(0.0002f));
+            }
+        }
+        finally { director.Stop(); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
+    }
+
+    [Test]
+    public void OriginalPresentation_CameraOutputMatchesOriginalAnimatedPathAndEntryBlend()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow=Find<VictoryCutsceneController>();
+        var director=flow.GetComponent<PlayableDirector>();
+        var timeline=(TimelineAsset)director.playableAsset;
+        var source=((AnimationPlayableAsset)timeline.GetOutputTracks().OfType<AnimationTrack>().Single(t=>t.muted).GetClips().Single().asset).clip;
+        var rig=Read<CutsceneCameraRig>(flow,"cameraRig");
+        var brain=Read<Camera>(rig,"outputCamera").GetComponent<CinemachineBrain>();
+        Vector3 entryPosition=brain.transform.position;
+        Quaternion entryRotation=brain.transform.rotation;
+        var reference=new GameObject("Original camera path comparison");
+        try
+        {
+            rig.Capture(); director.Play();
+            for(int i=0;i<840;i++)
+            {
+                float time=i/60f;
+                source.SampleAnimation(reference,time);
+                float blend=Mathf.SmoothStep(0,1,Mathf.InverseLerp(1,4,time));
+                Vector3 expected=Vector3.Lerp(entryPosition,reference.transform.position,blend);
+                Quaternion expectedRotation=Quaternion.Slerp(entryRotation,reference.transform.rotation,blend);
+                director.time=time; director.Evaluate();
+                // Refresh native camera state while evaluating many samples in one editor frame.
+                foreach(var camera in Read<CinemachineVirtualCamera[]>(rig,"shotCameras")) camera.InternalUpdateCameraState(Vector3.up,-1);
+                brain.ManualUpdate();
+                Assert.That(Vector3.Distance(brain.transform.position,expected),Is.LessThan(0.0001f),"Original camera position at " + time);
+                Assert.That(Quaternion.Angle(brain.transform.rotation,expectedRotation),Is.LessThan(0.05f),"Original camera rotation at " + time);
+            }
+        }
+        finally { director.Stop(); rig.Release(); Object.DestroyImmediate(reference); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
+    }
+
+    [Test]
+    public void OriginalPresentation_FlashUnlockFadeAndLastWordsMatchLegacyTimingAndRamps()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow=Find<VictoryCutsceneController>();
+        var director=flow.GetComponent<PlayableDirector>();
+        var overlay=Read<CutsceneOverlay>(flow,"overlay");
+        var shade=Read<Image>(overlay,"shade").GetComponent<CanvasGroup>();
+        var flash=Read<Image>(overlay,"flash").GetComponent<CanvasGroup>();
+        var word=Read<TMP_Text>(overlay,"caption").GetComponent<CanvasGroup>();
+        var unlock=Read<TMP_Text>(overlay,"unlockCaption").GetComponent<CanvasGroup>();
+        try
+        {
+            director.Play();
+            // Off-grid samples avoid testing the tiny preview reset key at a clip's exact boundary.
+            for(int i=0;i<3000;i++)
+            {
+                float time=(i+0.5f)/200f;
+                director.time=time; director.Evaluate();
+                float expectedFlash=(time>=9 && time<9.15f)||(time>=9.38f && time<9.47f) ? 0.8f : 0;
+                float expectedFade=time<14.35f ? Mathf.InverseLerp(10.4f,11,time) : 1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(14.35f,15,time));
+                Assert.That(flash.alpha,Is.EqualTo(expectedFlash).Within(0.00001f),"Original flash at " + time);
+                Assert.That(shade.alpha,Is.EqualTo(expectedFade).Within(0.00001f),"Original fade at " + time);
+                Assert.That(unlock.alpha,Is.EqualTo(time>=8 && time<9 ? 1 : 0).Within(0.00001f),"Original UNLOCK at " + time);
+                Assert.That(word.alpha,Is.EqualTo(time>=11 ? 1-Mathf.InverseLerp(12.6f,13.7f,time) : 0).Within(0.00001f),"Original caption at " + time);
+            }
+        }
+        finally { director.Stop(); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
     }
 
     private static IEnumerator RunShowdownScenario()
@@ -172,24 +285,38 @@ public sealed class VictoryCutsceneTests
         Capture("02_DealerDialogue");
         var dialogue = Read<DialogueController>(flow, "dialogue");
         var director = flow.GetComponent<PlayableDirector>();
+        double pausedTime = director.time;
+        Assert.That(pausedTime, Is.InRange(Marker(director,"Dialogue_Start").time, Marker(director,"Dialogue_Start").time + 0.2));
         yield return Seconds(0.7f);
-        Assert.That(director.time, Is.EqualTo(4d).Within(0.001), "Wait indefinitely for NEXT");
+        Assert.That(director.time, Is.EqualTo(pausedTime).Within(0.001), "Wait indefinitely for NEXT");
+        Assert.That(director.state, Is.EqualTo(PlayState.Paused));
         Assert.That(result.activeSelf, Is.False);
         Assert.That(dialogue.IsRunning, Is.True);
         Assert.That(dialogue.CurrentLine, Is.EqualTo("……좋습니다."));
         var next = Read<GameObject>(flow, "dialoguePanel").GetComponentInChildren<Button>(true);
         yield return CompleteDialogue(dialogue, next);
+        yield return Until(() => director.state == PlayState.Playing && director.time > pausedTime, 2);
         int memoryEvents = 0;
         flow.MemoryPlaybackStarted += () => memoryEvents++;
-        yield return Until(() => director.time >= 5.8d, 3);
+        var chipTrack = ((TimelineAsset)director.playableAsset).GetOutputTracks().OfType<AnimationTrack>()
+            .Single(t=>director.GetGenericBinding(t) == Read<Transform>(flow,"memoryChip").parent.GetComponent<Animator>());
+        var revealClip = chipTrack.GetClips().First();
+        yield return Until(() => director.time >= revealClip.start + revealClip.duration * 0.8, 3);
         Capture("04_MemoryChipReveal");
-        yield return Until(() => director.time >= 8.5d, 4);
+        var activateClip = chipTrack.GetClips().Last();
+        yield return Until(() => director.time >= activateClip.start + activateClip.duration * 0.3, 4);
         Capture("06_Unlock");
         Assert.That(Read<Transform>(flow, "memoryChip").gameObject.activeSelf, Is.True);
-        yield return Until(() => director.time >= 9.8d, 3);
+        yield return Until(() => director.time >= Marker(director,"Memory_Playback").time + 0.8, 3);
         Capture("08_MemoryDealerPlaceholder");
-        yield return Until(() => director.time >= 11.4d, 3);
+        var lastWords = ((TimelineAsset)director.playableAsset).GetOutputTracks().OfType<AnimationTrack>()
+            .Single(t=>director.GetGenericBinding(t) == Read<TMP_Text>(Read<CutsceneOverlay>(flow,"overlay"),"caption").GetComponent<Animator>()).GetClips().Single();
+        yield return Until(() => director.time >= lastWords.start + lastWords.duration * 0.15, 3);
         Capture("09_LastWords");
+        var overlay = Read<CutsceneOverlay>(flow,"overlay");
+        Assert.That(Read<Image>(overlay,"shade").GetComponent<CanvasGroup>().alpha, Is.GreaterThan(0.99f));
+        Assert.That(Read<TMP_Text>(overlay,"caption").GetComponent<CanvasGroup>().alpha, Is.GreaterThan(0.99f));
+        Assert.That(Read<TMP_Text>(overlay,"unlockCaption").GetComponent<CanvasGroup>().alpha, Is.LessThan(0.01f));
         Assert.That(Read<TMP_Text>(Read<CutsceneOverlay>(flow, "overlay"), "caption").text,
             Is.EqualTo(authoredLastWords));
         yield return Until(() => !flow.IsPlaying, 5);
@@ -345,6 +472,234 @@ public sealed class VictoryCutsceneTests
         Assert.That(Read<CanvasGroup[]>(flow, "gameplayHud").All(g => g.alpha > 0.99f), Is.True);
     }
 
+    [Test]
+    public void Setup_RepeatedlyPreservesAuthoredCamerasClipsAndKeys()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow = Find<VictoryCutsceneController>();
+        var director = flow.GetComponent<PlayableDirector>();
+        var timeline = (TimelineAsset)director.playableAsset;
+        var shot = timeline.GetOutputTracks().OfType<CinemachineTrack>().Single().GetClips().Single(c=>c.displayName == "Dealer");
+        var camera = ((CinemachineShot)shot.asset).VirtualCamera.Resolve(director);
+        var transfer = timeline.GetOutputTracks().OfType<AnimationTrack>().Where(t=>!t.mutedInHierarchy)
+            .SelectMany(t=>t.GetClips()).Single(c=>c.displayName.StartsWith("Transfer"));
+        var motion = ((AnimationPlayableAsset)transfer.asset).clip;
+        var binding = AnimationUtility.GetCurveBindings(motion).First(b=>b.propertyName == "m_LocalPosition.x");
+        var curve = AnimationUtility.GetEditorCurve(motion,binding);
+        var original = new AnimationCurve(curve.keys);
+        var pose = camera.transform.position;
+        double duration = shot.duration;
+        int count = flow.GetComponentsInChildren<Transform>(true).Length;
+        string guid = AssetDatabase.AssetPathToGUID(VictoryCutsceneSetupEditor.TimelinePath);
+        try
+        {
+            camera.transform.position += Vector3.right * 0.123f;
+            shot.duration += 0.25;
+            curve.MoveKey(2,new Keyframe(curve.keys[2].time,curve.keys[2].value + 0.234f));
+            AnimationUtility.SetEditorCurve(motion,binding,curve);
+            VictoryCutsceneSetupEditor.SetupOpenScene();
+            VictoryCutsceneSetupEditor.SetupOpenScene();
+            Assert.That(camera.transform.position,Is.EqualTo(pose + Vector3.right * 0.123f));
+            Assert.That(shot.duration,Is.EqualTo(duration + 0.25));
+            Assert.That(AnimationUtility.GetEditorCurve(motion,binding).keys[2].value,Is.EqualTo(curve.keys[2].value));
+            Assert.That(flow.GetComponentsInChildren<Transform>(true).Length,Is.EqualTo(count));
+            Assert.That(AssetDatabase.AssetPathToGUID(VictoryCutsceneSetupEditor.TimelinePath),Is.EqualTo(guid));
+        }
+        finally
+        {
+            camera.transform.position = pose; shot.duration = duration;
+            AnimationUtility.SetEditorCurve(motion,binding,original);
+            EditorUtility.SetDirty(timeline); AssetDatabase.SaveAssets();
+            EditorSceneManager.SaveScene(SceneManager.GetActiveScene());
+        }
+    }
+
+    [Test]
+    public void EditorPreview_AuthoredCameraKeyAndEffectEditsDriveTheGraph()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow = Find<VictoryCutsceneController>();
+        var director = flow.GetComponent<PlayableDirector>();
+        var timeline = (TimelineAsset)director.playableAsset;
+        var shots = timeline.GetOutputTracks().OfType<CinemachineTrack>().Single().GetClips().ToArray();
+        var dealerShot = shots.Single(c=>c.displayName == "Dealer");
+        var camera = ((CinemachineShot)dealerShot.asset).VirtualCamera.Resolve(director);
+        var brain = Read<Camera>(Read<CutsceneCameraRig>(flow,"cameraRig"),"outputCamera").GetComponent<CinemachineBrain>();
+        var pose = camera.transform.position;
+        double dealerEnd = dealerShot.duration;
+        var chip = Read<Transform>(flow,"memoryChip");
+        var chipTrack = timeline.GetOutputTracks().OfType<AnimationTrack>().Single(t=>director.GetGenericBinding(t) == chip.parent.GetComponent<Animator>());
+        var transfer = chipTrack.GetClips().Single(c=>c.displayName.StartsWith("Transfer"));
+        var motion = ((AnimationPlayableAsset)transfer.asset).clip;
+        var binding = AnimationUtility.GetCurveBindings(motion).First(b=>b.propertyName == "m_LocalPosition.x");
+        var curve = AnimationUtility.GetEditorCurve(motion,binding);
+        var originalCurve = new AnimationCurve(curve.keys);
+        var flash = Read<Image>(Read<CutsceneOverlay>(flow,"overlay"),"flash").GetComponent<CanvasGroup>();
+        var flashClip = timeline.GetOutputTracks().OfType<AnimationTrack>().Single(t=>director.GetGenericBinding(t) == flash.GetComponent<Animator>()).GetClips().Single();
+        double flashStart = flashClip.start;
+        try
+        {
+            camera.ForceCameraPosition(pose + Vector3.right * 0.2f,camera.transform.rotation);
+            // Shortening a Shot changes the native blend without a controller pose override.
+            dealerShot.duration -= 0.3;
+            curve.MoveKey(2,new Keyframe(curve.keys[2].time,curve.keys[2].value + 0.3f));
+            AnimationUtility.SetEditorCurve(motion,binding,curve);
+            flashClip.start += 0.5;
+            director.Play();
+            director.time = dealerShot.start + dealerShot.duration - 0.15;
+            director.Evaluate(); brain.ManualUpdate();
+            Assert.That(Vector3.Distance(brain.transform.position,pose),Is.GreaterThan(0.05f));
+            director.time = transfer.start + curve.keys[2].time;
+            director.Evaluate();
+            Assert.That(chip.localPosition.x,Is.EqualTo(curve.keys[2].value).Within(0.005f));
+            Assert.That(chip.gameObject.activeSelf,Is.True);
+            director.time = flashStart + 0.05; director.Evaluate();
+            Assert.That(flash.alpha,Is.LessThan(0.01f),"Effect no longer starts at its old time");
+            director.time = flashClip.start + 0.05; director.Evaluate();
+            Assert.That(flash.alpha,Is.EqualTo(0.8f).Within(0.005f));
+            director.time = flashStart + 0.05; director.Evaluate();
+            Assert.That(flash.alpha,Is.LessThan(0.01f),"Scrubbing backward also restores the hidden state");
+            Assert.That(flow.HasPlayed,Is.False,"Editor preview cannot trigger gameplay gates");
+        }
+        finally
+        {
+            director.Stop(); camera.ForceCameraPosition(pose,camera.transform.rotation);
+            dealerShot.duration = dealerEnd; flashClip.start = flashStart;
+            AnimationUtility.SetEditorCurve(motion,binding,originalCurve);
+            EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        }
+    }
+
+    [UnityTest]
+    public IEnumerator ChangedSignals_PauseResumeMemoryAndFinishFollowAuthoredTimes()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        yield return new EnterPlayMode();
+        yield return RunChangedSignals();
+        yield return new ExitPlayMode();
+    }
+
+    private static IEnumerator RunChangedSignals()
+    {
+        yield return LoadReadyGame();
+        var game = Find<GameplayController>();
+        game.enabled = false;
+        var flow = Find<VictoryCutsceneController>();
+        var director = flow.GetComponent<PlayableDirector>();
+        var dialogueMarker = Marker(director,"Dialogue_Start");
+        var memoryMarker = Marker(director,"Memory_Playback");
+        var finishMarker = Marker(director,"Finish");
+        double dialogueTime = dialogueMarker.time, memoryTime = memoryMarker.time, finishTime = finishMarker.time;
+        int memoryEvents = 0, completions = 0;
+        flow.MemoryPlaybackStarted += ()=>memoryEvents++;
+        flow.Completed += ()=>completions++;
+        try
+        {
+            dialogueMarker.time = 0.6; memoryMarker.time = 1.1; finishMarker.time = 1.6;
+            Assert.That(flow.TryPlay(GamePhase.GameOver,GameWinner.Player,true),Is.True);
+            yield return Until(()=>flow.IsWaitingForDialogue,2);
+            double pause = director.time;
+            Assert.That(pause,Is.InRange(0.6,0.8));
+            yield return Seconds(0.8f);
+            Assert.That(director.time,Is.EqualTo(pause).Within(0.001));
+            Assert.That(memoryEvents,Is.Zero);
+            var dialogue = Read<DialogueController>(flow,"dialogue");
+            var next = Read<GameObject>(flow,"dialoguePanel").GetComponentInChildren<Button>(true);
+            yield return CompleteDialogue(dialogue,next);
+            yield return Until(()=>memoryEvents == 1,2);
+            Assert.That(director.time,Is.InRange(1.1,1.4));
+            yield return Until(()=>!flow.IsPlaying,2);
+            Assert.That(completions,Is.EqualTo(1));
+            Assert.That(memoryEvents,Is.EqualTo(1));
+            flow.ResetForGame();
+            Assert.That(flow.HasPlayed,Is.False);
+            Assert.That(flow.TryPlay(GamePhase.GameOver,GameWinner.Player,true),Is.True);
+            yield return Until(()=>flow.IsWaitingForDialogue,2);
+            yield return CompleteDialogue(dialogue,next);
+            yield return Until(()=>memoryEvents == 2,2);
+            Assert.That(flow.IsPlaying,Is.True);
+            flow.ResetForGame(); // Also clean an active presentation, beyond the dialogue gate.
+            Assert.That(flow.IsPlaying,Is.False);
+            Assert.That(flow.HasPlayed,Is.False);
+            Assert.That(completions,Is.EqualTo(2));
+            Assert.That(Read<Transform>(flow,"memoryChip").gameObject.activeSelf,Is.False);
+            Assert.That(Find<SwitchCamera>().enabled,Is.True);
+            Assert.That(flow.TryPlay(GamePhase.GameOver,GameWinner.Player,true),Is.True);
+            yield return Until(()=>flow.IsWaitingForDialogue,2);
+            flow.Skip();
+            Assert.That(director.state,Is.EqualTo(PlayState.Paused));
+            Assert.That(flow.IsWaitingForDialogue,Is.False);
+            Assert.That(Read<DialogueController>(flow,"dialogue").IsRunning,Is.False);
+            Assert.That(completions,Is.EqualTo(3));
+            flow.ResetForGame();
+            Assert.That(flow.HasPlayed,Is.False);
+        }
+        finally
+        {
+            flow.Cancel(); dialogueMarker.time = dialogueTime; memoryMarker.time = memoryTime; finishMarker.time = finishTime;
+        }
+    }
+
+    [UnityTest]
+    public IEnumerator EveryGameplayView_CapturesActualOutputAndRestoresCameraAndInputState()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        yield return new EnterPlayMode();
+        yield return RunCameraEntryChecks();
+        yield return new ExitPlayMode();
+    }
+
+    private static IEnumerator RunCameraEntryChecks()
+    {
+        yield return LoadReadyGame();
+        Find<GameplayController>().enabled = false;
+        var flow = Find<VictoryCutsceneController>();
+        var rig = Read<CutsceneCameraRig>(flow,"cameraRig");
+        Assert.That(Read<GameObject>(Read<CutsceneOverlay>(flow,"overlay"),"uiRoot").activeSelf,Is.False,
+            "The preview Canvas cannot intercept gameplay input before a cutscene");
+        var output = Read<Camera>(rig,"outputCamera");
+        var entry = Read<CinemachineVirtualCamera>(rig,"virtualCamera");
+        var shots = Read<CinemachineVirtualCamera[]>(rig,"shotCameras");
+        var switcher = Find<SwitchCamera>();
+        var pause = Find<Pause>();
+        foreach (CameraView view in Enum.GetValues(typeof(CameraView)))
+        {
+            switcher.enabled = true;
+            if(view == CameraView.Player) switcher.SwitchToPlayerCam();
+            if(view == CameraView.Community) switcher.SwitchToCommunityCam();
+            if(view == CameraView.Dealer) switcher.SwitchToDealerCam();
+            yield return Seconds(0.2f); // Deliberately capture a gameplay blend in progress.
+            var position = output.transform.position; var rotation = output.transform.rotation;
+            float fov = output.fieldOfView;
+            var priorities = shots.Select(c=>c.Priority).ToArray();
+            var active = shots.Select(c=>c.gameObject.activeSelf).ToArray();
+            var enabled = shots.Select(c=>c.enabled).ToArray();
+            pause.enabled = false;
+            flow.ResetForGame();
+            Assert.That(flow.TryPlay(GamePhase.GameOver,GameWinner.Player,true),Is.True);
+            Assert.That(Vector3.Distance(entry.transform.position,position),Is.LessThan(0.001));
+            Assert.That(Quaternion.Angle(entry.transform.rotation,rotation),Is.LessThan(0.001));
+            Assert.That(entry.m_Lens.FieldOfView,Is.EqualTo(fov).Within(0.001));
+            output.GetComponent<CinemachineBrain>().ManualUpdate();
+            Assert.That(Vector3.Distance(output.transform.position,position),Is.LessThan(0.01),
+                $"No entry jump ({view}, active={output.GetComponent<CinemachineBrain>().ActiveVirtualCamera?.Name}, director={directorState(flow)})");
+            yield return null;
+            flow.Cancel();
+            Assert.That(switcher.enabled,Is.True);
+            Assert.That(pause.enabled,Is.False,"Previously disabled input stays disabled");
+            Assert.That(shots.Select(c=>c.Priority),Is.EqualTo(priorities));
+            Assert.That(shots.Select(c=>c.enabled),Is.EqualTo(enabled));
+            Assert.That(shots.Select(c=>c.gameObject.activeSelf),Is.EqualTo(active));
+            Assert.That(switcher.CurrentView,Is.EqualTo(view));
+        }
+        pause.enabled = true;
+    }
+
+    private static string directorState(VictoryCutsceneController flow) => flow.GetComponent<PlayableDirector>().state.ToString();
+
+    private static SignalEmitter Marker(PlayableDirector director,string name) => ((TimelineAsset)director.playableAsset)
+        .GetOutputTracks().OfType<SignalTrack>().SelectMany(t=>t.GetMarkers()).OfType<SignalEmitter>().Single(m=>m.asset.name == name);
+
     private static IEnumerator LoadReadyGame()
     {
         SceneManager.sceneLoaded -= ConfigureTestMatch;
@@ -438,6 +793,68 @@ public sealed class VictoryCutsceneTests
             RenderTexture.active = previousActive;
             foreach (var canvas in canvases) { canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; }
             Object.Destroy(texture); Object.Destroy(pixels);
+        }
+    }
+}
+
+[UnityEditor.InitializeOnLoad]
+public static class VictoryCutsceneTestRunner
+{
+    private const string Running = "VictoryTimeline.TestRun";
+    private const string Destination = "VictoryTimeline.TestOutput";
+    private static UnityEditor.TestTools.TestRunner.Api.TestRunnerApi api;
+    static VictoryCutsceneTestRunner()
+    {
+        api = ScriptableObject.CreateInstance<UnityEditor.TestTools.TestRunner.Api.TestRunnerApi>();
+        api.RegisterCallbacks(new Results());
+        if (SessionState.GetBool("VictoryTimeline.Isolated",false))
+        {
+            SessionState.SetBool("VictoryTimeline.Isolated",false);
+            EditorApplication.delayCall += RunIsolatedGameplay;
+        }
+    }
+    [MenuItem("Tools/Victory/Run Victory Regression Tests")]
+    public static void RunVictory() => Run(new[] { "VictoryCutsceneTests" }, "Victory");
+    [MenuItem("Tools/Victory/Run Gameplay Regression Tests")]
+    public static void RunRegression()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling ||
+            SessionState.GetBool(Running, false)) return;
+        if (SceneManager.GetActiveScene().isDirty)
+        {
+            Debug.LogWarning("Save the open scene before running gameplay regressions.");
+            return;
+        }
+        // A fresh domain avoids destroyed singletons/tweens left by tests entering Play Mode.
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        SessionState.SetBool("VictoryTimeline.Isolated", true);
+        EditorUtility.RequestScriptReload();
+    }
+    private static void RunIsolatedGameplay() => Run(new[] { "CoreStateTests",
+        "BettingActionTests", "DealerAiTests", "DealerItemAiTests", "DealerItemFlowTests", "FoldPenaltyTests",
+        "GameModeTests", "GameOverTests", "ItemGameApiTests", "ItemSystemTests", "RoundFirstTurnTests",
+        "RoundStartTests", "RoundTransitionTests", "ShowdownResultTests", "ShowdownSettlementTests",
+        "PlayerItemPresentationTests", "RefreshCardVisualTests" }, "GameplayIsolated");
+    private static void Run(string[] names,string output)
+    {
+        if (SessionState.GetBool(Running, false) || EditorApplication.isPlayingOrWillChangePlaymode) return;
+        SessionState.SetBool(Running,true);
+        SessionState.SetString(Destination,"Logs/VictoryTimeline/" + output + ".xml");
+        api.Execute(new UnityEditor.TestTools.TestRunner.Api.ExecutionSettings(new UnityEditor.TestTools.TestRunner.Api.Filter
+            { testMode = UnityEditor.TestTools.TestRunner.Api.TestMode.EditMode, testNames = names }));
+    }
+    private sealed class Results : UnityEditor.TestTools.TestRunner.Api.ICallbacks
+    {
+        public void RunStarted(UnityEditor.TestTools.TestRunner.Api.ITestAdaptor testsToRun) { }
+        public void TestStarted(UnityEditor.TestTools.TestRunner.Api.ITestAdaptor test) { }
+        public void TestFinished(UnityEditor.TestTools.TestRunner.Api.ITestResultAdaptor result) { }
+        public void RunFinished(UnityEditor.TestTools.TestRunner.Api.ITestResultAdaptor result)
+        {
+            if (!SessionState.GetBool(Running,false)) return;
+            Directory.CreateDirectory("Logs/VictoryTimeline");
+            File.WriteAllText(SessionState.GetString(Destination,"Logs/VictoryTimeline/Tests.xml"),result.ToXml().OuterXml);
+            SessionState.SetBool(Running,false);
+            Debug.Log($"Victory test run: {result.PassCount} passed, {result.FailCount} failed, {result.SkipCount} skipped.");
         }
     }
 }
