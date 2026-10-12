@@ -1,3 +1,4 @@
+using Michsky.UI.Shift;
 using System;
 using System.Collections.Generic;
 using TMPro;
@@ -35,12 +36,9 @@ public sealed class GameplayView : MonoBehaviour
     [SerializeField] private Button nextRoundButton;
 
     [Header("Raise UI")]
-    [SerializeField] private Button raiseDecreaseButton;
-    [SerializeField] private TMP_Text raiseAmountText;
-    [SerializeField] private Button raiseIncreaseButton;
-    [SerializeField] private Button raiseMaxButton;
+    [SerializeField] private TMP_Text raiseAmountText; // 일단 살려둠
+    [SerializeField] private Slider raiseSlider;
     [SerializeField] private Button raiseExecuteButton;
-    [SerializeField] private TMP_Text raiseExecuteText;
 
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
@@ -64,12 +62,8 @@ public sealed class GameplayView : MonoBehaviour
                playerActionBar != null &&
                contextActionArea != null &&
                HasAllBettingActionButtons() &&
-               raiseDecreaseButton != null &&
                raiseAmountText != null &&
-               raiseIncreaseButton != null &&
-               raiseMaxButton != null &&
                raiseExecuteButton != null &&
-               raiseExecuteText != null &&
                resolveShowdownButton != null &&
                nextRoundButton != null &&
                restartButton != null;
@@ -154,21 +148,15 @@ public sealed class GameplayView : MonoBehaviour
         }
 
         bool canRaise = canAcceptPlayerBettingInput && maxRaiseBy > 0;
-        raiseDecreaseButton.interactable =
-            canRaise && selectedRaiseBy > 1;
-        raiseIncreaseButton.interactable =
-            canRaise && selectedRaiseBy < maxRaiseBy;
-        raiseMaxButton.interactable =
-            canRaise && selectedRaiseBy < maxRaiseBy;
-        raiseExecuteButton.interactable = canRaise;
 
-        raiseAmountText.text = maxRaiseBy > 0
-            ? $"+{selectedRaiseBy}"
-            : "+0";
-        raiseExecuteText.text = maxRaiseBy > 0 &&
+        raiseSlider.interactable = canRaise;
+        raiseSlider.maxValue = maxRaiseBy;
+        raiseSlider.value = selectedRaiseBy;
+        raiseExecuteButton.interactable = canRaise;
+        raiseExecuteButton.GetComponentInChildren<MainButton>().buttonText = maxRaiseBy > 0 &&
                                 selectedRaiseBy == maxRaiseBy
             ? "All in"
-            : "Raise";
+            : $"Raise (+{selectedRaiseBy})";
     }
 
     public void RefreshProgress(

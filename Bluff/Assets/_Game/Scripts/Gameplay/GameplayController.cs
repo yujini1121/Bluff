@@ -238,6 +238,19 @@ public sealed class GameplayController : MonoBehaviour
         RefreshView();
     }
 
+    public void OnRaiseSliderChanged(float value)
+    {
+        if (!CanSelectPlayerRaise(out int maxRaiseAmount))
+        {
+            return;
+        }
+
+        ClampRaiseAmount(maxRaiseAmount);
+        selectedRaiseAmount = Mathf.RoundToInt(value);
+        //presentation.PlayClickCue();
+        RefreshView();
+    }
+
     public void OnRaiseMaxClicked()
     {
         if (!CanSelectPlayerRaise(out int maxRaiseAmount))
