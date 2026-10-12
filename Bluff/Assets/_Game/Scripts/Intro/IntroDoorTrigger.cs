@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Playables;
@@ -6,6 +7,7 @@ using UnityEngine.Playables;
 public sealed class IntroDoorTrigger : MonoBehaviour
 {
     [SerializeField] private PlayableDirector doorRevealDirector;
+    [SerializeField] private PlayableDirector doorCloseDirector;
     [SerializeField] private Transform insidePoint;
     [SerializeField] private IntroFlowController introFlowController;
     private readonly HashSet<Collider> occupants = new HashSet<Collider>();
@@ -31,6 +33,23 @@ public sealed class IntroDoorTrigger : MonoBehaviour
         if (player == null || insidePoint == null || introFlowController == null) return;
         if (!IsIndoorExit(player.transform.position)) return;
         cutsceneStarted = introFlowController.BeginBarSequence();
+        if (cutsceneStarted && doorCloseDirector != null) StartCoroutine(CloseDoor());
+    }
+
+    private IEnumerator CloseDoor()
+    {
+        // Let the opening animation and its sound finish before handing over.
+        while (doorRevealDirector.time < doorRevealDirector.duration - 0.001d)
+        {
+            if (doorRevealDirector.state != PlayState.Playing) yield break;
+            yield return null;
+        }
+
+        doorRevealDirector.Stop();
+        doorCloseDirector.playOnAwake = false;
+        doorCloseDirector.extrapolationMode = DirectorWrapMode.Hold;
+        doorCloseDirector.Play();
+        doorCloseDirector.Evaluate();
     }
 
     public bool IsIndoorExit(Vector3 position)
