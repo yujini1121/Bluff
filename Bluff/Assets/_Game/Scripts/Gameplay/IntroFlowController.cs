@@ -121,7 +121,7 @@ public sealed class IntroFlowController : MonoBehaviour
     {
         if (barCamera == null || playerMove == null || playerViewCamera == null) return;
         Transform finalView = barCamera.VirtualCamera.transform;
-        playerMove.WarpViewPose(finalView.position, finalView.rotation);
+        playerMove.WarpViewPose(finalView.position, finalView.rotation, barCamera.CurrentHeightOffset);
         playerViewCamera.m_Lens = barCamera.VirtualCamera.m_Lens;
         playerViewCamera.ForceCameraPosition(finalView.position, finalView.rotation);
         barCamera.Release();

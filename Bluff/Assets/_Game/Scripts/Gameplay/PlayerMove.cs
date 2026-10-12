@@ -86,9 +86,10 @@ public class PlayerMove : MonoBehaviour
         }
     }
 
-    public void WarpViewPose(Vector3 position, Quaternion rotation)
+    public void WarpViewPose(Vector3 position, Quaternion rotation, float viewHeightOffset = 0f)
     {
         if (cameraHolder == null) return;
+        cameraHolder.position += Vector3.up * viewHeightOffset;
         Quaternion yaw = Quaternion.Euler(0f, rotation.eulerAngles.y, 0f);
         transform.rotation = yaw;
         xRotation = Mathf.Clamp(Mathf.DeltaAngle(0f, rotation.eulerAngles.x), minPitch, maxPitch);

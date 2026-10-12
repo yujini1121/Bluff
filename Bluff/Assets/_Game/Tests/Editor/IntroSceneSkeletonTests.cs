@@ -58,6 +58,7 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(Camera.allCamerasCount, Is.EqualTo(1));
         Assert.That(UnityEngine.Object.FindObjectsOfType<AudioListener>().Length, Is.EqualTo(1));
         Capture("01_Corridor");
+        Assert.That(Read<Transform>(player, "cameraHolder").localPosition.y, Is.EqualTo(0f).Within(0.001f));
         body.useGravity = false;
         Vector3 center = trigger.GetComponent<BoxCollider>().bounds.center;
         center.y = body.position.y;
@@ -104,6 +105,9 @@ public sealed class IntroSceneSkeletonTests
             Assert.That(Quaternion.Angle(previousRotation, Camera.main.transform.rotation), Is.LessThan(75f * frameSeconds + 0.5f), "접근 중 회전 점프");
             previousPosition = Camera.main.transform.position;
             previousRotation = Camera.main.transform.rotation;
+            if (bar.time < 9.35d)
+                Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f),
+                    "도착 직전까지 기존 보행 높이 유지");
         }
         yield return Seconds(0.5f);
         Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.DealerInteraction));
@@ -113,9 +117,18 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(hold.IsAvailable, Is.True);
         Assert.That(Camera.main.transform.position.x, Is.EqualTo(9.65f).Within(0.02f));
         Assert.That(Camera.main.transform.position.z, Is.EqualTo(14.8f).Within(0.02f));
+        Assert.That(Camera.main.transform.position.y, Is.EqualTo(2.23f).Within(0.02f));
+        Assert.That(player.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+        Vector3 arrivalPosition = Camera.main.transform.position;
+        body.useGravity = true;
+        yield return Seconds(0.5f);
+        Assert.That(Mathf.Abs(Camera.main.transform.position.y - arrivalPosition.y), Is.LessThan(0.1f),
+            "컷신 종료 후 중력으로 시점이 내려앉으면 안 됨");
         Capture("04_Dealer_E_Wait");
         Assert.That(Vector3.Distance(model.position, originalDealerPosition), Is.LessThan(0.001f));
         Transform target = Read<Transform>(flow, "dealerLookTarget");
+        Assert.That(Mathf.Abs(Camera.main.transform.position.y - target.position.y), Is.LessThan(0.1f),
+            "딜러와 플레이어 눈높이 일치");
         Vector3 screen = Camera.main.WorldToViewportPoint(target.position);
         Assert.That(screen.z, Is.GreaterThan(0f));
         Assert.That(screen.x, Is.InRange(0.35f, 0.65f));

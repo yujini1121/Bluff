@@ -13,17 +13,21 @@ public sealed class IntroBarSequenceCamera : MonoBehaviour
     [SerializeField] private Vector2 dealerFocusWindow = new Vector2(4.1f, 5.15f);
     [SerializeField] private Vector2 lensSettleWindow = new Vector2(5.2f, 10.65f);
     [SerializeField, Range(30f, 90f)] private float arrivalFieldOfView = 56f;
+    [SerializeField] private Vector2 seatRiseWindow = new Vector2(9.35f, 10.85f);
+    [SerializeField, Min(0f)] private float seatRiseHeight;
     private Vector3 entryPosition;
     private Quaternion entryRotation;
     private float entryFieldOfView;
     private bool running;
     public CinemachineVirtualCamera VirtualCamera => virtualCamera;
     public Vector3 AuthoredPosition => authoredPath.position;
+    public float CurrentHeightOffset { get; private set; }
 
     public void CaptureEntry(Camera output)
     {
         // 우선순위를 바꾸기 전에 실제 화면의 시점을 보존한다.
         entryPosition = output.transform.position;
+        CurrentHeightOffset = 0f;
         entryRotation = output.transform.rotation;
         entryFieldOfView = output.fieldOfView;
         virtualCamera.m_Lens = LensSettings.FromCamera(output);
@@ -41,6 +45,8 @@ public sealed class IntroBarSequenceCamera : MonoBehaviour
         float time = (float)director.time;
         float blend = Ease(time / Mathf.Max(0.01f, entryBlendSeconds));
         Vector3 position = Vector3.Lerp(entryPosition, authoredPath.position, blend);
+        CurrentHeightOffset = seatRiseHeight * Ease(Mathf.InverseLerp(seatRiseWindow.x, seatRiseWindow.y, time));
+        position += Vector3.up * CurrentHeightOffset;
         Quaternion rotation = authoredPath.rotation;
         // 접근 중에는 위치와 회전 키의 보간 차이로 시선이 얼굴에서 벗어나지 않게 한다.
         if (dealerLookTarget != null && (dealerLookTarget.position - position).sqrMagnitude > 0.001f)

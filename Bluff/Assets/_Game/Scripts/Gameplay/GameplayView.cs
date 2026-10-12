@@ -191,8 +191,16 @@ public sealed class GameplayView : MonoBehaviour
         HandRank dealerHandRank,
         bool isShowdownResultVisible,
         bool isFoldResultVisible,
-        bool canRestartGame)
+        bool canRestartGame,
+        bool suppressResult = false)
     {
+        // RefreshResult is called every frame, so hiding the object once is insufficient.
+        if (suppressResult)
+        {
+            resultOverlay.SetActive(false);
+            restartButton.interactable = false;
+            return;
+        }
         bool hasSettledShowdown =
             gameState.RoundEndReason == RoundEndReason.Showdown &&
             roundWinner != RoundWinner.None &&

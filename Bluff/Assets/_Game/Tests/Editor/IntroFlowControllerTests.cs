@@ -108,6 +108,26 @@ public sealed class IntroFlowControllerTests
         Assert.That(rig.VirtualCamera.Priority, Is.Zero);
     }
 
+    [TestCase(9.35, 0f)]
+    [TestCase(10.1, 0.23f)]
+    [TestCase(10.85, 0.46f)]
+    public void SeatRiseOccursNearArrival_AndHandoffKeepsBodyAtWalkingHeight(double time, float height)
+    {
+        var rig = director.GetComponent<IntroBarSequenceCamera>();
+        Set(rig, "seatRiseHeight", 0.46f);
+        ((TimelineAsset)director.playableAsset).fixedDuration = 12;
+        flow.BeginBarSequence();
+        director.time = time;
+        rig.ApplyPose();
+        Assert.That(rig.CurrentHeightOffset, Is.EqualTo(height).Within(0.001f));
+        Assert.That(rig.VirtualCamera.transform.position.y, Is.EqualTo(path.position.y + height).Within(0.001f));
+        Vector3 visible = rig.VirtualCamera.transform.position;
+        director.Stop();
+        Assert.That(Vector3.Distance(view.position, visible), Is.LessThan(0.001f));
+        Assert.That(view.localPosition.y, Is.EqualTo(height).Within(0.001f));
+        Assert.That(player.transform.position.y, Is.EqualTo(path.position.y).Within(0.001f));
+    }
+
     [Test]
     public void DisablingFlowReleasesCameraAndReenableRestoresSkip()
     {

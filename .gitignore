@@ -60,8 +60,5 @@ sysinfo.txt
 crashlytics-build.properties
 
 # Local-only files
-AGENTS.md
-AGENTS.override.md
-.codex/
-.agents/
 *.md
+*.txt
