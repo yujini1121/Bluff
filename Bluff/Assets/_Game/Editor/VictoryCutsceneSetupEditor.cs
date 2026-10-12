@@ -48,6 +48,126 @@ public static class VictoryCutsceneSetupEditor
     [MenuItem("Tools/Victory/Migrate Legacy Timeline Once (with backup)")]
     public static void MigrateOpenScene() => SetupOpenScene();
 
+    public static void RestoreOriginalBatch()
+    {
+        EditorSceneManager.OpenScene(ScenePath);
+        RestoreOriginalPresentation();
+    }
+
+    // Explicit repair only. Configure/Validate never reset artist-authored curves.
+    [MenuItem("Tools/Victory/Restore Original Presentation (with backup)")]
+    public static void RestoreOriginalPresentation()
+    {
+        Require(!EditorApplication.isPlayingOrWillChangePlaymode && SceneManager.GetActiveScene().path == ScenePath,
+            "Open Dev_Yujin in Edit Mode first.");
+        var flow = All<VictoryCutsceneController>(SceneManager.GetActiveScene()).Single();
+        var director = Ref<PlayableDirector>(flow,"director");
+        var timeline = (TimelineAsset)director.playableAsset;
+        var legacy = timeline.GetOutputTracks().OfType<AnimationTrack>().Single(t=>t.muted);
+        var source = ((AnimationPlayableAsset)legacy.GetClips().Single().asset).clip;
+        Require(source != null && source.name == "Victory camera poses", "Original camera animation is missing.");
+        EditorSceneManager.SaveScene(flow.gameObject.scene);
+        AssetDatabase.SaveAssets();
+        string backup = "Logs/VictoryTimeline/OriginalRepair-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        Directory.CreateDirectory(backup);
+        File.Copy(ScenePath,backup + "/Dev_Yujin.unity");
+        File.Copy(TimelinePath,backup + "/Victory.playable");
+        foreach (string file in Directory.GetFiles(Folder,"*.anim")) File.Copy(file,backup + "/" + Path.GetFileName(file));
+
+        var chip = Ref<Transform>(flow,"memoryChip");
+        var from = flow.transform.Find("Chip Reveal Point");
+        if (from == null) from = flow.transform.Cast<Transform>().Single(t=>t.name.StartsWith("Chip Reveal Point"));
+        var to = flow.transform.Find("Chip Receive Point");
+        string path = AnimationUtility.CalculateTransformPath(chip,chip.parent);
+        Vector3 start = chip.parent.InverseTransformPoint(from.position), end = chip.parent.InverseTransformPoint(to.position);
+        RestoreChipCurves(path,start,end,from.rotation,to.rotation,chip.parent.rotation);
+
+        // The existing five Shot poses/overlaps match the original camera curve.
+        // Camera parity is tested against the retained source at 60 samples/second;
+        // no additional camera tracks or hierarchy changes are necessary.
+        // Original PresentBeat used linear reveal/glow/fade/text ramps, not smoothstep.
+        SetAlpha("Fade",new[] {0f,0.6f,3.95f,4.6f},new[] {0f,1f,1f,0f},true);
+        SetAlpha("YOU_CHOSE_TO_FORGET.",new[] {0f,0.0001f,1.6f,2.7f,3f},new[] {0f,1f,1f,0f,0f},true);
+        SetAlpha("UNLOCK",new[] {0f,0.0001f,1f},new[] {0f,1f,0f},false);
+        SetAlpha("Memory_Flash",new[] {0f,0.0001f,0.15f,0.38f,0.47f,0.6f},new[] {0f,0.8f,0f,0.8f,0f,0f},false);
+        AssetDatabase.SaveAssets();
+        EditorSceneManager.MarkSceneDirty(flow.gameObject.scene);
+        EditorSceneManager.SaveScene(flow.gameObject.scene);
+        ValidateOpenScene();
+        Debug.Log("Original Victory motion and timing restored; backup: " + backup);
+    }
+
+    private static void RestoreChipCurves(string path,Vector3 from,Vector3 to,Quaternion fromRotation,Quaternion toRotation,Quaternion parentRotation)
+    {
+        var reveal = AssetDatabase.LoadAssetAtPath<AnimationClip>(Folder + "/Chip_Reveal.anim");
+        var transfer = AssetDatabase.LoadAssetAtPath<AnimationClip>(Folder + "/Chip_Transfer.anim");
+        var activate = AssetDatabase.LoadAssetAtPath<AnimationClip>(Folder + "/Chip_Activate.anim");
+        for (int axis=0;axis<3;axis++)
+        {
+            string property = "m_LocalPosition." + "xyz"[axis];
+            float rise=axis==1 ? 0.12f : 0;
+            var revealCurve = new AnimationCurve(new Keyframe(0,from[axis]-rise,0,rise/0.7f),
+                new Keyframe(0.7f,from[axis],rise/0.7f,0),new Keyframe(1,from[axis],0,0));
+            WriteCurve(reveal,path,typeof(Transform),property,revealCurve);
+            var keys = new Keyframe[121];
+            for (int i=0;i<keys.Length;i++)
+            {
+                float u=i/120f, time=u*2, progress=u*u*(3-2*u), derivative=3*u*(1-u);
+                float value=Mathf.Lerp(from[axis],to[axis],progress);
+                float slope=(to[axis]-from[axis])*derivative;
+                if (axis==1)
+                {
+                    value+=Mathf.Sin(progress*Mathf.PI)*0.08f;
+                    slope+=Mathf.Cos(progress*Mathf.PI)*Mathf.PI*0.08f*derivative;
+                }
+                keys[i]=new Keyframe(time,value,slope,slope);
+            }
+            // X/Z are exactly cubic. Y samples the original sin(SmoothStep) arc with
+            // its analytic derivative, so no intermediate key introduces a stop.
+            WriteCurve(transfer,path,typeof(Transform),property,new AnimationCurve(axis==1 ? keys : new[] {keys[0],keys[30],keys[60],keys[90],keys[120]}));
+        }
+        // The original endpoint rotations are equal in Dev_Yujin. Bake Slerp as well
+        // to preserve the original rule when migrating a legacy scene with rotation.
+        var rotations = new Vector3[121];
+        for (int i=0;i<rotations.Length;i++)
+        {
+            rotations[i]=(Quaternion.Inverse(parentRotation)*Quaternion.Slerp(fromRotation,toRotation,Mathf.SmoothStep(0,1,i/120f))).eulerAngles;
+            if(i>0) for(int axis=0;axis<3;axis++) rotations[i][axis]=rotations[i-1][axis]+Mathf.DeltaAngle(rotations[i-1][axis],rotations[i][axis]);
+        }
+        for(int axis=0;axis<3;axis++)
+        {
+            var keys=new Keyframe[121];
+            for(int i=0;i<keys.Length;i++)
+            {
+                float slope=i==0||i==120 ? 0 : (rotations[i+1][axis]-rotations[i-1][axis])*30;
+                keys[i]=new Keyframe(i/60f,rotations[i][axis],slope,slope);
+            }
+            bool constant=rotations.All(r=>Mathf.Abs(r[axis]-rotations[0][axis])<0.00001f);
+            WriteCurve(transfer,path,typeof(Transform),"localEulerAnglesRaw."+"xyz"[axis],new AnimationCurve(constant ? new[] {keys[0],keys[120]} : keys));
+        }
+        var glow=new AnimationCurve(new Keyframe(0,0.25f,0,6.25f),new Keyframe(0.6f,4,6.25f,0),new Keyframe(1.6f,4,0,0));
+        WriteCurve(activate,path,typeof(MemoryChipGlow),"intensity",glow);
+    }
+
+    private static void WriteCurve(AnimationClip clip,string path,Type type,string property,AnimationCurve curve)
+    {
+        AnimationUtility.SetEditorCurve(clip,EditorCurveBinding.FloatCurve(path,type,property),curve);
+        EditorUtility.SetDirty(clip);
+    }
+    private static void SetAlpha(string name,float[] times,float[] values,bool linear)
+    {
+        var keys=times.Select((t,i)=>new Keyframe(t,values[i],0,0)).ToArray();
+        if(linear) for(int i=0;i<keys.Length-1;i++)
+        {
+            // Keep instantaneous visibility changes stepped.
+            float slope=times[i+1]-times[i] <= 0.0001f ? float.PositiveInfinity : (values[i+1]-values[i])/(times[i+1]-times[i]);
+            keys[i].outTangent=slope; keys[i+1].inTangent=slope;
+        }
+        else for(int i=0;i<keys.Length-1;i++) keys[i].outTangent=float.PositiveInfinity;
+        if(name=="Fade") { keys[keys.Length-2].outTangent=0; keys[keys.Length-1].inTangent=0; }
+        WriteCurve(AssetDatabase.LoadAssetAtPath<AnimationClip>(Folder + "/" + name + ".anim"),"",typeof(CanvasGroup),"m_Alpha",new AnimationCurve(keys));
+    }
+
     private static void Migrate(VictoryCutsceneController flow, PlayableDirector director, TimelineAsset timeline)
     {
         // Fail before changing objects or assets when the legacy setup is incomplete.
@@ -199,6 +319,7 @@ public static class VictoryCutsceneSetupEditor
         director.timeUpdateMode = DirectorUpdateMode.UnscaledGameTime;
         director.extrapolationMode = DirectorWrapMode.None;
         EditorUtility.SetDirty(timeline);
+        RestoreOriginalPresentation();
         Debug.Log("Victory Timeline migrated. Backup: " + backup);
     }
 

@@ -117,6 +117,112 @@ public sealed class VictoryCutsceneTests
         yield return new ExitPlayMode();
     }
 
+    [Test]
+    public void OriginalPresentation_ChipPathRotationGlowAndVelocityMatchLegacyRule()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow=Find<VictoryCutsceneController>();
+        var director=flow.GetComponent<PlayableDirector>();
+        var chip=Read<Transform>(flow,"memoryChip");
+        var from=flow.transform.Find("Chip Reveal Point");
+        var to=flow.transform.Find("Chip Receive Point");
+        var track=((TimelineAsset)director.playableAsset).GetOutputTracks().OfType<AnimationTrack>()
+            .Single(t=>director.GetGenericBinding(t)==chip.parent.GetComponent<Animator>());
+        var transfer=((AnimationPlayableAsset)track.GetClips().Single(c=>c.displayName.StartsWith("Transfer")).asset).clip;
+        var x=AnimationUtility.GetEditorCurve(transfer,AnimationUtility.GetCurveBindings(transfer).Single(b=>b.propertyName=="m_LocalPosition.x"));
+        var z=AnimationUtility.GetEditorCurve(transfer,AnimationUtility.GetCurveBindings(transfer).Single(b=>b.propertyName=="m_LocalPosition.z"));
+        try
+        {
+            director.Play();
+            for(int i=0;i<1104;i++)
+            {
+                float time=5+i/240f;
+                director.time=time; director.Evaluate();
+                float progress=Mathf.SmoothStep(0,1,Mathf.InverseLerp(6,8,time));
+                Vector3 expected=Vector3.Lerp(from.position,to.position,progress);
+                expected+=Vector3.up*Mathf.Sin(progress*Mathf.PI)*0.08f;
+                expected-=Vector3.up*0.12f*(1-Mathf.InverseLerp(5,5.7f,time));
+                Assert.That(Vector3.Distance(chip.position,expected),Is.LessThan(0.00001f),"Original chip path at " + time);
+                Assert.That(Quaternion.Angle(chip.rotation,Quaternion.Slerp(from.rotation,to.rotation,progress)),Is.LessThan(0.01f),"Original chip rotation at " + time);
+                Assert.That(chip.GetComponent<MemoryChipGlow>().intensity,
+                    Is.EqualTo(Mathf.Lerp(0.25f,4,Mathf.InverseLerp(8,8.6f,time))).Within(0.00001f),"Original emission at " + time);
+            }
+            // Specifically catches the previous zero-tangent stops at quarter, half and three-quarter progress.
+            foreach(float time in new[] {0.5f,1,1.5f})
+            {
+                float derivative=3*(time/2)*(1-time/2);
+                Vector3 delta=chip.parent.InverseTransformPoint(to.position)-chip.parent.InverseTransformPoint(from.position);
+                Assert.That((x.Evaluate(time+0.001f)-x.Evaluate(time-0.001f))/0.002f,Is.EqualTo(delta.x*derivative).Within(0.0002f));
+                Assert.That((z.Evaluate(time+0.001f)-z.Evaluate(time-0.001f))/0.002f,Is.EqualTo(delta.z*derivative).Within(0.0002f));
+            }
+        }
+        finally { director.Stop(); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
+    }
+
+    [Test]
+    public void OriginalPresentation_CameraOutputMatchesOriginalAnimatedPathAndEntryBlend()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow=Find<VictoryCutsceneController>();
+        var director=flow.GetComponent<PlayableDirector>();
+        var timeline=(TimelineAsset)director.playableAsset;
+        var source=((AnimationPlayableAsset)timeline.GetOutputTracks().OfType<AnimationTrack>().Single(t=>t.muted).GetClips().Single().asset).clip;
+        var rig=Read<CutsceneCameraRig>(flow,"cameraRig");
+        var brain=Read<Camera>(rig,"outputCamera").GetComponent<CinemachineBrain>();
+        Vector3 entryPosition=brain.transform.position;
+        Quaternion entryRotation=brain.transform.rotation;
+        var reference=new GameObject("Original camera path comparison");
+        try
+        {
+            rig.Capture(); director.Play();
+            for(int i=0;i<840;i++)
+            {
+                float time=i/60f;
+                source.SampleAnimation(reference,time);
+                float blend=Mathf.SmoothStep(0,1,Mathf.InverseLerp(1,4,time));
+                Vector3 expected=Vector3.Lerp(entryPosition,reference.transform.position,blend);
+                Quaternion expectedRotation=Quaternion.Slerp(entryRotation,reference.transform.rotation,blend);
+                director.time=time; director.Evaluate();
+                // Refresh native camera state while evaluating many samples in one editor frame.
+                foreach(var camera in Read<CinemachineVirtualCamera[]>(rig,"shotCameras")) camera.InternalUpdateCameraState(Vector3.up,-1);
+                brain.ManualUpdate();
+                Assert.That(Vector3.Distance(brain.transform.position,expected),Is.LessThan(0.0001f),"Original camera position at " + time);
+                Assert.That(Quaternion.Angle(brain.transform.rotation,expectedRotation),Is.LessThan(0.05f),"Original camera rotation at " + time);
+            }
+        }
+        finally { director.Stop(); rig.Release(); Object.DestroyImmediate(reference); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
+    }
+
+    [Test]
+    public void OriginalPresentation_FlashUnlockFadeAndLastWordsMatchLegacyTimingAndRamps()
+    {
+        EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath);
+        var flow=Find<VictoryCutsceneController>();
+        var director=flow.GetComponent<PlayableDirector>();
+        var overlay=Read<CutsceneOverlay>(flow,"overlay");
+        var shade=Read<Image>(overlay,"shade").GetComponent<CanvasGroup>();
+        var flash=Read<Image>(overlay,"flash").GetComponent<CanvasGroup>();
+        var word=Read<TMP_Text>(overlay,"caption").GetComponent<CanvasGroup>();
+        var unlock=Read<TMP_Text>(overlay,"unlockCaption").GetComponent<CanvasGroup>();
+        try
+        {
+            director.Play();
+            // Off-grid samples avoid testing the tiny preview reset key at a clip's exact boundary.
+            for(int i=0;i<3000;i++)
+            {
+                float time=(i+0.5f)/200f;
+                director.time=time; director.Evaluate();
+                float expectedFlash=(time>=9 && time<9.15f)||(time>=9.38f && time<9.47f) ? 0.8f : 0;
+                float expectedFade=time<14.35f ? Mathf.InverseLerp(10.4f,11,time) : 1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(14.35f,15,time));
+                Assert.That(flash.alpha,Is.EqualTo(expectedFlash).Within(0.00001f),"Original flash at " + time);
+                Assert.That(shade.alpha,Is.EqualTo(expectedFade).Within(0.00001f),"Original fade at " + time);
+                Assert.That(unlock.alpha,Is.EqualTo(time>=8 && time<9 ? 1 : 0).Within(0.00001f),"Original UNLOCK at " + time);
+                Assert.That(word.alpha,Is.EqualTo(time>=11 ? 1-Mathf.InverseLerp(12.6f,13.7f,time) : 0).Within(0.00001f),"Original caption at " + time);
+            }
+        }
+        finally { director.Stop(); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
+    }
+
     private static IEnumerator RunShowdownScenario()
     {
         yield return LoadReadyGame();
