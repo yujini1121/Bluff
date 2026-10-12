@@ -701,79 +701,29 @@ public static class VictoryCutsceneTestRunner
     {
         api = ScriptableObject.CreateInstance<UnityEditor.TestTools.TestRunner.Api.TestRunnerApi>();
         api.RegisterCallbacks(new Results());
-        EditorApplication.update += HandleVerificationRequest;
         if (SessionState.GetBool("VictoryTimeline.Isolated",false))
         {
             SessionState.SetBool("VictoryTimeline.Isolated",false);
             EditorApplication.delayCall += RunIsolatedGameplay;
         }
     }
-    // Temporary local verification bridge; removed after validation.
-    private static void HandleVerificationRequest()
-    {
-        const string request = "Logs/VictoryTimeline/Request.txt";
-        if (EditorApplication.isCompiling || EditorApplication.isUpdating || !File.Exists(request)) return;
-        string command = File.ReadAllText(request).Trim();
-        File.Delete(request);
-        try
-        {
-            if(command == "reload") VictoryCutsceneSetupEditor.ReloadSavedScene();
-            if(command == "setup") VictoryCutsceneSetupEditor.SetupOpenScene();
-            if(command == "tests") RunVictory();
-            if(command == "regression") RunRegression();
-            if(command == "isolated")
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,NewSceneMode.Single);
-                SessionState.SetBool("VictoryTimeline.Isolated",true);
-                EditorUtility.RequestScriptReload();
-            }
-            if(command == "open")
-            {
-                var flow = Object.FindObjectOfType<VictoryCutsceneController>(true);
-                Selection.activeGameObject = flow.gameObject;
-                UnityEditor.Timeline.TimelineEditor.GetOrCreateWindow().SetTimeline(flow.GetComponent<PlayableDirector>());
-            }
-            if(command == "patchvisual")
-            {
-                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(VictoryCutsceneSetupEditor.Folder + "/UNLOCK.anim");
-                var curve = new AnimationCurve(new Keyframe(0,1),new Keyframe(0.983333f,1),new Keyframe(1,0));
-                for(int i=0;i<curve.length;i++) AnimationUtility.SetKeyRightTangentMode(curve,i,AnimationUtility.TangentMode.Constant);
-                AnimationUtility.SetEditorCurve(clip,EditorCurveBinding.FloatCurve("",typeof(CanvasGroup),"m_Alpha"),curve);
-                var timeline = AssetDatabase.LoadAssetAtPath<TimelineAsset>(VictoryCutsceneSetupEditor.TimelinePath);
-                foreach(var track in timeline.GetOutputTracks().OfType<AnimationTrack>().Where(t=>t.parent != null && t.parent.name.StartsWith("VISUAL EFFECTS")))
-                {
-                    var motion = ((AnimationPlayableAsset)track.GetClips().Single().asset).clip;
-                    var binding = AnimationUtility.GetCurveBindings(motion).Single();
-                    var alpha = AnimationUtility.GetEditorCurve(motion,binding);
-                    if(alpha.keys[0].value != 0)
-                    {
-                        var keys = new[] { new Keyframe(0,0),new Keyframe(0.0001f,alpha.keys[0].value) }.Concat(alpha.keys.Skip(1)).ToArray();
-                        alpha = new AnimationCurve(keys);
-                        if(motion.name == "Memory_Flash" || motion.name == "UNLOCK")
-                            for(int i=0;i<alpha.length;i++) AnimationUtility.SetKeyRightTangentMode(alpha,i,AnimationUtility.TangentMode.Constant);
-                        AnimationUtility.SetEditorCurve(motion,binding,alpha);
-                    }
-                    var serialized = new SerializedObject(track);
-                    var item = serialized.FindProperty("m_Clips").GetArrayElementAtIndex(0);
-                    item.FindPropertyRelative("m_PreExtrapolationMode").enumValueIndex = 1;
-                    item.FindPropertyRelative("m_PostExtrapolationMode").enumValueIndex = 1;
-                    serialized.ApplyModifiedPropertiesWithoutUndo();
-                    EditorUtility.SetDirty(track);
-                }
-                AssetDatabase.SaveAssets();
-            }
-            File.WriteAllText("Logs/VictoryTimeline/CommandResult.txt",command + " succeeded");
-        }
-        catch(Exception error) { File.WriteAllText("Logs/VictoryTimeline/CommandResult.txt",error.ToString()); Debug.LogException(error); }
-    }
     [MenuItem("Tools/Victory/Run Victory Regression Tests")]
     public static void RunVictory() => Run(new[] { "VictoryCutsceneTests" }, "Victory");
     [MenuItem("Tools/Victory/Run Gameplay Regression Tests")]
-    public static void RunRegression() => Run(new[] { "VictoryCutsceneTests", "DialogueControllerTests", "CoreStateTests",
-        "BettingActionTests", "DealerAiTests", "DealerItemAiTests", "DealerItemFlowTests", "FoldPenaltyTests",
-        "GameModeTests", "GameOverTests", "ItemGameApiTests", "ItemSystemTests", "RoundFirstTurnTests",
-        "RoundStartTests", "RoundTransitionTests", "ShowdownResultTests", "ShowdownSettlementTests",
-        "PlayerItemPresentationTests", "RefreshCardVisualTests" }, "Regression");
+    public static void RunRegression()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling ||
+            SessionState.GetBool(Running, false)) return;
+        if (SceneManager.GetActiveScene().isDirty)
+        {
+            Debug.LogWarning("Save the open scene before running gameplay regressions.");
+            return;
+        }
+        // A fresh domain avoids destroyed singletons/tweens left by tests entering Play Mode.
+        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        SessionState.SetBool("VictoryTimeline.Isolated", true);
+        EditorUtility.RequestScriptReload();
+    }
     private static void RunIsolatedGameplay() => Run(new[] { "CoreStateTests",
         "BettingActionTests", "DealerAiTests", "DealerItemAiTests", "DealerItemFlowTests", "FoldPenaltyTests",
         "GameModeTests", "GameOverTests", "ItemGameApiTests", "ItemSystemTests", "RoundFirstTurnTests",
@@ -781,6 +731,7 @@ public static class VictoryCutsceneTestRunner
         "PlayerItemPresentationTests", "RefreshCardVisualTests" }, "GameplayIsolated");
     private static void Run(string[] names,string output)
     {
+        if (SessionState.GetBool(Running, false) || EditorApplication.isPlayingOrWillChangePlaymode) return;
         SessionState.SetBool(Running,true);
         SessionState.SetString(Destination,"Logs/VictoryTimeline/" + output + ".xml");
         api.Execute(new UnityEditor.TestTools.TestRunner.Api.ExecutionSettings(new UnityEditor.TestTools.TestRunner.Api.Filter

@@ -62,3 +62,4 @@ crashlytics-build.properties
 # Local-only files
 *.md
 *.txt
+*.markdown

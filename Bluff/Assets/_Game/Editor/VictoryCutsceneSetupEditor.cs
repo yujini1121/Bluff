@@ -45,16 +45,6 @@ public static class VictoryCutsceneSetupEditor
         EditorSceneManager.SaveScene(scene);
     }
 
-    [MenuItem("Tools/Victory/Reload Saved Victory Scene")]
-    public static void ReloadSavedScene()
-    {
-        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(TimelinePath))
-            Resources.UnloadAsset(asset);
-        AssetDatabase.ImportAsset(TimelinePath, ImportAssetOptions.ForceUpdate);
-        EditorSceneManager.OpenScene(ScenePath);
-    }
-
     [MenuItem("Tools/Victory/Migrate Legacy Timeline Once (with backup)")]
     public static void MigrateOpenScene() => SetupOpenScene();
 
@@ -173,7 +163,6 @@ public static class VictoryCutsceneSetupEditor
         director.SetGenericBinding(visibility, chip.gameObject);
 
         var screen = Ref<GameObject>(overlay, "uiRoot");
-        var screenAnimator = screen.AddComponent<Animator>();
         // Canvas stays available while scrubbing; CanvasGroup keys control all presentation.
         screen.SetActive(true);
         var shade = Ref<Image>(overlay, "shade");
@@ -185,7 +174,6 @@ public static class VictoryCutsceneSetupEditor
         caption.alpha = unlock.alpha = 1;
         var effects = timeline.CreateTrack<GroupTrack>(null, "VISUAL EFFECTS / CAPTIONS");
         // Each child gets its own Animator so independent tracks never compete for a binding.
-        Object.DestroyImmediate(screenAnimator);
         Effect(timeline, director, effects, flash.gameObject, "Memory Flash", 9, 0.6,
             new[] { 0f, 0.149f, 0.15f, 0.379f, 0.38f, 0.469f, 0.47f, 0.6f },
             new[] { 0.8f, 0.8f, 0f, 0f, 0.8f, 0.8f, 0f, 0f }, true);
