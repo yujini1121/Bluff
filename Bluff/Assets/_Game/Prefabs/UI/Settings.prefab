@@ -197,6 +197,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7949903235107737818}
   - component: {fileID: 8886993512233805855}
+  - component: {fileID: 126493499007248012}
   - component: {fileID: 7643590149261702310}
   m_Layer: 5
   m_Name: BGM Slider
@@ -281,6 +282,25 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &126493499007248012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 353836444092767731}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 460f5344b1de4b94494a9df2d9fa9415, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  valueText: {fileID: 4869292067296545779}
+  enableSaving: 1
+  sliderTag: BGM Volume Slider
+  defaultValue: 1
+  usePercent: 0
+  showValue: 1
+  useRoundValue: 0
 --- !u!95 &7643590149261702310
 Animator:
   serializedVersion: 5
@@ -1287,7 +1307,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2056925673705166851}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 1
