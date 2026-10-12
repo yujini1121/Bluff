@@ -102,12 +102,16 @@ public sealed class GameplayInfoHover : MonoBehaviour
         switch (target)
         {
             case GameplayInfoHoverTarget.PlayerChips:
+                tooltip.SetSize(target);
                 return gameUi.CurrentPlayerChipCount.ToString();
             case GameplayInfoHoverTarget.DealerChips:
+                tooltip.SetSize(target);
                 return gameUi.CurrentDealerChipCount.ToString();
             case GameplayInfoHoverTarget.Deck:
+                tooltip.SetSize(target);
                 return gameUi.CurrentDeckRemainingCount.ToString();
             case GameplayInfoHoverTarget.Item:
+                tooltip.SetSize(target);
                 Item item = this.gameObject.GetComponent<Item>();
                 return item != null ? item.GetDescription() : string.Empty;
             default:

@@ -78,4 +78,22 @@ public sealed class GameplayInfoTooltip : MonoBehaviour
         canvas ??= tooltipRoot.GetComponentInParent<Canvas>(true);
         return tooltipRect != null && canvas != null;
     }
+
+    public void SetSize(GameplayInfoHoverTarget target)
+    {
+        switch (target)
+        {
+            case GameplayInfoHoverTarget.PlayerChips:
+            case GameplayInfoHoverTarget.DealerChips:
+            case GameplayInfoHoverTarget.Deck:
+                tooltipRect.sizeDelta = new Vector2(50f, 40f);
+                break;
+            case GameplayInfoHoverTarget.Item:
+                tooltipRect.sizeDelta = new Vector2(200f, 80f);
+                break;
+            default:
+                tooltipRect.sizeDelta = new Vector2(200f, 80f);
+                break;
+        }
+    }
 }
