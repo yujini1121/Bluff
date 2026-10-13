@@ -40,25 +40,6 @@ public class SwitchCamera : MonoBehaviour
         SwitchToPlayerCam();
     }
 
-    private void Update()
-    {
-        if (canCameraMove)
-        {
-            if (Input.GetKeyDown(KeyCode.Alpha1))
-            {
-                SwitchToPlayerCam();
-            }
-            if (Input.GetKeyDown(KeyCode.Alpha2))
-            {
-                SwitchToCommunityCam();
-            }
-            if (Input.GetKeyDown(KeyCode.Alpha3))
-            {
-                SwitchToDealerCam();
-            }
-        }
-    }
-
     public void SwitchToPlayerCam()
     {
         if (!canCameraMove)

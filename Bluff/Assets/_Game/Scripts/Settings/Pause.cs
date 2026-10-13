@@ -3,28 +3,23 @@ using UnityEngine;
 public class Pause : MonoBehaviour
 {
     [SerializeField] private GameObject pauseMenu;
+    private bool isPaused = false;
 
-    // Start is called before the first frame update
     void Start()
     {
         pauseMenu.SetActive(false);
         Time.timeScale = 1;
     }
 
-    // Update is called once per frame
-    void Update()
+    public void PauseGame()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            pauseMenu.SetActive(!pauseMenu.activeSelf);
-            if (Time.timeScale == 1)
-            {
-                Time.timeScale = 0;
-            }
-            else
-            {
-                Time.timeScale = 1;
-            }
-        }
+        isPaused = !isPaused;
+        pauseMenu.SetActive(isPaused);
+        Time.timeScale = isPaused ? 0 : 1;
+    }
+
+    public bool IsPaused
+    {
+        get { return isPaused; }
     }
 }
