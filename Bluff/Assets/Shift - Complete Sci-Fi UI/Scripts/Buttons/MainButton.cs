@@ -15,13 +15,13 @@ namespace Michsky.UI.Shift
         public TextMeshProUGUI highlightedText;
         public TextMeshProUGUI pressedText;
 
-        void OnEnable()
+        void Update()
         {
             if (useCustomText == false)
             {
-                if (normalText != null) { normalText.text = buttonText; }
-                if (highlightedText != null) { highlightedText.text = buttonText; }
-                if (pressedText != null) { pressedText.text = buttonText; }
+                if (normalText != null && normalText.text != buttonText) { normalText.text = buttonText; }
+                if (highlightedText != null && highlightedText.text != buttonText) { highlightedText.text = buttonText; }
+                if (pressedText != null && pressedText.text != buttonText) { pressedText.text = buttonText; }
             }
         }
     }

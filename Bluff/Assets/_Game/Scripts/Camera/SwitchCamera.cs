@@ -1,5 +1,4 @@
 using Cinemachine;
-using System;
 using UnityEngine;
 
 public enum CameraView
@@ -14,6 +13,8 @@ public class SwitchCamera : MonoBehaviour
     [SerializeField] private CinemachineVirtualCamera playerCam;
     [SerializeField] private CinemachineVirtualCamera communityCam;
     [SerializeField] private CinemachineVirtualCamera dealerCam;
+
+    private bool canCameraMove = true;
 
     public CameraView CurrentView { get; private set; }
 
@@ -41,22 +42,30 @@ public class SwitchCamera : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        if (canCameraMove)
         {
-            SwitchToPlayerCam();
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            SwitchToCommunityCam();
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            SwitchToDealerCam();
+            if (Input.GetKeyDown(KeyCode.Alpha1))
+            {
+                SwitchToPlayerCam();
+            }
+            if (Input.GetKeyDown(KeyCode.Alpha2))
+            {
+                SwitchToCommunityCam();
+            }
+            if (Input.GetKeyDown(KeyCode.Alpha3))
+            {
+                SwitchToDealerCam();
+            }
         }
     }
 
     public void SwitchToPlayerCam()
     {
+        if (!canCameraMove)
+        {
+            return;
+        }
+
         playerCam.Priority = 10;
         communityCam.Priority = 0;
         dealerCam.Priority = 0;
@@ -65,6 +74,11 @@ public class SwitchCamera : MonoBehaviour
 
     public void SwitchToCommunityCam()
     {
+        if (!canCameraMove)
+        {
+            return;
+        }
+
         playerCam.Priority = 0;
         communityCam.Priority = 10;
         dealerCam.Priority = 0;
@@ -73,9 +87,19 @@ public class SwitchCamera : MonoBehaviour
 
     public void SwitchToDealerCam()
     {
+        if (!canCameraMove)
+        {
+            return;
+        }
+
         playerCam.Priority = 0;
         communityCam.Priority = 0;
         dealerCam.Priority = 10;
         CurrentView = CameraView.Dealer;
+    }
+
+    public void CanCameraMovement(bool canMove)
+    {
+        canCameraMove = canMove;
     }
 }

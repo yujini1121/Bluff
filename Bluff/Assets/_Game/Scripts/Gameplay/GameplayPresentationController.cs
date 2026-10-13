@@ -6,6 +6,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
     [SerializeField] private CardVisualController cardVisualController;
     [SerializeField] private ChipVisualController chipVisualController;
     [SerializeField] private DealerAnimationController dealerAnimationController;
+    [SerializeField] private SwitchCamera switchCamera;
 
     private GameState gameState;
     private Action presentationChanged;
@@ -357,6 +358,9 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void PlayRoundStart()
     {
+        switchCamera.CanCameraMovement(true);
+        switchCamera?.SwitchToPlayerCam();
+
         if (!TryStartRoundAnte())
         {
             chipVisualController?.RefreshChips();
@@ -554,6 +558,9 @@ public sealed class GameplayPresentationController : MonoBehaviour
             cardVisualController?.ShowShowdownCardsImmediately();
             onCompleted?.Invoke();
         }
+
+        switchCamera.SwitchToCommunityCam();
+        switchCamera.CanCameraMovement(false);
     }
 
     public bool TryPlayDealerThink()
@@ -920,6 +927,9 @@ public sealed class GameplayPresentationController : MonoBehaviour
             CompleteFoldReveal(onRevealCompleted);
             return;
         }
+
+        switchCamera.SwitchToCommunityCam();
+        switchCamera.CanCameraMovement(false);
 
         NotifyChanged();
     }
