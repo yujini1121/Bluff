@@ -21,7 +21,8 @@ public sealed class CutsceneCameraRig : MonoBehaviour
     }
 
     public bool IsConfigured => outputCamera != null && virtualCamera != null &&
-        outputCamera.GetComponent<CinemachineBrain>() != null && shotCameras.Length >= 5 &&
+        outputCamera.GetComponent<CinemachineBrain>() != null && shotCameras.Length > 0 &&
+        Array.IndexOf(shotCameras, virtualCamera) >= 0 &&
         Array.TrueForAll(shotCameras, camera => camera != null);
 
     public void Capture()

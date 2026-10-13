@@ -383,6 +383,14 @@ public sealed class VictoryCutsceneTests
                 Assert.That(state.Phase, Is.EqualTo(outcome == 0 ? GamePhase.RoundEnd : GamePhase.GameOver));
                 Assert.That(flow.HasPlayed, Is.False);
                 Assert.That(flow.IsPlaying, Is.False);
+                if (outcome == 1)
+                {
+                    var defeat = Find<DefeatCutsceneController>();
+                    Assert.That(defeat.IsPlaying, Is.True);
+                    Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.False);
+                    defeat.Skip();
+                    yield return null;
+                }
                 Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.True);
             }
         }
