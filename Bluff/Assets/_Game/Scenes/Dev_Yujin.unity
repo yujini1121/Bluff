@@ -3789,17 +3789,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 40065e3c1402d1c4f997f163eedc7b9a, type: 3}
---- !u!114 &182473329 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 702176072375794276, guid: 40065e3c1402d1c4f997f163eedc7b9a, type: 3}
-  m_PrefabInstance: {fileID: 182473328}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 684e8ec420a67c0428aa478af3c36ea8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &183627998
 GameObject:
   m_ObjectHideFlags: 0
@@ -4899,7 +4888,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fd1ee89ee7f143828d69078fd93b6b5f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerStartingChips: 20
+  playerStartingChips: 1
   dealerStartingChips: 20
   firstTurn: 1
   maxLogLines: 8
@@ -21053,6 +21042,8 @@ PlayableDirector:
     value: {fileID: 761596528}
   - key: {fileID: -1211381895876980941, guid: 2dbe6f06df8817843b13c032d8fe1c3d, type: 2}
     value: {fileID: 761596527}
+  - key: {fileID: 910140200, guid: 2dbe6f06df8817843b13c032d8fe1c3d, type: 2}
+    value: {fileID: 910140102}
   m_ExposedReferences:
     m_References:
     - 3b0268151e35f014fa7452630287b651: {fileID: 62686309}
@@ -21077,6 +21068,7 @@ MonoBehaviour:
   screenRoot: {fileID: 714648797}
   effectsVolume: {fileID: 581944410}
   audioMuffle: {fileID: 818906265}
+  screenTearing: {fileID: 910140103}
   victoryCutscene: {fileID: 1002349145}
   gameplayHud:
   - {fileID: 2100000301}
@@ -21110,6 +21102,7 @@ Transform:
   - {fileID: 1196491507}
   - {fileID: 581944411}
   - {fileID: 818906266}
+  - {fileID: 910140101}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &774050850
@@ -23484,6 +23477,86 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 890251647}
   m_CullTransparentMesh: 1
+--- !u!1 &910140100
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 910140101}
+  - component: {fileID: 910140102}
+  - component: {fileID: 910140103}
+  m_Layer: 0
+  m_Name: Digital Screen Tearing
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &910140101
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910140100}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 761596532}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!95 &910140102
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910140100}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 0}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &910140103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910140100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0e0e7c9719a4e6a87633798593f7e0a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetCamera: {fileID: 330585545}
+  owner: {fileID: 761596531}
+  victoryCutscene: {fileID: 1002349145}
+  director: {fileID: 761596530}
+  animationTrack: {fileID: 910140200, guid: 2dbe6f06df8817843b13c032d8fe1c3d, type: 2}
+  effectEnabled: 1
+  previewInEditMode: 1
+  intensity: 0
+  horizontalOffset: 0.025
+  bandHeight: 0.055
+  bandCenter: 0.58
+  secondBandCenter: 0.44
+  secondBandStrength: 0
+  rgbSeparation: 0.0015
 --- !u!1 &913965443
 GameObject:
   m_ObjectHideFlags: 0
