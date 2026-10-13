@@ -28,6 +28,11 @@ public class SoundSystem : MonoBehaviour
     {
         if (Instance != null && Instance != this)
         {
+            // The persistent sound owner must follow the UI of the newly loaded scene.
+            Instance.MasterSlider = MasterSlider;
+            Instance.BGMVolumeSlider = BGMVolumeSlider;
+            Instance.SFXVolumeSlider = SFXVolumeSlider;
+            Instance.RestoreSliderValues();
             Destroy(this.gameObject);
             return;
         }
@@ -36,19 +41,21 @@ public class SoundSystem : MonoBehaviour
         StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
-    void Start()
+    void Start() => RestoreSliderValues();
+
+    private void RestoreSliderValues()
     {
         float savedMasterVolume = PlayerPrefs.GetFloat("MasterVolume", 1f);
         float savedBGMVolume = PlayerPrefs.GetFloat("BGMVolume", 1f);
         float savedSFXVolume = PlayerPrefs.GetFloat("SFXVolume", 1f);
 
-        MasterSlider.value = savedMasterVolume;
-        BGMVolumeSlider.value = savedBGMVolume;
-        SFXVolumeSlider.value = savedSFXVolume;
+        if (MasterSlider != null) MasterSlider.value = savedMasterVolume;
+        if (BGMVolumeSlider != null) BGMVolumeSlider.value = savedBGMVolume;
+        if (SFXVolumeSlider != null) SFXVolumeSlider.value = savedSFXVolume;
 
-        SetMasterVolume(MasterSlider.value);
-        SetBGMVolume(BGMVolumeSlider.value);
-        SetSFXVolume(SFXVolumeSlider.value);
+        if (MasterSlider != null) SetMasterVolume(MasterSlider.value);
+        if (BGMVolumeSlider != null) SetBGMVolume(BGMVolumeSlider.value);
+        if (SFXVolumeSlider != null) SetSFXVolume(SFXVolumeSlider.value);
     }
 
     public IEnumerator RepeatPlaybackBGM(int index)
@@ -170,8 +177,8 @@ public class SoundSystem : MonoBehaviour
 
     void Update()
     {
-        SetMasterVolume(MasterSlider.value);
-        SetBGMVolume(BGMVolumeSlider.value);
-        SetSFXVolume(SFXVolumeSlider.value);
+        if (MasterSlider != null) SetMasterVolume(MasterSlider.value);
+        if (BGMVolumeSlider != null) SetBGMVolume(BGMVolumeSlider.value);
+        if (SFXVolumeSlider != null) SetSFXVolume(SFXVolumeSlider.value);
     }
 }

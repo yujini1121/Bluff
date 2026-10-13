@@ -8,15 +8,24 @@ public sealed class IntroFadeController : MonoBehaviour
     [SerializeField] private CanvasGroup overlay;
     [SerializeField, Min(0.01f)] private float fadeOutSeconds = 0.8f;
     [SerializeField, Min(0.01f)] private float fadeInSeconds = 0.8f;
+    [SerializeField, Min(0f)] private float openingFadeSeconds = 0.55f;
     public bool IsTransitioning { get; private set; }
+    public bool CanTransition => isActiveAndEnabled && Application.CanStreamedLevelBeLoaded(IntroFlowController.GameplaySceneName);
+    public float Opacity => overlay != null ? overlay.alpha : 0f;
     private float previousTimeScale;
     private bool ownsTimeScale;
+    private Coroutine openingFade;
 
     private void Awake()
     {
         if (overlay == null) overlay = GetComponent<CanvasGroup>();
-        overlay.alpha = 0f;
+        overlay.alpha = openingFadeSeconds > 0f ? 1f : 0f;
         overlay.blocksRaycasts = false;
+    }
+
+    private void Start()
+    {
+        if (!IsTransitioning) openingFade = StartCoroutine(FadeTo(0f, openingFadeSeconds));
     }
 
     public void TransitionToGameplay()
@@ -28,6 +37,7 @@ public sealed class IntroFadeController : MonoBehaviour
             return;
         }
         IsTransitioning = true;
+        if (openingFade != null) StopCoroutine(openingFade);
         transform.SetParent(null, true);
         DontDestroyOnLoad(gameObject);
         StartCoroutine(Transition());
@@ -59,13 +69,23 @@ public sealed class IntroFadeController : MonoBehaviour
         while (elapsed < seconds)
         {
             elapsed += Time.unscaledDeltaTime;
-            overlay.alpha = Mathf.Lerp(start, target, Mathf.Clamp01(elapsed / seconds));
+            overlay.alpha = Mathf.Lerp(start, target, Mathf.SmoothStep(0f, 1f, elapsed / seconds));
             yield return null;
         }
         overlay.alpha = target;
     }
 
     private void OnDestroy() => RestoreTimeScale();
+    private void OnDisable()
+    {
+        StopAllCoroutines();
+        RestoreTimeScale();
+        if (overlay != null)
+        {
+            overlay.alpha = 0f;
+            overlay.blocksRaycasts = false;
+        }
+    }
     private void RestoreTimeScale()
     {
         if (!ownsTimeScale) return;

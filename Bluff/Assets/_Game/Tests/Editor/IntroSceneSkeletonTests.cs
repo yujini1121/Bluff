@@ -14,7 +14,69 @@ public sealed class IntroSceneSkeletonTests
     private bool gameplayLoaded;
     private float alphaAtLoad;
     private CanvasGroup transitionGroup;
+    private int dialogueCompletionCount;
+    private void OnDialogueCompleted() => dialogueCompletionCount++;
 
+    [UnityTest]
+    public IEnumerator ActualScene_ESeatsFromCurrentPosition_ThenStartsDialogue()
+    {
+        EditorSceneManager.OpenScene(IntroCutsceneSetupEditor.IntroPath);
+        UnityEditor.SessionState.SetBool("Intro.FinalCapture", SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null);
+        yield return new EnterPlayMode();
+        SceneManager.LoadScene("Intro");
+        yield return null;
+        yield return null;
+        var flow = UnityEngine.Object.FindObjectOfType<IntroFlowController>();
+        var player = UnityEngine.Object.FindObjectOfType<PlayerMove>();
+        var view = Read<Transform>(player, "cameraHolder");
+        var dialogue = Read<DialogueController>(flow, "dialogueController");
+        Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(flow.BeginBarSequence(), Is.True);
+        float deadline = Time.realtimeSinceStartup + 20f;
+        var director = Read<PlayableDirector>(flow, "barDirector");
+        while (flow.State == IntroFlowController.IntroState.BarCutscene)
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
+            if (director.time > 1.3)
+                Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+            yield return null;
+        }
+        Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        Assert.That(player.IsMoveInputEnabled, Is.True);
+        Vector3 start = new Vector3(7.9f, 1.77f, 15f);
+        var target = Read<Transform>(flow, "dealerLookTarget");
+        player.WarpViewPose(start, Quaternion.LookRotation(target.position - start));
+        yield return null;
+        yield return null;
+        start = Camera.main.transform.position;
+        Capture("ESeat_01_Before");
+        Assert.That(flow.TryInteract(), Is.True);
+        Assert.That(Vector3.Distance(view.position, start), Is.LessThan(0.0001f));
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Seating));
+        Assert.That(dialogue.IsRunning, Is.False);
+        Assert.That(flow.TryInteract(), Is.False);
+        deadline = Time.realtimeSinceStartup + 10f;
+        var seat = Read<Transform>(flow, "seatedView");
+        while (flow.State == IntroFlowController.IntroState.Seating)
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
+            Vector3 previous = view.position;
+            float remaining = Vector3.Distance(previous, seat.position);
+            yield return null;
+            Assert.That(Vector3.Distance(previous, view.position),
+                Is.EqualTo(Mathf.Min(remaining, 0.7f * Time.deltaTime)).Within(0.01f));
+        }
+        Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Dialogue));
+        Assert.That(dialogue.IsRunning, Is.True);
+        yield return Seconds(0.5f);
+        var chair = GameObject.Find("Casino_Pub_Chair (1)").transform;
+        Assert.That(view.position.x, Is.EqualTo(chair.position.x).Within(0.02f));
+        Assert.That(view.position.z, Is.EqualTo(chair.position.z).Within(0.02f));
+        Assert.That(view.position.y, Is.EqualTo(2.23f).Within(0.02f));
+        Assert.That(Vector3.Angle(view.forward, target.position - view.position), Is.LessThan(0.2f));
+        Capture("ESeat_02_Dialogue");
+        yield return new ExitPlayMode();
+    }
     private void OnGameplayLoaded(Scene scene, LoadSceneMode mode)
     {
         if (scene.name != IntroFlowController.GameplaySceneName) return;
@@ -56,6 +118,7 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(Camera.allCamerasCount, Is.EqualTo(1));
         Assert.That(UnityEngine.Object.FindObjectsOfType<AudioListener>().Length, Is.EqualTo(1));
         Capture("01_Corridor");
+        Assert.That(Read<Transform>(player, "cameraHolder").localPosition.y, Is.EqualTo(0f).Within(0.001f));
         body.useGravity = false;
         Vector3 center = trigger.GetComponent<BoxCollider>().bounds.center;
         center.y = body.position.y;
@@ -81,21 +144,30 @@ public sealed class IntroSceneSkeletonTests
         yield return Seconds(0.15f);
         Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.BarCutscene));
         Assert.That(player.IsMoveInputEnabled, Is.False);
-        Assert.That(player.transform.position.x, Is.EqualTo(1.238f).Within(0.01f));
-        Assert.That(player.transform.position.z, Is.EqualTo(15.83f).Within(0.01f));
+        Assert.That(player.transform.position.x, Is.EqualTo(center.x + 4f).Within(0.01f), "진입 시 플레이어 위치를 순간 이동하지 않는다");
         var hold = Read<IntroHoldToSkip>(flow, "holdToSkip");
         Assert.That(hold.IsAvailable, Is.True);
-        yield return Seconds(2.7f);
+        while (bar.time < 2.35d) yield return null;
         Quaternion leftLook = Camera.main.transform.rotation;
         Capture("02_LookLeft");
-        yield return Seconds(1.8f);
+        while (bar.time < 3.95d) yield return null;
         Assert.That(Quaternion.Angle(leftLook, Camera.main.transform.rotation), Is.GreaterThan(30f), "The look-around must remain visible");
         Capture("03_LookRight");
         float deadline = Time.realtimeSinceStartup + 15f;
+        Vector3 previousPosition = Camera.main.transform.position;
+        Quaternion previousRotation = Camera.main.transform.rotation;
         while (flow.State == IntroFlowController.IntroState.BarCutscene)
         {
             Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
             yield return null;
+            float frameSeconds = Mathf.Max(Time.deltaTime, 0.001f);
+            Assert.That(Vector3.Distance(previousPosition, Camera.main.transform.position), Is.LessThan(3.5f * frameSeconds + 0.03f), "접근 중 위치 점프");
+            Assert.That(Quaternion.Angle(previousRotation, Camera.main.transform.rotation), Is.LessThan(75f * frameSeconds + 0.5f), "접근 중 회전 점프");
+            previousPosition = Camera.main.transform.position;
+            previousRotation = Camera.main.transform.rotation;
+            if (bar.time < 9.35d)
+                Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f),
+                    "도착 직전까지 기존 보행 높이 유지");
         }
         yield return Seconds(0.5f);
         Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.DealerInteraction));
@@ -105,6 +177,13 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(hold.IsAvailable, Is.True);
         Assert.That(Camera.main.transform.position.x, Is.EqualTo(9.65f).Within(0.02f));
         Assert.That(Camera.main.transform.position.z, Is.EqualTo(14.8f).Within(0.02f));
+        Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+        Assert.That(player.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+        Vector3 arrivalPosition = Camera.main.transform.position;
+        body.useGravity = true;
+        yield return Seconds(0.5f);
+        Assert.That(Mathf.Abs(Camera.main.transform.position.y - arrivalPosition.y), Is.LessThan(0.1f),
+            "컷신 종료 후 중력으로 시점이 내려앉으면 안 됨");
         Capture("04_Dealer_E_Wait");
         Assert.That(Vector3.Distance(model.position, originalDealerPosition), Is.LessThan(0.001f));
         Transform target = Read<Transform>(flow, "dealerLookTarget");
@@ -117,12 +196,29 @@ public sealed class IntroSceneSkeletonTests
         yield return Seconds(0.5f);
         Assert.That(dialogue.IsRunning, Is.False, "Waiting does not auto-start dialogue");
         Assert.That(flow.TryInteract(), Is.True, "Exercise the exact handler used by E");
+        while (flow.State == IntroFlowController.IntroState.Seating) yield return null;
         Assert.That(prompt.activeSelf, Is.False);
         Assert.That(player.IsMoveInputEnabled, Is.False);
         Assert.That(dialogue.CurrentLineIndex, Is.Zero);
         Capture("05_Dialogue");
         yield return Seconds(0.1f);
-        while (dialogue.IsRunning) dialogue.Next();
+        dialogueCompletionCount = 0;
+        dialogue.DialogueCompleted += OnDialogueCompleted;
+        while (dialogue.IsRunning)
+        {
+            int lineIndex = dialogue.CurrentLineIndex;
+            bool wasTyping = dialogue.IsTyping;
+            dialogue.Next();
+            if (wasTyping)
+            {
+                Assert.That(dialogue.CurrentLineIndex, Is.EqualTo(lineIndex));
+                Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Dialogue),
+                    "Completing the last line's typing must not transition to gameplay");
+                Assert.That(dialogueCompletionCount, Is.Zero);
+            }
+            yield return null;
+        }
+        Assert.That(dialogueCompletionCount, Is.EqualTo(1));
         Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Transition));
         yield return Seconds(0.3f);
         Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Intro"));
@@ -156,8 +252,10 @@ public sealed class IntroSceneSkeletonTests
     {
         EditorSceneManager.OpenScene(IntroCutsceneSetupEditor.IntroPath);
         yield return new EnterPlayMode();
-        for (int phase = 0; phase < 4; phase++)
+        for (int phase = 0; phase < 5; phase++)
         {
+            if (SoundSystem.Instance != null) UnityEngine.Object.Destroy(SoundSystem.Instance.gameObject);
+            yield return null;
             SceneManager.LoadScene("Intro");
             yield return Seconds(0.3f);
             var flow = UnityEngine.Object.FindObjectOfType<IntroFlowController>();
@@ -173,8 +271,19 @@ public sealed class IntroSceneSkeletonTests
                 yield return null;
                 yield return null;
             }
-            if (phase == 3) Assert.That(flow.TryInteract(), Is.True);
-            Assert.That((int)flow.State, Is.EqualTo(phase));
+            if (phase >= 3) Assert.That(flow.TryInteract(), Is.True);
+            if (phase == 4)
+            {
+                float seatingDeadline = Time.realtimeSinceStartup + 10f;
+                while (flow.State == IntroFlowController.IntroState.Seating)
+                {
+                    Assert.That(Time.realtimeSinceStartup, Is.LessThan(seatingDeadline));
+                    yield return null;
+                }
+            }
+            var expectedState = phase == 3 ? IntroFlowController.IntroState.Seating :
+                phase == 4 ? IntroFlowController.IntroState.Dialogue : (IntroFlowController.IntroState)phase;
+            Assert.That(flow.State, Is.EqualTo(expectedState));
             Assert.That(hold.IsAvailable, Is.True);
             Assert.That(keycap.activeSelf, Is.False, "Never show ESC before a press in any phase");
             hold.enabled = false;
@@ -187,10 +296,10 @@ public sealed class IntroSceneSkeletonTests
             Assert.That(hold.Progress, Is.Zero);
             Assert.That(keycap.activeSelf, Is.False);
             hold.Tick(true, 0.65f);
-            Assert.That((int)flow.State, Is.EqualTo(phase), "Released holds must not accumulate");
+            Assert.That(flow.State, Is.EqualTo(expectedState), "Released holds must not accumulate");
             hold.Tick(true, 0.6f);
             Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Transition));
-            flow.SkipIntro(); // A repeated request must not start a second transition.
+            flow.SkipIntro();
             Assert.That(hold.IsAvailable, Is.False);
             Assert.That(keycap.activeSelf, Is.False);
             Assert.That(player.IsMoveInputEnabled, Is.False);
@@ -208,6 +317,46 @@ public sealed class IntroSceneSkeletonTests
         }
         yield return new ExitPlayMode();
     }
+    [UnityTest]
+    public IEnumerator ActualScene_InterruptAndReload_ReleasesCameraAndAudio()
+    {
+        EditorSceneManager.OpenScene(IntroCutsceneSetupEditor.IntroPath);
+        yield return new EnterPlayMode();
+        for (int run = 0; run < 2; run++)
+        {
+            SceneManager.LoadScene("Intro");
+            yield return Seconds(0.7f);
+            var flow = UnityEngine.Object.FindObjectOfType<IntroFlowController>();
+            var player = UnityEngine.Object.FindObjectOfType<PlayerMove>();
+            var bar = Read<PlayableDirector>(flow, "barDirector");
+            Assert.That(flow.BeginBarSequence(), Is.True);
+            yield return Seconds(1.5f);
+            Vector3 before = Camera.main.transform.position;
+            if (run == 0) bar.Stop();
+            else flow.enabled = false;
+            yield return null;
+            Assert.That(player.IsMoveInputEnabled, Is.True);
+            Assert.That(Vector3.Distance(Camera.main.transform.position, before), Is.LessThan(0.08f));
+            Assert.That(bar.GetComponent<IntroBarSequenceCamera>().VirtualCamera.Priority, Is.Zero);
+            Assert.That(UnityEngine.Object.FindObjectsOfType<IntroSoundscape>().Length, Is.EqualTo(1));
+        }
+        SceneManager.LoadScene("Intro");
+        yield return Seconds(0.7f);
+        var interruptedFlow = UnityEngine.Object.FindObjectOfType<IntroFlowController>();
+        var oldSound = UnityEngine.Object.FindObjectOfType<IntroSoundscape>();
+        var music = Read<AudioSource>(oldSound, "music");
+        Assert.That(music.isPlaying, Is.True);
+        Assert.That(music.volume, Is.GreaterThan(0f));
+        Assert.That(interruptedFlow.BeginBarSequence(), Is.True);
+        yield return Seconds(0.4f);
+        SceneManager.LoadScene("Intro");
+        yield return Seconds(0.7f);
+        Assert.That(interruptedFlow == null && oldSound == null && music == null, Is.True);
+        Assert.That(UnityEngine.Object.FindObjectsOfType<IntroSoundscape>().Length, Is.EqualTo(1));
+        Assert.That(UnityEngine.Object.FindObjectOfType<IntroFlowController>().State,
+            Is.EqualTo(IntroFlowController.IntroState.Corridor));
+        yield return new ExitPlayMode();
+    }
     private static T Read<T>(UnityEngine.Object target, string field) where T : UnityEngine.Object
     {
         Assert.That(target != null, Is.True, "Read target " + field);
@@ -219,9 +368,8 @@ public sealed class IntroSceneSkeletonTests
     private static void Capture(string name)
     {
         if (!UnityEditor.SessionState.GetBool("Intro.FinalCapture", false)) return;
-        System.IO.Directory.CreateDirectory("Logs/IntroRebuildReview");
-        string destination = System.IO.Path.GetFullPath("Logs/IntroRebuildReview/" + name + ".png");
-        // Capture at a stable resolution, independent of the Editor Game View panel size.
+        System.IO.Directory.CreateDirectory("Logs/IntroPolish/Frames");
+        string destination = System.IO.Path.GetFullPath("Logs/IntroPolish/Frames/" + name + ".png");
         Camera camera = Camera.main;
         var canvases = UnityEngine.Object.FindObjectsOfType<Canvas>()
             .Where(c => c.renderMode == RenderMode.ScreenSpaceOverlay).ToArray();

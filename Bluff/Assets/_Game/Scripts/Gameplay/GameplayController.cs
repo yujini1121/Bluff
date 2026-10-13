@@ -28,6 +28,8 @@ public sealed class GameplayController : MonoBehaviour
 
     [Header("3D 연출")]
     [SerializeField] private GameplayPresentationController presentation;
+    [SerializeField] private VictoryCutsceneController victoryCutscene;
+    [SerializeField] private DefeatCutsceneController defeatCutscene;
 
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
@@ -45,7 +47,7 @@ public sealed class GameplayController : MonoBehaviour
     private RoundWinner roundWinner;
     private bool debugPanelOpen;
     private bool isActionProcessing;
-    // Prizm은 먼저 RoundEnd가 되므로 연출 종료까지 Dealer coroutine을 유지한다.
+
     private bool isWaitingForDealerPrizmBeforeFold;
     private bool isShowdownResultVisible;
     private bool isFoldResultVisible;
@@ -143,6 +145,7 @@ public sealed class GameplayController : MonoBehaviour
         UpdateVisibleHandRanks();
         CancelInvalidDealerAction();
         TryScheduleDealerAction();
+        TryStartFinalCutscene();
         RefreshView();
     }
 
@@ -162,6 +165,8 @@ public sealed class GameplayController : MonoBehaviour
             gameState.RoundEndReason == RoundEndReason.Showdown &&
             roundWinner != RoundWinner.None;
         isShuttingDown = true;
+        if (victoryCutscene != null) victoryCutscene.Cancel();
+        if (defeatCutscene != null) defeatCutscene.Cancel();
         isActionProcessing = false;
         if (presentation != null)
         {
@@ -344,6 +349,8 @@ public sealed class GameplayController : MonoBehaviour
 
     private void CreateGame()
     {
+        if (victoryCutscene != null) victoryCutscene.ResetForGame();
+        if (defeatCutscene != null) defeatCutscene.ResetForGame();
         Deck deck = Deck.CreateIndianHoldemDeck();
         deck.Shuffle();
 
@@ -664,6 +671,7 @@ public sealed class GameplayController : MonoBehaviour
     private bool CanAcceptPlayerBettingInput()
     {
         return gameState != null &&
+               !IsFinalCutsceneBlockingInput &&
                !isRestarting &&
                !isActionProcessing &&
                !presentation.IsBusy &&
@@ -675,6 +683,7 @@ public sealed class GameplayController : MonoBehaviour
     private bool CanAcceptProgressInput(GamePhase requiredPhase)
     {
         return gameState != null &&
+               !IsFinalCutsceneBlockingInput &&
                !isRestarting &&
                !isActionProcessing &&
                !presentation.IsBusy &&
@@ -685,6 +694,7 @@ public sealed class GameplayController : MonoBehaviour
     private bool CanRestartGame()
     {
         if (gameState == null ||
+            IsFinalCutsceneBlockingInput ||
             isRestarting ||
             isShuttingDown ||
             !isActiveAndEnabled ||
@@ -725,7 +735,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private void TryScheduleDealerAction()
     {
-        if (isRestarting ||
+        if (IsFinalCutsceneBlockingInput || isRestarting ||
             isActionProcessing ||
             presentation.IsBusy ||
             dealerActionCoroutine != null ||
@@ -1144,7 +1154,34 @@ public sealed class GameplayController : MonoBehaviour
             dealerHandRank,
             isShowdownResultVisible,
             isFoldResultVisible,
-            CanRestartGame());
+            CanRestartGame(),
+            IsFinalCutsceneBlockingInput);
+    }
+
+
+    private bool IsFinalCutsceneBlockingInput => (victoryCutscene != null &&
+        (victoryCutscene.IsPlaying || (!victoryCutscene.HasPlayed &&
+         gameState != null && gameState.Phase == GamePhase.GameOver &&
+         gameState.FinalWinner == GameWinner.Player))) || (defeatCutscene != null &&
+        (defeatCutscene.IsPlaying || (!defeatCutscene.HasPlayed &&
+         gameState != null && gameState.Phase == GamePhase.GameOver &&
+         gameState.FinalWinner == GameWinner.Dealer)));
+
+    private void TryStartFinalCutscene()
+    {
+        if (gameState == null || presentation == null || isShuttingDown ||
+            isRestarting || Time.timeScale <= 0f) return;
+
+        bool settled = !isActionProcessing && !presentation.IsBusy &&
+            dealerActionCoroutine == null && showdownPresentationCoroutine == null &&
+            (gameState.RoundEndReason != RoundEndReason.Showdown || isShowdownResultVisible) &&
+            (gameState.RoundEndReason != RoundEndReason.Fold || isFoldResultVisible);
+        if ((victoryCutscene != null && victoryCutscene.IsPlaying) ||
+            (defeatCutscene != null && defeatCutscene.IsPlaying)) return;
+        if (gameState.FinalWinner == GameWinner.Player && victoryCutscene != null)
+            victoryCutscene.TryPlay(gameState.Phase, gameState.FinalWinner, settled);
+        else if (gameState.FinalWinner == GameWinner.Dealer && defeatCutscene != null)
+            defeatCutscene.TryPlay(gameState.Phase, gameState.FinalWinner, settled);
     }
 
     private bool IsPlayerShortAllInRequired()
