@@ -1,4 +1,4 @@
-Shader "Hidden/Bluff/DigitalScreenTearing"
+Shader "Hidden/Bluff/ScreenSplit"
 {
     SubShader
     {
@@ -6,7 +6,7 @@ Shader "Hidden/Bluff/DigitalScreenTearing"
         ZWrite Off ZTest Always Cull Off
         Pass
         {
-            Name "Digital Screen Tearing"
+            Name "Screen Split"
             HLSLPROGRAM
             #pragma target 3.5
             #pragma vertex Vert
@@ -14,27 +14,45 @@ Shader "Hidden/Bluff/DigitalScreenTearing"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/Runtime/Utilities/Blit.hlsl"
 
-            float4 _Tear;
-            float4 _Bands;
+            float4 _Split;
+
+            void Crack(float2 p, float2 normal, float offset, float growth,
+                float aspect, float pixel, inout float mask, inout float2 movement)
+            {
+                float2 tangent = float2(-normal.y, normal.x);
+                float extent = dot(abs(tangent), float2(aspect, 1.0)) * 0.5;
+                float along = (dot(p, tangent) + extent) / (2.0 * extent);
+                float revealed = step(along, growth) * step(0.0001, growth);
+                float distance = dot(p, normal) - offset;
+                float width = _Split.z * pixel * 0.5;
+                float crackMask = (1.0 - smoothstep(max(0.0, width - pixel * 0.5),
+                    width + pixel * 0.5, abs(distance))) * step(0.0001, _Split.z);
+                mask = max(mask, crackMask * revealed);
+                movement += normal * (step(0.0, distance) * 2.0 - 1.0) * revealed;
+            }
 
             half4 Frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float2 uv = input.texcoord;
-                float a = 1.0 - step(_Tear.z * 0.5, abs(uv.y - _Bands.x));
-                float b = (1.0 - step(_Tear.z * 0.325, abs(uv.y - _Bands.y))) * _Bands.z;
-                float band = a > 0.0 ? a : -b;
                 half4 original = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
-                if (_Tear.x <= 0.0 || abs(band) <= 0.0) return original;
+                if (_Split.x <= 0.0 || _Split.y <= 0.0) return original;
 
-                float shift = band * _Tear.x * _Tear.y;
-                float rgb = abs(band) * _Tear.x * _Tear.w;
-                float2 displaced = float2(saturate(uv.x - shift), uv.y);
-                half4 result = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, displaced);
-                result.r = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-                    float2(saturate(displaced.x + rgb), uv.y)).r;
-                result.b = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp,
-                    float2(saturate(displaced.x - rgb), uv.y)).b;
+                float2 screenUV = (uv - _BlitScaleBias.zw) / _BlitScaleBias.xy;
+                float aspect = _ScaledScreenParams.x / _ScaledScreenParams.y;
+                float pixel = rcp(_ScaledScreenParams.y);
+                float2 p = (screenUV - 0.5) * float2(aspect, 1.0);
+                float mask = 0.0;
+                float2 movement = 0.0;
+                float progress = _Split.y * 3.0;
+                Crack(p, float2(0.6, 0.8), 0.06, saturate(progress), aspect, pixel, mask, movement);
+                Crack(p, float2(-0.8, 0.6), -0.14, saturate(progress - 1.0), aspect, pixel, mask, movement);
+                Crack(p, normalize(float2(0.25, 0.97)), 0.20, saturate(progress - 2.0), aspect, pixel, mask, movement);
+
+                float2 displaced = screenUV - movement * (_Split.w * _Split.x / 3.0) / float2(aspect, 1.0);
+                float2 sampleUV = saturate(displaced) * _BlitScaleBias.xy + _BlitScaleBias.zw;
+                half4 result = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, sampleUV);
+                result.rgb *= 1.0 - mask * _Split.x;
                 return result;
             }
             ENDHLSL

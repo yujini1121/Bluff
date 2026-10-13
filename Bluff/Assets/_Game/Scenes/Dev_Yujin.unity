@@ -23489,7 +23489,7 @@ GameObject:
   - component: {fileID: 910140102}
   - component: {fileID: 910140103}
   m_Layer: 0
-  m_Name: Digital Screen Tearing
+  m_Name: Screen Split
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -23551,12 +23551,10 @@ MonoBehaviour:
   effectEnabled: 1
   previewInEditMode: 1
   intensity: 0
-  horizontalOffset: 0.025
-  bandHeight: 0.055
-  bandCenter: 0.58
-  secondBandCenter: 0.44
-  secondBandStrength: 0
-  rgbSeparation: 0.0015
+  crackProgress: 0
+  crackWidth: 8
+  separationProgress: 0
+  displacement: 0.028
 --- !u!1 &913965443
 GameObject:
   m_ObjectHideFlags: 0

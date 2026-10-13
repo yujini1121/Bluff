@@ -69,7 +69,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 55026d0833464215ba4cf5f0589ff53f, type: 3}
-  m_Name: Defeat Digital Screen Tearing
+  m_Name: Defeat Screen Split
   m_EditorClassIdentifier: 
   m_Active: 1
   shader: {fileID: 4800000, guid: cd582d0a9d1248ac885f4537b6b18716, type: 3}

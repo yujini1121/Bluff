@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Playables;
 using UnityEngine.Timeline;
 [ExecuteAlways, DisallowMultipleComponent]
+[AddComponentMenu("Bluff/Cutscenes/Screen Split")]
 public sealed class DigitalScreenTearing : MonoBehaviour
 {
     [SerializeField] private Camera targetCamera;
@@ -11,23 +12,24 @@ public sealed class DigitalScreenTearing : MonoBehaviour
     [SerializeField] private PlayableDirector director;
     [SerializeField] private AnimationTrack animationTrack;
     public bool effectEnabled = true;
-    [Tooltip("Preview only the bound Game camera while Timeline animation preview is active.")]
+    [Tooltip("Timeline 미리보기 중 연결된 Game 카메라에만 적용합니다.")]
     public bool previewInEditMode = true;
     [Range(0, 1)] public float intensity;
-    [Tooltip("Fraction of screen width. Positive moves the image right.")]
-    [Range(-0.1f, 0.1f)] public float horizontalOffset = 0.025f;
-    [Range(0.005f, 0.25f)] public float bandHeight = 0.055f;
-    [Range(0, 1)] public float bandCenter = 0.58f;
-    [Range(0, 1)] public float secondBandCenter = 0.44f;
-    [Range(0, 1)] public float secondBandStrength;
-    [Tooltip("RGB sampling offset as a fraction of screen width, multiplied by intensity.")]
-    [Range(0, 0.01f)] public float rgbSeparation = 0.0015f;
+    [Tooltip("세 개의 대각선 균열이 순서대로 자라는 진행도입니다.")]
+    [Range(0, 1)] public float crackProgress;
+    [Tooltip("렌더링 해상도 기준 검은 균열의 두께입니다. 단위: 픽셀.")]
+    [Range(0, 12)] public float crackWidth = 8f;
+    [Tooltip("분할 영역이 어긋나는 진행도입니다. Timeline에서 조절합니다.")]
+    [Range(0, 1)] public float separationProgress;
+    [Tooltip("화면 높이에 대한 영역 이동 거리 비율입니다.")]
+    [Range(0, 0.06f)] public float displacement = 0.028f;
 
     private static readonly List<DigitalScreenTearing> instances = new List<DigitalScreenTearing>();
     private bool captured;
 
-    public void Capture() { intensity = 0; secondBandStrength = 0; captured = true; }
-    public void Release() { captured = false; intensity = 0; secondBandStrength = 0; }
+    public void Capture() { ResetEffect(); captured = true; }
+    public void Release() { captured = false; ResetEffect(); }
+    private void ResetEffect() { intensity = 0; crackProgress = 0; separationProgress = 0; }
     private void OnEnable() { if (!instances.Contains(this)) instances.Add(this); }
     private void OnDisable() { Release(); instances.Remove(this); }
     private void OnDestroy() { Release(); instances.Remove(this); }

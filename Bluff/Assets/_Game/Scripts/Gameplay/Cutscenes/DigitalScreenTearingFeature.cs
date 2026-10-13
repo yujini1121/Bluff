@@ -37,14 +37,13 @@ public sealed class DigitalScreenTearingFeature : ScriptableRendererFeature
         public DigitalScreenTearing effect;
         private readonly Material material;
         private RTHandle copy;
-        private static readonly int Tear = Shader.PropertyToID("_Tear");
-        private static readonly int Bands = Shader.PropertyToID("_Bands");
+        private static readonly int Split = Shader.PropertyToID("_Split");
 
         public TearingPass(Material material)
         {
             this.material = material;
             renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
-            profilingSampler = new ProfilingSampler("Defeat Digital Screen Tearing");
+            profilingSampler = new ProfilingSampler("Defeat Screen Split");
             ConfigureInput(ScriptableRenderPassInput.Color);
         }
 
@@ -57,18 +56,16 @@ public sealed class DigitalScreenTearingFeature : ScriptableRendererFeature
             descriptor.bindMS = false;
             descriptor.useMipMap = descriptor.autoGenerateMips = false;
             RenderingUtils.ReAllocateIfNeeded(ref copy, descriptor, FilterMode.Bilinear,
-                TextureWrapMode.Clamp, name: "_DefeatTearingCopy");
+                TextureWrapMode.Clamp, name: "_DefeatSplitCopy");
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData data)
         {
             if (copy == null || effect == null ||
                 DigitalScreenTearing.ForCamera(data.cameraData.camera) != effect) return;
-            material.SetVector(Tear, new Vector4(Mathf.Clamp01(effect.intensity),
-                Mathf.Clamp(effect.horizontalOffset, -0.1f, 0.1f),
-                Mathf.Clamp(effect.bandHeight, 0.005f, 0.25f), Mathf.Clamp(effect.rgbSeparation, 0, 0.01f)));
-            material.SetVector(Bands, new Vector4(Mathf.Clamp01(effect.bandCenter),
-                Mathf.Clamp01(effect.secondBandCenter), Mathf.Clamp01(effect.secondBandStrength), 0));
+            material.SetVector(Split, new Vector4(Mathf.Clamp01(effect.intensity),
+                Mathf.Clamp01(effect.crackProgress), Mathf.Clamp(effect.crackWidth, 0, 12),
+                Mathf.Clamp01(effect.separationProgress) * Mathf.Clamp(effect.displacement, 0, 0.06f)));
             var cmd = CommandBufferPool.Get();
             try
             {
