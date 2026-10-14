@@ -19,9 +19,10 @@ public static class DigitalScreenTearingEditor
         Require(track.timelineAsset == director.playableAsset, "Tearing track belongs to another Timeline.");
         Require(director.GetGenericBinding(track) == effect.GetComponent<Animator>(), "Tearing Animation Track binding missing.");
         Require(fields.FindProperty("owner").objectReferenceValue != null, "Defeat lifecycle owner missing.");
-        Require(track.GetClips().Any(c => c.asset is AnimationPlayableAsset a && a.clip != null &&
-            AnimationUtility.GetCurveBindings(a.clip).Any(b => b.type == typeof(DigitalScreenTearing) && b.propertyName == "intensity")),
-            "No Timeline intensity curve found.");
+        foreach (var property in new[] { "intensity", "glitchDensity", "glitchCoverage", "glitchDisplacement", "glitchPatternPhase" })
+            Require(track.GetClips().Any(c => c.asset is AnimationPlayableAsset a && a.clip != null &&
+                AnimationUtility.GetCurveBindings(a.clip).Any(b => b.type == typeof(DigitalScreenTearing) && b.propertyName == property)),
+                "No Timeline curve found: " + property);
         var renderer = AssetDatabase.LoadAssetAtPath<UniversalRendererData>("Assets/Bluff_URPAsset_Renderer.asset");
         Require(renderer != null && renderer.rendererFeatures.OfType<DigitalScreenTearingFeature>().Count() == 1,
             "Exactly one DigitalScreenTearingFeature should be installed on the gameplay renderer.");

@@ -11,23 +11,35 @@ public sealed class DigitalScreenTearing : MonoBehaviour
     [SerializeField] private PlayableDirector director;
     [SerializeField] private AnimationTrack animationTrack;
     public bool effectEnabled = true;
-    [Tooltip("Preview only the bound Game camera while Timeline animation preview is active.")]
     public bool previewInEditMode = true;
     [Range(0, 1)] public float intensity;
-    [Tooltip("Fraction of screen width. Positive moves the image right.")]
     [Range(-0.1f, 0.1f)] public float horizontalOffset = 0.025f;
-    [Range(0.005f, 0.25f)] public float bandHeight = 0.055f;
-    [Range(0, 1)] public float bandCenter = 0.58f;
-    [Range(0, 1)] public float secondBandCenter = 0.44f;
-    [Range(0, 1)] public float secondBandStrength;
-    [Tooltip("RGB sampling offset as a fraction of screen width, multiplied by intensity.")]
+    [HideInInspector] public float bandHeight = 0.055f;
+    [HideInInspector] public float bandCenter = 0.58f;
+    [HideInInspector] public float secondBandCenter = 0.44f;
+    [HideInInspector] public float secondBandStrength;
     [Range(0, 0.01f)] public float rgbSeparation = 0.0015f;
+
+    [Header("Glitch Spread")]
+    [Range(0, 1)] public float glitchDensity;
+    [Range(1, 30)] public int maxGlitches = 30;
+    [Range(0, 1)] public float glitchCoverage;
+    [Range(0, 4)] public float glitchDisplacement = 1;
+    public float glitchPatternPhase;
+    [Range(0.1f, 3)] public float glitchPatternSpeed = 1;
+    [Range(0, 1)] public float glitchSizeVariation = 0.8f;
 
     private static readonly List<DigitalScreenTearing> instances = new List<DigitalScreenTearing>();
     private bool captured;
 
-    public void Capture() { intensity = 0; secondBandStrength = 0; captured = true; }
-    public void Release() { captured = false; intensity = 0; secondBandStrength = 0; }
+    public void Capture() { ResetEffect(); captured = true; }
+    public void Release() { captured = false; ResetEffect(); }
+    private void ResetEffect()
+    {
+        intensity = 0;
+        secondBandStrength = 0;
+        glitchDensity = glitchCoverage = glitchPatternPhase = 0;
+    }
     private void OnEnable() { if (!instances.Contains(this)) instances.Add(this); }
     private void OnDisable() { Release(); instances.Remove(this); }
     private void OnDestroy() { Release(); instances.Remove(this); }
@@ -45,7 +57,7 @@ public sealed class DigitalScreenTearing : MonoBehaviour
 
     private bool CanRender()
     {
-        if (!isActiveAndEnabled || !effectEnabled || intensity <= 0 ||
+        if (!isActiveAndEnabled || !effectEnabled || intensity <= 0 || glitchDensity <= 0 || glitchCoverage <= 0 ||
             (victoryCutscene != null && victoryCutscene.IsPlaying) ||
             director == null || !director.isActiveAndEnabled || !director.playableGraph.IsValid() ||
             animationTrack == null || animationTrack.mutedInHierarchy ||
@@ -57,7 +69,7 @@ public sealed class DigitalScreenTearing : MonoBehaviour
         if (!insideClip) return false;
         if (Application.isPlaying)
             return captured && owner != null && owner.isActiveAndEnabled && owner.IsPlaying &&
-                !owner.IsWaitingForDialogue && director.state == PlayState.Playing;
+                !owner.IsWaitingForDialogue;
 #if UNITY_EDITOR
         return previewInEditMode && UnityEditor.AnimationMode.InAnimationMode();
 #else

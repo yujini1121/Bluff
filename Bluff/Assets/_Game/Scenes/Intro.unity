@@ -3789,7 +3789,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.99607843}
+  m_Color: {r: 0, g: 0, b: 0, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -6873,61 +6873,6 @@ PlayableDirector:
     value: {fileID: 775702212}
   m_ExposedReferences:
     m_References: []
---- !u!1 &775702220
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 775702221}
-  - component: {fileID: 775702222}
-  m_Layer: 0
-  m_Name: Door Close Sequence
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &775702221
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 775702220}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 775702202}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!320 &775702222
-PlayableDirector:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 775702220}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_PlayableAsset: {fileID: 11400000, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
-  m_InitialState: 0
-  m_WrapMode: 0
-  m_DirectorUpdateMode: 1
-  m_InitialTime: 0
-  m_SceneBindings:
-  - key: {fileID: 798846949541576307, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
-    value: {fileID: 1872022604}
-  - key: {fileID: -8251840684381786536, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
-    value: {fileID: 1386981571}
-  - key: {fileID: 90100001, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
-    value: {fileID: 775702212}
-  m_ExposedReferences:
-    m_References: []
 --- !u!1 &775702210
 GameObject:
   m_ObjectHideFlags: 0
@@ -7056,6 +7001,61 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!1 &775702220
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 775702221}
+  - component: {fileID: 775702222}
+  m_Layer: 0
+  m_Name: Door Close Sequence
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &775702221
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 775702220}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 775702202}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!320 &775702222
+PlayableDirector:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 775702220}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_PlayableAsset: {fileID: 11400000, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
+  m_InitialState: 0
+  m_WrapMode: 0
+  m_DirectorUpdateMode: 1
+  m_InitialTime: 0
+  m_SceneBindings:
+  - key: {fileID: 798846949541576307, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
+    value: {fileID: 1872022604}
+  - key: {fileID: -8251840684381786536, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
+    value: {fileID: 1386981571}
+  - key: {fileID: 90100001, guid: 2c7b54fcdf3943ed93bad58e034075f0, type: 2}
+    value: {fileID: 775702212}
+  m_ExposedReferences:
+    m_References: []
 --- !u!1001 &783599007
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -14340,9 +14340,6 @@ MonoBehaviour:
   barCamera: {fileID: 669671321}
   dealerLookTarget: {fileID: 2112315144}
   interactionPrompt: {fileID: 996949558}
-  seatedView: {fileID: 640817328}
-  seatingSpeed: 0.7
-  seatingTurnSpeed: 60
   interactionDistance: 4
   interactionAngle: 40
   dialogueController: {fileID: 1888643798}
@@ -14364,6 +14361,9 @@ MonoBehaviour:
   fadeController: {fileID: 13793898}
   holdToSkip: {fileID: 669671323}
   doorDirector: {fileID: 775702203}
+  seatedView: {fileID: 640817328}
+  seatingSpeed: 0.7
+  seatingTurnSpeed: 60
 --- !u!1001 &1891822442
 PrefabInstance:
   m_ObjectHideFlags: 0

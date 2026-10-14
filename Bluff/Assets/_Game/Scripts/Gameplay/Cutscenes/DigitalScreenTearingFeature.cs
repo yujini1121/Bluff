@@ -21,7 +21,7 @@ public sealed class DigitalScreenTearingFeature : ScriptableRendererFeature
             data.cameraData.cameraType != CameraType.Game ||
             data.cameraData.renderType != CameraRenderType.Base) return;
         var effect = DigitalScreenTearing.ForCamera(data.cameraData.camera);
-        if (effect == null) return;
+        if (effect == null) { pass?.Dispose(); return; }
         pass.effect = effect;
         renderer.EnqueuePass(pass);
     }
@@ -38,7 +38,8 @@ public sealed class DigitalScreenTearingFeature : ScriptableRendererFeature
         private readonly Material material;
         private RTHandle copy;
         private static readonly int Tear = Shader.PropertyToID("_Tear");
-        private static readonly int Bands = Shader.PropertyToID("_Bands");
+        private static readonly int Spread = Shader.PropertyToID("_Spread");
+        private static readonly int Pattern = Shader.PropertyToID("_Pattern");
 
         public TearingPass(Material material)
         {
@@ -65,10 +66,14 @@ public sealed class DigitalScreenTearingFeature : ScriptableRendererFeature
             if (copy == null || effect == null ||
                 DigitalScreenTearing.ForCamera(data.cameraData.camera) != effect) return;
             material.SetVector(Tear, new Vector4(Mathf.Clamp01(effect.intensity),
-                Mathf.Clamp(effect.horizontalOffset, -0.1f, 0.1f),
+                Mathf.Clamp(effect.horizontalOffset, -0.1f, 0.1f) * Mathf.Clamp(effect.glitchDisplacement, 0, 4),
                 Mathf.Clamp(effect.bandHeight, 0.005f, 0.25f), Mathf.Clamp(effect.rgbSeparation, 0, 0.01f)));
-            material.SetVector(Bands, new Vector4(Mathf.Clamp01(effect.bandCenter),
-                Mathf.Clamp01(effect.secondBandCenter), Mathf.Clamp01(effect.secondBandStrength), 0));
+            int count = Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(effect.glitchDensity) *
+                Mathf.Clamp(effect.maxGlitches, 1, 30)), 1, 30);
+            material.SetVector(Spread, new Vector4(count, Mathf.Clamp01(effect.glitchCoverage),
+                Mathf.Clamp01(effect.glitchSizeVariation), 0));
+            material.SetVector(Pattern, new Vector4(Mathf.Floor(Mathf.Max(0, effect.glitchPatternPhase) *
+                Mathf.Clamp(effect.glitchPatternSpeed, 0.1f, 3)), 0, 0, 0));
             var cmd = CommandBufferPool.Get();
             try
             {
@@ -82,7 +87,7 @@ public sealed class DigitalScreenTearingFeature : ScriptableRendererFeature
             }
             finally { CommandBufferPool.Release(cmd); }
         }
-        public override void OnCameraCleanup(CommandBuffer cmd) => Dispose();
+        public override void OnCameraCleanup(CommandBuffer cmd) { effect = null; }
         public void Dispose() { copy?.Release(); copy = null; effect = null; }
     }
 }
