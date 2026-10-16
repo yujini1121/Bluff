@@ -155,23 +155,23 @@ Preset:
   - target: {fileID: 0}
     propertyPath: lightFont
     value: 
-    objectReference: {fileID: 11400000, guid: 501c3584798b7544daed173223ef3afd, type: 2}
+    objectReference: {fileID: 11400000, guid: 8afc67a2d9d66b34ebce7e172f242133, type: 2}
   - target: {fileID: 0}
     propertyPath: regularFont
     value: 
-    objectReference: {fileID: 11400000, guid: baf5990ef136e594abc52299c06d9b48, type: 2}
+    objectReference: {fileID: 11400000, guid: 8afc67a2d9d66b34ebce7e172f242133, type: 2}
   - target: {fileID: 0}
     propertyPath: mediumFont
     value: 
-    objectReference: {fileID: 11400000, guid: b04f3173f946b754db673ac13842f4c1, type: 2}
+    objectReference: {fileID: 11400000, guid: 8afc67a2d9d66b34ebce7e172f242133, type: 2}
   - target: {fileID: 0}
     propertyPath: semiBoldFont
     value: 
-    objectReference: {fileID: 11400000, guid: 581c047ed60765249b12f37ff2895497, type: 2}
+    objectReference: {fileID: 11400000, guid: 8afc67a2d9d66b34ebce7e172f242133, type: 2}
   - target: {fileID: 0}
     propertyPath: boldFont
     value: 
-    objectReference: {fileID: 11400000, guid: 194c956b3d864664890e731c63fd4a02, type: 2}
+    objectReference: {fileID: 11400000, guid: 8afc67a2d9d66b34ebce7e172f242133, type: 2}
   - target: {fileID: 0}
     propertyPath: gameLogo
     value: 
