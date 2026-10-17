@@ -18,6 +18,7 @@ public class ItemSystem : MonoBehaviour
 
     public List<GameObject> itemList = new List<GameObject>(); // 전체 아이템 목록
 
+    [Header("아이템 스폰 위치")]
     [SerializeField] private GameObject[] playerItemSpawnPos = new GameObject[4]; // 플레이어 아이템 스폰 위치
     [SerializeField] private GameObject[] dealerItemSpawnPos = new GameObject[4]; // 딜러 아이템 스폰 위치
 
