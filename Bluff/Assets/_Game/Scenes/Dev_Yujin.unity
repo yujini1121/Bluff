@@ -7679,9 +7679,9 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.21
   far clip plane: 1000
-  field of view: 60.000004
+  field of view: 60
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -7707,8 +7707,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.13052616, y: 0, z: 0, w: 0.9914449}
-  m_LocalPosition: {x: 0, y: 2, z: -3}
+  m_LocalRotation: {x: -0.01745245, y: 0, z: 0, w: 0.99984777}
+  m_LocalPosition: {x: 0, y: 1.8, z: -0.95}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -14364,10 +14364,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 387606005644804451, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 721d1c82d2885c4418785446d8b13946, type: 2}
     - target: {fileID: 919132149155446097, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
       propertyPath: m_Name
       value: Slot Machine (5)
       objectReference: {fileID: 0}
+    - target: {fileID: 2861249960902117226, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6418604103714144607, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
+    - target: {fileID: 7119256378481474669, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -20600,10 +20616,14 @@ PrefabInstance:
     - target: {fileID: 387606005644804451, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
-      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
+      objectReference: {fileID: 2100000, guid: 1df85508785d0c549b499d493774e012, type: 2}
     - target: {fileID: 919132149155446097, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
       propertyPath: m_Name
       value: Slot Machine (4)
+      objectReference: {fileID: 0}
+    - target: {fileID: 2861249960902117226, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6418604103714144607, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
       propertyPath: m_Materials.Array.data[0]
@@ -36991,6 +37011,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: Slot Machine (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 2861249960902117226, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7119256378481474669, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -40564,10 +40592,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 387606005644804451, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 1df85508785d0c549b499d493774e012, type: 2}
     - target: {fileID: 919132149155446097, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
       propertyPath: m_Name
       value: Slot Machine (2)
       objectReference: {fileID: 0}
+    - target: {fileID: 2861249960902117226, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6418604103714144607, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
+    - target: {fileID: 7119256378481474669, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -49334,10 +49378,26 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 387606005644804451, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
     - target: {fileID: 919132149155446097, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
       propertyPath: m_Name
       value: Slot Machine (3)
       objectReference: {fileID: 0}
+    - target: {fileID: 2861249960902117226, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6418604103714144607, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
+    - target: {fileID: 7119256378481474669, guid: 9d3537b122b8b9b4c8e2a9bf22a71d74, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: bb9f145a8f3210744ae67bf411b33bd5, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
