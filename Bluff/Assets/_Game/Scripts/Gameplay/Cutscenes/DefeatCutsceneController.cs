@@ -18,6 +18,7 @@ public sealed class DefeatCutsceneController : MonoBehaviour
     [SerializeField] private GameObject screenRoot;
     [SerializeField] private Volume effectsVolume;
     [SerializeField] private DefeatAudioMuffle audioMuffle;
+    [SerializeField] private DigitalScreenTearing screenTearing;
     [SerializeField] private VictoryCutsceneController victoryCutscene;
     [SerializeField] private CanvasGroup[] gameplayHud = Array.Empty<CanvasGroup>();
     [SerializeField] private Behaviour[] suspendedInputs = Array.Empty<Behaviour>();
@@ -133,6 +134,7 @@ public sealed class DefeatCutsceneController : MonoBehaviour
         screenRoot.SetActive(true);
         effectsVolume.enabled = true;
         audioMuffle.Capture(transform);
+        if (screenTearing != null) screenTearing.Capture();
         cameraRig.Capture();
     }
 
@@ -189,6 +191,7 @@ public sealed class DefeatCutsceneController : MonoBehaviour
     {
         if (!IsPlaying) return;
         IsPlaying = IsWaitingForDialogue = false;
+        if (screenTearing != null) screenTearing.Release();
         finishRequested = resumeRequested = dealerStarted = warningStarted = false;
         if (director != null) { director.stopped -= OnDirectorStopped; director.Stop(); }
         if (cameraRig != null) cameraRig.Release();
