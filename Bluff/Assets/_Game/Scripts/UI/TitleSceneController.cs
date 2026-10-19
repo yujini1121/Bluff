@@ -15,6 +15,11 @@ public sealed class TitleSceneController : MonoBehaviour
         StartGame(GameMode.Endless);
     }
 
+    public void ExitGame()
+    {
+        UnityEngine.Application.Quit();
+    }
+
     private static void StartGame(GameMode gameMode)
     {
         GameModeSelection.Select(gameMode);
