@@ -44,7 +44,6 @@ public sealed class SlotMachineController : MonoBehaviour
         display.Initialize(sprites); initialized = true;
     }
 
-    /// <summary>Returns false if busy, disabled, unconfigured, or outside Play Mode.</summary>
     public bool TrySpin(Action<SlotSpinResult> completed = null) => TrySpin(SlotSpinMode.Normal, completed);
 
     public bool TrySpin(SlotSpinMode mode, Action<SlotSpinResult> completed = null)

@@ -55,7 +55,6 @@ public sealed class SlotMachineDisplay : MonoBehaviour
         bool jackpot = result.Outcome == SlotOutcome.Jackpot;
         Status(result.IsWin ? sprites.win : sprites.lose, jackpot ? "JACKPOT" : result.IsWin ? "WIN" : "TRY AGAIN",
             result.IsWin ? new Color(1, 0.86f, 0.4f) : new Color(0.77f, 0.72f, 0.9f));
-        // A jackpot remains readable even when only win.png (and no jackpot artwork) is supplied.
         if (jackpot) { resultImage.enabled = false; resultText.enabled = true; }
         effects = DOTween.Sequence().SetUpdate(unscaled);
         effects.Append(signGroup.DOFade(result.IsWin ? 0.45f : 0.85f, 0.15f));
