@@ -13,9 +13,9 @@ public sealed class SlotMachineNpcTests
     private const string MachinePath = "Assets/_Game/Art/Environment/SlotMachine/MD_SlotMachine/slot machine 1.prefab";
 
     [Test]
-    public void DevSceneHasOneDedicatedPatronAndPreservesOriginalDealer()
+    public void IntroHasMovedPatronAndDevPreservesOnlyOriginalDealer()
     {
-        var scene = EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity", OpenSceneMode.Additive);
+        var scene = EditorSceneManager.OpenScene("Assets/_Game/Scenes/Intro.unity", OpenSceneMode.Additive);
         try {
             var npcs = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<SlotMachineNpc>(true)).ToArray();
             Assert.That(npcs.Length, Is.EqualTo(1));
@@ -30,10 +30,15 @@ public sealed class SlotMachineNpcTests
             Assert.That(controller.layers[0].iKPass, Is.True);
             Assert.That(controller.layers[0].stateMachine.states.Length, Is.EqualTo(11));
             Assert.That(((AnimationClip)controller.layers[0].stateMachine.defaultState.motion).isLooping, Is.True);
-            var dealer = scene.GetRootGameObjects().Single(g => g.name == "PF_Dealer_Animated");
-            Assert.That(dealer.GetComponent<DealerAnimationController>(), Is.Not.Null);
+            var dealer = scene.GetRootGameObjects().Single(g => g.name == "PF_Dealer");
+
             Assert.That(dealer.GetComponent<Animator>().runtimeAnimatorController, Is.Not.SameAs(controller));
         } finally { EditorSceneManager.CloseScene(scene, true); }
+        var dev=EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity",OpenSceneMode.Additive);
+        try {
+            Assert.That(dev.GetRootGameObjects().SelectMany(g=>g.GetComponentsInChildren<SlotMachineNpc>(true)),Is.Empty);
+            Assert.That(dev.GetRootGameObjects().Single(g=>g.name=="PF_Dealer_Animated").GetComponent<DealerAnimationController>(),Is.Not.Null);
+        } finally { EditorSceneManager.CloseScene(dev,true); }
     }
 
     [UnityTest]
