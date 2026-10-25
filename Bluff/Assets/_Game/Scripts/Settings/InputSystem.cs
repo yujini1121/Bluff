@@ -80,11 +80,11 @@ public class InputSystem : MonoBehaviour
                 holdingCount = 0;
             }
             // Betting : Raise Decrease
-            if (Input.GetKeyDown(KeyCode.D))
+            if (Input.GetKeyDown(KeyCode.Q))
             {
                 gameplayController.OnRaiseDecreaseClicked();
             }
-            else if (Input.GetKey(KeyCode.D))
+            else if (Input.GetKey(KeyCode.Q))
             {
                 holdingTime += Time.deltaTime;
                 if (holdingTime >= holdStartTime)
@@ -96,7 +96,7 @@ public class InputSystem : MonoBehaviour
                     }
                 }
             }
-            else if (Input.GetKeyUp(KeyCode.D))
+            else if (Input.GetKeyUp(KeyCode.Q))
             {
                 holdingTime = 0f;
                 holdingCount = 0;

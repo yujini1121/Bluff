@@ -155,7 +155,7 @@ public sealed class GameplayView : MonoBehaviour
         raiseExecuteButton.interactable = canRaise;
         raiseExecuteButton.GetComponentInChildren<MainButton>().buttonText = maxRaiseBy > 0 &&
                                 selectedRaiseBy == maxRaiseBy
-            ? "All in [A]"
+            ? "All in [R]"
             : $"Raise (+{selectedRaiseBy}) [R]";
     }
 
