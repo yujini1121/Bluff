@@ -14,12 +14,14 @@ public sealed class IntroSlotSession : MonoBehaviour
     private IntroSlotStation station;
     private SlotMachineController pendingMachine;
     private int generation, pendingTicket, entryFrame;
-    private bool exitRequested, savedMovement, savedCursorVisible;
+    private bool exitRequested, savedMovement, savedCursorVisible, paymentPending;
     private CursorLockMode savedCursorLock;
     public bool IsActive { get; private set; }
     public bool IsExitRequested => exitRequested;
     public IntroSlotChips Chips => chips;
-    public bool CanSpin => IsActive && !exitRequested && chips.CanSpin && station &&
+    private bool IsPresenting => station && station.CoinPresentation &&
+        station.CoinPresentation.isActiveAndEnabled && station.CoinPresentation.IsBusy;
+    public bool CanSpin => IsActive && !exitRequested && !paymentPending && !IsPresenting && chips.CanSpin && station &&
         station.Machine && station.Machine.isActiveAndEnabled && station.Machine.IsConfigured && !station.Machine.IsSpinning;
 
     private void Update()
@@ -28,7 +30,29 @@ public sealed class IntroSlotSession : MonoBehaviour
         if (!flow || !flow.IsFreeRoam || !station || !station.isActiveAndEnabled ||
             !station.Machine || !station.Machine.isActiveAndEnabled)
         {
+            CancelPresentation();
             RequestExit();
+            return;
+        }
+        if (paymentPending)
+        {
+            var presentation = station.CoinPresentation;
+            if (!presentation || !presentation.isActiveAndEnabled || !outputCamera ||
+                (!presentation.IsBusy && !presentation.PaymentReady))
+            {
+                CancelPresentation();
+                FinishPending();
+            }
+            else if (presentation.PaymentReady)
+            {
+                paymentPending = false;
+                presentation.Cancel();
+                if (!StartAcceptedSpin()) FinishPending();
+            }
+        }
+        if (exitRequested && !paymentPending && !chips.HasPendingSpin && !IsPresenting)
+        {
+            ReleaseView();
             return;
         }
         if (Input.GetKeyDown(KeyCode.Escape)) RequestExit();
@@ -41,8 +65,20 @@ public sealed class IntroSlotSession : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (IsActive && slotCamera && station && station.CameraPose)
+        {
+            Quaternion rotation = station.CameraPose.rotation;
+            if (IsPresenting)
+            {
+                Vector3 direction = station.CoinPresentation.FocusPosition - slotCamera.transform.position;
+                if (direction.sqrMagnitude > .001f) rotation = Quaternion.LookRotation(direction);
+            }
+            slotCamera.transform.rotation = Quaternion.Slerp(slotCamera.transform.rotation, rotation,
+                1 - Mathf.Exp(-8 * Time.deltaTime));
+        }
         if (!hud) return;
-        hud.Show(IsActive && flow && flow.IsFreeRoam, chips.Balance);
+        hud.Show(IsActive && flow && flow.IsFreeRoam, chips.Balance,
+            IsPresenting && station.CoinPresentation.IsDispensing);
     }
 
     public IntroSlotStation FindNearby()
@@ -85,9 +121,21 @@ public sealed class IntroSlotSession : MonoBehaviour
     public bool TrySpin()
     {
         if (!CanSpin) return false;
+        if (station.CoinPresentation && station.CoinPresentation.isActiveAndEnabled)
+        {
+            paymentPending = true;
+            station.CoinPresentation.BeginPayment(outputCamera);
+            return true;
+        }
+        return StartAcceptedSpin();
+    }
+
+    private bool StartAcceptedSpin()
+    {
+        if (!IsActive || !station || !station.isActiveAndEnabled || !chips.CanSpin) return false;
         int ticket = ++generation;
         var machine = station.Machine;
-        if (!machine.TrySpin(result => Complete(ticket, result))) return false;
+        if (!machine || !machine.TrySpin(result => Complete(ticket, result))) return false;
         chips.DebitAcceptedSpin(ticket);
         pendingTicket = ticket;
         pendingMachine = machine;
@@ -97,8 +145,10 @@ public sealed class IntroSlotSession : MonoBehaviour
 
     private void Complete(int ticket, SlotSpinResult result)
     {
-        if (!this || !chips.Settle(ticket, result, out _, out _)) return;
+        if (!this || !chips.Settle(ticket, result, out int reward, out _)) return;
         DetachPending();
+        if (IsActive && isActiveAndEnabled && station && station.CoinPresentation)
+            station.CoinPresentation.BeginPayout(outputCamera, reward);
         FinishPending();
     }
 
@@ -118,25 +168,33 @@ public sealed class IntroSlotSession : MonoBehaviour
 
     private void FinishPending()
     {
+        if (paymentPending || IsPresenting) return;
         if (exitRequested) ReleaseView();
         if (!IsActive && station) { station.Release(this); station = null; }
     }
 
     public void Refill()
     {
-        if (IsActive && !exitRequested) chips.Refill();
+        if (IsActive && !exitRequested && !paymentPending && !IsPresenting) chips.Refill();
     }
 
     public void RequestExit()
     {
         if (!IsActive) return;
         exitRequested = true;
-        if (!chips.HasPendingSpin) ReleaseView();
+        if (!chips.HasPendingSpin && !paymentPending && !IsPresenting) ReleaseView();
+    }
+
+    private void CancelPresentation()
+    {
+        paymentPending = false;
+        if (station && station.CoinPresentation) station.CoinPresentation.Cancel();
     }
 
     public void ReleaseView()
     {
         if (!IsActive) return;
+        CancelPresentation();
         IsActive = false;
         if (slotCamera) slotCamera.gameObject.SetActive(false);
         if (player && flow && (flow.State == IntroFlowController.IntroState.Corridor ||
@@ -151,6 +209,7 @@ public sealed class IntroSlotSession : MonoBehaviour
     private void OnDisable() { ReleaseView(); if (hud) hud.Hide(); }
     private void OnDestroy()
     {
+        CancelPresentation();
         chips.Refund(pendingTicket);
         DetachPending();
         if (station) station.Release(this);

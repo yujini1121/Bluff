@@ -34,9 +34,10 @@ public sealed class SlotMachineNpc : MonoBehaviour
     private static readonly int CoinLoop = Animator.StringToHash("Base Layer.CoinLoop");
     private static readonly int CoinEnd = Animator.StringToHash("Base Layer.CoinEnd");
     private static readonly int Frustrate = Animator.StringToHash("Base Layer.Frustrate");
-    private enum Phase { Rest, Release, CoinStart, CoinLoop, CoinEnd, CoinPause, Press, Lean, Waiting, React, Payout }
+    private enum Phase { Rest, Release, CoinStart, CoinLoop, CoinEnd, CoinPause, Press, Lean, Waiting, React, Payout, CoinTransfer }
     private enum PayoutPhase { Hidden, Dispensing, Waiting, Collecting }
     private Animator animator;
+    private IntroSlotNpcCoinTransfer coinTransfer;
     private Transform rightHand, indexTip;
     private Phase phase;
     private int state, generation;
@@ -60,6 +61,7 @@ public sealed class SlotMachineNpc : MonoBehaviour
     private void Awake()
     {
         animator = GetComponent<Animator>();
+        coinTransfer = GetComponent<IntroSlotNpcCoinTransfer>();
         if (!animator.avatar || !animator.avatar.isValid || !animator.isHuman) {
             Debug.LogError("Slot NPC requires the dealer's valid Humanoid avatar.", this);
             enabled = false;
@@ -134,17 +136,21 @@ public sealed class SlotMachineNpc : MonoBehaviour
 
     private float RandomRest() => Random.Range(Mathf.Max(1, restSeconds.x), Mathf.Max(1, Mathf.Max(restSeconds.x, restSeconds.y)));
     private bool Ready => machine && machine.isActiveAndEnabled && machine.IsConfigured && !machine.IsSpinning;
-    private bool InsertingCoin => phase == Phase.CoinStart || phase == Phase.CoinLoop || phase == Phase.CoinEnd || phase == Phase.CoinPause;
-    private bool CanInsertCoin => coinContact && coinProp && animator.HasState(0, CoinStart) &&
+    private bool InsertingCoin => phase == Phase.CoinStart || phase == Phase.CoinLoop || phase == Phase.CoinEnd || phase == Phase.CoinPause || phase == Phase.CoinTransfer;
+    private bool CanInsertCoin => coinTransfer ? coinTransfer.IsConfigured : coinContact && coinProp && animator.HasState(0, CoinStart) &&
         animator.HasState(0, CoinLoop) && animator.HasState(0, CoinEnd);
-    private void HideCoin() { if (coinProp) coinProp.gameObject.SetActive(false); }
+    private void HideCoin()
+    {
+        if (coinProp) coinProp.gameObject.SetActive(false);
+        if (coinTransfer) coinTransfer.CancelTransfer();
+    }
 
     private void BeginFunding()
     {
         float bulkChance = !choseFunding ? .45f : lastBulkFunding ? .3f : .65f;
         lastBulkFunding = Random.value < bulkChance;
         choseFunding = true;
-        coinsToInsert = lastBulkFunding ? Random.Range(2, 5) : 1;
+        coinsToInsert = coinTransfer ? 1 : lastBulkFunding ? Random.Range(2, 5) : 1;
         BeginCoin();
     }
 
@@ -153,6 +159,12 @@ public sealed class SlotMachineNpc : MonoBehaviour
         coinInserted = false;
         coinHoldTime = Random.Range(.12f, .26f);
         HideCoin();
+        if (coinTransfer)
+        {
+            if (coinTransfer.BeginTransfer()) phase = Phase.CoinTransfer;
+            else { coinsToInsert = 0; Play(Lean, Phase.Lean); }
+            return;
+        }
         Play(CoinStart, Phase.CoinStart);
     }
 
@@ -246,6 +258,21 @@ public sealed class SlotMachineNpc : MonoBehaviour
                     if (!Ready) Play(Lean, Phase.Lean);
                     else if (visualCredits == 0) BeginFunding();
                     else Play(Press, Phase.Press);
+                }
+                break;
+            case Phase.CoinTransfer:
+                if (coinTransfer && coinTransfer.isActiveAndEnabled && coinTransfer.HasArrived) {
+                    HideCoin();
+                    visualCredits++;
+                    coinsToInsert = Mathf.Max(0, coinsToInsert - 1);
+                    if (coinsToInsert > 0) {
+                        coinPauseRemaining = Random.Range(.16f, .32f);
+                        phase = Phase.CoinPause;
+                    } else Play(Press, Phase.Press);
+                } else if (!coinTransfer || !coinTransfer.isActiveAndEnabled || !coinTransfer.IsTravelling) {
+                    HideCoin();
+                    coinsToInsert = 0;
+                    Play(Lean, Phase.Lean);
                 }
                 break;
             case Phase.CoinStart:
@@ -349,6 +376,10 @@ public sealed class SlotMachineNpc : MonoBehaviour
         if (layerIndex != 0 || !enabled || !rightFootPlant || !leftFootPlant) return;
         Plant(AvatarIKGoal.RightFoot, rightFootPlant);
         Plant(AvatarIKGoal.LeftFoot, leftFootPlant);
+        if (phase == Phase.CoinTransfer && coinTransfer && coinTransfer.IsTravelling) {
+            coinTransfer.ApplyHandAndLookIK();
+            return;
+        }
         if (reelLookTarget) {
             animator.SetLookAtWeight(.65f * restWeight, .05f, .85f, .6f, .6f);
             animator.SetLookAtPosition(reelLookTarget.position);

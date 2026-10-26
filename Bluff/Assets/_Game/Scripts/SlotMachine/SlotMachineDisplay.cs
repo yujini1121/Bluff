@@ -39,14 +39,6 @@ public sealed class SlotMachineDisplay : MonoBehaviour
     public void ShowSpinning(bool unscaled)
     {
         StopEffects(); Status(null, "SPINNING", new Color(1, 0.45f, 0.86f));
-        effects = DOTween.Sequence().SetUpdate(unscaled);
-        effects.Append(signGroup.DOFade(0.6f, 0.2f));
-        effects.Join(decorationGroup.DOFade(0.55f, 0.2f));
-        effects.AppendInterval(0.2f);
-        effects.Append(signGroup.DOFade(1, 0.2f));
-        effects.Join(decorationGroup.DOFade(1, 0.2f));
-        effects.AppendInterval(0.4f);
-        effects.SetLoops(-1, LoopType.Yoyo);
     }
 
     public void ShowResult(SlotSpinResult result, bool unscaled)
@@ -58,9 +50,9 @@ public sealed class SlotMachineDisplay : MonoBehaviour
         if (jackpot) { resultImage.enabled = false; resultText.enabled = true; }
         effects = DOTween.Sequence().SetUpdate(unscaled);
         effects.Append(signGroup.DOFade(result.IsWin ? 0.45f : 0.85f, 0.15f));
-        effects.Join(decorationGroup.DOFade(result.IsWin ? 0.45f : 0.85f, 0.15f));
+        if (result.IsWin) effects.Join(decorationGroup.DOFade(0.45f, 0.15f));
         effects.Append(signGroup.DOFade(1, 0.15f));
-        effects.Join(decorationGroup.DOFade(1, 0.15f));
+        if (result.IsWin) effects.Join(decorationGroup.DOFade(1, 0.15f));
         effects.SetLoops(result.IsWin ? 4 : 1);
     }
 

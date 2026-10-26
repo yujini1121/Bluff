@@ -7,12 +7,14 @@ public sealed class IntroSlotStation : MonoBehaviour
     [SerializeField] private Transform interactionTarget;
     [SerializeField] private Transform cameraPose;
     [SerializeField] private Collider spinControl;
+    [SerializeField] private IntroSlotCoinPresentation coinPresentation;
     [SerializeField, Min(.1f)] private float interactionDistance = 2.8f;
     [SerializeField, Range(1, 90)] private float interactionAngle = 35;
     [SerializeField, Range(25, 80)] private float fieldOfView = 48;
     private IntroSlotSession owner;
     private bool npcReserved;
     public SlotMachineController Machine => machine;
+    public IntroSlotCoinPresentation CoinPresentation => coinPresentation;
     public Transform CameraPose => cameraPose;
     public Transform InteractionTarget => interactionTarget;
     public float FieldOfView => fieldOfView;
