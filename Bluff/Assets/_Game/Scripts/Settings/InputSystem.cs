@@ -8,6 +8,7 @@ public class InputSystem : MonoBehaviour
     [SerializeField] private Pause pause;
     [SerializeField] private SwitchCamera switchCamera;
     [SerializeField] private GameplayController gameplayController;
+    [SerializeField] private UIOverray uiOverray;
 
     [Header("키 홀딩 시간")]
     [SerializeField] private float holdStartTime = 0.5f;
@@ -18,10 +19,24 @@ public class InputSystem : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        // Pause
+        // Close Page & Pause
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            pause.PauseGame();
+            if (pause.IsPaused)
+            {
+                pause.PauseGame();
+            }
+            else
+            {
+                if (uiOverray.UIPageCount > 0)
+                {
+                    uiOverray.CloseUI();
+                }
+                else
+                {
+                    pause.PauseGame();
+                }
+            }
         }
         
         if (!pause.IsPaused)
