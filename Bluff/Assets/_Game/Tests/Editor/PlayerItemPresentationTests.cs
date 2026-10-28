@@ -22,11 +22,16 @@ public sealed class PlayerItemPresentationTests
     private ChipVisualController chips;
     private CardVisualController cards;
     private Random.State previousRandom;
+    private bool previousTweenInitialized;
+    private static readonly FieldInfo TweenInitialized = typeof(DOTween).GetField(
+        "initialized", BindingFlags.Static | BindingFlags.NonPublic);
 
     [SetUp]
     public void SetUp()
     {
         previousRandom = Random.state;
+        previousTweenInitialized = (bool)TweenInitialized.GetValue(null);
+        TweenInitialized.SetValue(null, true);
         inventory = Track(ScriptableObject.CreateInstance<Inventory>());
         cards = CreateObject("Card presentation").AddComponent<CardVisualController>();
         GameObject cardPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Art/Cards/PF_Card.prefab");
@@ -83,10 +88,16 @@ public sealed class PlayerItemPresentationTests
         Set(presentation, "cardVisualController", cards);
         Set(presentation, "chipVisualController", chips);
         Set(ui, "maxLogLines", 30);
-        foreach (string field in new[] { "roundText", "debugInfoText", "messageText", "raiseAmountText", "raiseExecuteText", "resultTitleText", "resultDetailText" })
+        foreach (string field in new[] { "roundText", "debugInfoText", "messageText", "raiseAmountText", "resultTitleText", "resultDetailText" })
             Set(view, field, CreateObject(field, ui.transform).AddComponent<TextMeshProUGUI>());
-        foreach (string field in new[] { "raiseDecreaseButton", "raiseIncreaseButton", "raiseMaxButton", "raiseExecuteButton", "resolveShowdownButton", "nextRoundButton", "restartButton", "debugToggleButton" })
+        foreach (string field in new[] { "raiseExecuteButton", "resolveShowdownButton", "nextRoundButton", "restartButton", "debugToggleButton" })
             Set(view, field, CreateObject(field, ui.transform).AddComponent<Button>());
+        Set(view, "raiseSlider", CreateObject("Raise slider", ui.transform).AddComponent<Slider>());
+        ((Button)Get(view, "raiseExecuteButton")).gameObject.AddComponent<Michsky.UI.Shift.MainButton>();
+        SwitchCamera camera = CreateObject("Presentation camera").AddComponent<SwitchCamera>();
+        foreach (string field in new[] { "playerCam", "communityCam", "dealerCam" })
+            Set(camera, field, CreateObject(field).AddComponent<Cinemachine.CinemachineVirtualCamera>());
+        Set(presentation, "switchCamera", camera);
         foreach (string field in new[] { "debugPanel", "playerActionBar", "contextActionArea", "resultOverlay" })
             Set(view, field, CreateObject(field, ui.transform));
         Set(view, "bettingActionButtons", new[] { CreateObject("Betting button", ui.transform).AddComponent<Button>() });
@@ -98,9 +109,13 @@ public sealed class PlayerItemPresentationTests
     [TearDown]
     public void TearDown()
     {
+        if (ui != null) Invoke(ui, "OnDisable");
+        if (presentation != null) Invoke(presentation, "OnDisable");
         for (int index = createdObjects.Count - 1; index >= 0; index--)
             if (createdObjects[index] != null) Object.DestroyImmediate(createdObjects[index]);
         createdObjects.Clear();
+        DOTween.KillAll();
+        TweenInitialized.SetValue(null, previousTweenInitialized);
         Random.state = previousRandom;
     }
 
@@ -166,7 +181,7 @@ public sealed class PlayerItemPresentationTests
     }
 
     [Test]
-    public void FailedItemUse_RaisesNoItemCue()
+    public void FailedItemUse_RaisesOnlyFailureCue()
     {
         Set(items, "chipPocketAmount", 0);
         GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
@@ -176,7 +191,175 @@ public sealed class PlayerItemPresentationTests
         item.GetComponent<Item>().Use();
 
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
-        Assert.That(cues, Is.Empty);
+        Assert.That(cues, Is.EqualTo(new[] { GameplayPresentationCue.Item_UseFailed }));
+    }
+
+    [TestCase(ItemType.refreshCard)]
+    [TestCase(ItemType.chipPocket)]
+    [TestCase(ItemType.defy)]
+    [TestCase(ItemType.prizmChip)]
+    public void DealerTurnClick_ShakesAndRaisesOnlyFailureCueWithoutChangingGame(ItemType type)
+    {
+        Bind(NewRound(TurnOwner.Dealer));
+        GameObject item = Add(TurnOwner.Player, type);
+        Vector3 origin = new Vector3(1f, 2f, 3f);
+        item.transform.localPosition = origin;
+        Quaternion rotation = Quaternion.Euler(12f, 35f, 7f);
+        item.transform.localRotation = rotation;
+        Card playerCard = game.PlayerCard;
+        int remainingCards = game.Deck.RemainingCount;
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        item.GetComponent<Item>().Use();
+
+        ItemUseFeedback feedback = item.GetComponent<ItemUseFeedback>();
+        Assert.That(feedback, Is.Not.Null);
+        Sequence shake = (Sequence)Get(feedback, "sequence");
+        Assert.That(shake.Duration(), Is.EqualTo(0.4f).Within(0.001f));
+        shake.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.03f, 0.03f);
+        Assert.That(item.transform.localPosition, Is.EqualTo(origin));
+        Assert.That(Quaternion.Angle(item.transform.localRotation, rotation), Is.GreaterThan(0.1f));
+        DOTween.ManualUpdate(0.5f, 0.5f);
+
+        Assert.That(item.transform.localPosition, Is.EqualTo(origin));
+        Assert.That(item.transform.localRotation, Is.EqualTo(rotation));
+        Assert.That(Get(feedback, "sequence"), Is.Null);
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+        Assert.That(game.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Dealer));
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(19));
+        Assert.That(game.DealerChips.Count, Is.EqualTo(19));
+        Assert.That(game.Pot.Amount, Is.EqualTo(2));
+        Assert.That(game.Betting.PlayerTotalBet, Is.EqualTo(1));
+        Assert.That(game.Betting.DealerTotalBet, Is.EqualTo(1));
+        Assert.That(game.PlayerCard, Is.SameAs(playerCard));
+        Assert.That(game.Deck.RemainingCount, Is.EqualTo(remainingCards));
+        Assert.That(cues, Is.EqualTo(new[] { GameplayPresentationCue.Item_UseFailed }));
+        Assert.That(presentation.IsBusy, Is.False);
+    }
+
+    [Test]
+    public void RepeatedRejectedClicks_KeepOneShakeAndRestoreScaledParentPosition()
+    {
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        Transform parent = CreateObject("Scaled item parent").transform;
+        parent.localScale = new Vector3(2f, 3f, 4f);
+        parent.rotation = Quaternion.Euler(0f, 30f, 0f);
+        item.transform.SetParent(parent);
+        item.transform.localPosition = new Vector3(1f, 2f, 3f);
+        Vector3 origin = item.transform.localPosition;
+        Vector3 worldOrigin = item.transform.position;
+        Quaternion rotation = item.transform.localRotation;
+
+        item.GetComponent<Item>().Use();
+        ItemUseFeedback feedback = item.GetComponent<ItemUseFeedback>();
+        Sequence shake = (Sequence)Get(feedback, "sequence");
+        shake.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.03f, 0.03f);
+        Assert.That(item.transform.position, Is.EqualTo(worldOrigin));
+        Assert.That(Quaternion.Angle(item.transform.localRotation, rotation), Is.GreaterThan(0.1f));
+        for (int index = 0; index < 10; index++) item.GetComponent<Item>().Use();
+
+        Assert.That(Get(feedback, "sequence"), Is.SameAs(shake));
+        Assert.That(cues, Is.EqualTo(new[] { GameplayPresentationCue.Item_UseFailed }));
+        DOTween.ManualUpdate(0.5f, 0.5f);
+        Assert.That(item.transform.localPosition, Is.EqualTo(origin));
+        Assert.That(item.transform.localRotation, Is.EqualTo(rotation));
+        Assert.That(Get(feedback, "sequence"), Is.Null);
+        item.GetComponent<Item>().Use();
+        Assert.That(Get(feedback, "sequence"), Is.Not.Null);
+        Assert.That(cues, Is.EqualTo(new[]
+        {
+            GameplayPresentationCue.Item_UseFailed,
+            GameplayPresentationCue.Item_UseFailed
+        }));
+    }
+
+    [Test]
+    public void ShowdownClick_ShakesWithoutConsumingOrChangingPhase()
+    {
+        Assert.That(game.TryRaise(1), Is.True);
+        Assert.That(game.TryCall(), Is.True);
+        GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
+        int playerChips = game.PlayerChips.Count;
+        int pot = game.Pot.Amount;
+
+        item.GetComponent<Item>().Use();
+
+        Assert.That(item.GetComponent<ItemUseFeedback>(), Is.Not.Null);
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+        Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(game.Pot.Amount, Is.EqualTo(pot));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DisablingFeedbackOrPresentation_RestoresPositionAndKillsShake(bool disablePresentation)
+    {
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        item.transform.localRotation = Quaternion.Euler(10f, 35f, 7f);
+        Vector3 origin = item.transform.localPosition;
+        Quaternion rotation = item.transform.localRotation;
+        item.GetComponent<Item>().Use();
+        ItemUseFeedback feedback = item.GetComponent<ItemUseFeedback>();
+        Sequence shake = (Sequence)Get(feedback, "sequence");
+        shake.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.03f, 0.03f);
+
+        if (disablePresentation)
+        {
+            presentation.enabled = false;
+            Invoke(presentation, "OnDisable");
+        }
+        else
+        {
+            item.SetActive(false);
+            Invoke(feedback, "OnDisable");
+        }
+
+        Assert.That(shake.IsActive(), Is.False);
+        Assert.That(Get(feedback, "sequence"), Is.Null);
+        Assert.That(item.transform.localPosition, Is.EqualTo(origin));
+        Assert.That(item.transform.localRotation, Is.EqualTo(rotation));
+    }
+
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void SuccessfulUseDuringShake_RestoresOriginBeforeExistingAnimation(TurnOwner owner)
+    {
+        Bind(NewRound(owner));
+        GameObject item = Add(owner, ItemType.chipPocket);
+        ChipPocketPresentation pocket = AttachPocketVisual(item);
+        Vector3 origin = pocket.transform.position;
+        Quaternion rotation = pocket.transform.rotation;
+        if (owner == TurnOwner.Player) Set(items, "chipPocketAmount", 0);
+        item.GetComponent<Item>().Use();
+        ItemUseFeedback feedback = item.GetComponent<ItemUseFeedback>();
+        Sequence shake = (Sequence)Get(feedback, "sequence");
+        shake.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.03f, 0.03f);
+        Assert.That(pocket.transform.position, Is.EqualTo(origin));
+        Assert.That(Quaternion.Angle(pocket.transform.rotation, rotation), Is.GreaterThan(0.1f));
+
+        Set(items, "chipPocketAmount", 3);
+        if (owner == TurnOwner.Player) item.GetComponent<Item>().Use();
+        else Assert.That(items.UseItem(owner, item), Is.True);
+
+        Assert.That(Get(feedback, "sequence"), Is.Null);
+        Assert.That(pocket.transform.position, Is.EqualTo(origin));
+        Assert.That(pocket.transform.rotation, Is.EqualTo(rotation));
+        Assert.That(presentation.IsChipPocketAnimating, Is.True);
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(owner == TurnOwner.Player ? 22 : 19));
+        Assert.That(game.DealerChips.Count, Is.EqualTo(owner == TurnOwner.Dealer ? 22 : 19));
+        Assert.That(owner == TurnOwner.Player ? inventory.playerItemInventory :
+            inventory.dealerItemInventory, Is.All.Null);
+        CompletePocket(pocket);
+        Assert.That(presentation.IsBusy, Is.False);
     }
 
     [TestCase(TurnOwner.Player, ItemType.chipPocket, GameplayPresentationCue.Item_ChipsPocket)]
@@ -291,6 +474,7 @@ public sealed class PlayerItemPresentationTests
     [TestCase("itemPrizmChipSFX", "PrizmChip SFX.prefab")]
     [TestCase("itemRefreshCardSFX", "RefreshCard SFX.prefab")]
     [TestCase("clickSFX", "Click SFX.prefab")]
+    [TestCase("itemUseFailedSFX", "ItemUseFailed SFX.prefab")]
     public void SoundSystemPrefab_ReferencesNewAudioSources(string field, string prefabName)
     {
         GameObject soundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -305,6 +489,23 @@ public sealed class PlayerItemPresentationTests
     }
 
     [Test]
+    public void FailureSoundPrefab_UsesSuppliedClipAndExistingSfxMixer()
+    {
+        var source = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Audio/SFX/ItemUseFailed SFX.prefab").GetComponent<AudioSource>();
+        var click = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Audio/SFX/Click SFX.prefab").GetComponent<AudioSource>();
+        Assert.That(source.clip, Is.Not.Null);
+        Assert.That(AssetDatabase.GetAssetPath(source.clip),
+            Is.EqualTo("Assets/_Game/Audio/SFX/ItemUseFailedSFX.wav"));
+        Assert.That(source.clip.length, Is.GreaterThan(0f));
+        Assert.That(source.outputAudioMixerGroup, Is.EqualTo(click.outputAudioMixerGroup));
+        Assert.That(source.playOnAwake, Is.False);
+        Assert.That(source.loop, Is.False);
+        Assert.That(source.spatialBlend, Is.Zero);
+    }
+
+    [Test]
     public void PlayerPocket_DetachesVisualAndSyncsOnlyAfterArrival()
     {
         GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
@@ -314,7 +515,7 @@ public sealed class PlayerItemPresentationTests
         item.GetComponent<Item>().Use();
 
         Assert.That(game.PlayerChips.Count, Is.EqualTo(before + 3));
-        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.False);
+        Assert.That(inventory.playerItemInventory, Is.All.Null);
         Assert.That(item == null, Is.True);
         Assert.That(pocket == null, Is.False);
         Assert.That(pocket.transform.parent, Is.Null);
@@ -405,6 +606,7 @@ public sealed class PlayerItemPresentationTests
         item.GetComponent<Item>().Use();
 
         presentation.enabled = false;
+        Invoke(presentation, "OnDisable");
 
         Assert.That(presentation.IsBusy, Is.False);
         AssertChipVisuals();
@@ -548,6 +750,7 @@ public sealed class PlayerItemPresentationTests
         Assert.That(presentation.IsChipPocketAnimating, Is.False);
         Assert.That(routine.MoveNext(), Is.False);
         Assert.That(game.CurrentTurn, Is.Not.EqualTo(TurnOwner.Dealer));
+        if (presentation.IsChipAnimating) CompleteChipMoves();
         AssertChipVisuals();
     }
 
@@ -592,12 +795,14 @@ public sealed class PlayerItemPresentationTests
         area.position = owner == TurnOwner.Player
             ? new Vector3(-2f, 0f, 0f) : new Vector3(2f, 0f, 0f);
         RefreshChips();
+        Assert.That(chips.TryGetPrizmTarget(owner, out Vector3 target), Is.True);
         GameObject item = Add(owner, ItemType.prizmChip);
         PrizmPresentation prizm = AttachPrizmVisual(item);
 
         Assert.That(items.UseItem(owner, item), Is.True);
         Assert.That(item == null, Is.True);
-        Assert.That(inventory.HasItem(owner, item), Is.False);
+        Assert.That(owner == TurnOwner.Player ? inventory.playerItemInventory :
+            inventory.dealerItemInventory, Is.All.Null);
         Assert.That(prizm.transform.parent, Is.Null);
         Assert.That(game.FoldPenaltyAmount, Is.Zero);
         Assert.That(presentation.IsPrizmAnimating, Is.True);
@@ -607,9 +812,11 @@ public sealed class PlayerItemPresentationTests
 
         Sequence sequence = (Sequence)Get(prizm, "sequence");
         sequence.SetUpdate(UpdateType.Manual);
-        DOTween.ManualUpdate(0.4f, 0.4f);
+        float protectTime = (float)Get(prizm, "activationDuration") +
+            (float)Get(prizm, "moveDuration") + 0.001f;
+        DOTween.ManualUpdate(protectTime, protectTime);
         Assert.That(prizm.transform.position.x,
-            Is.EqualTo(area.position.x).Within(0.001f));
+            Is.EqualTo(target.x).Within(0.001f));
         Assert.That(presentation.IsBusy, Is.True);
 
         DOTween.ManualUpdate(10f, 10f);
@@ -738,7 +945,7 @@ public sealed class PlayerItemPresentationTests
         Assert.That(delay.MoveNext(), Is.False);
         CompleteChipMoves();
         AssertChipVisuals();
-        Assert.That(game.PlayerChips.Count, Is.EqualTo(22));
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(21));
         Assert.That(game.Phase, Is.EqualTo(GamePhase.RoundEnd));
     }
 
@@ -767,7 +974,8 @@ public sealed class PlayerItemPresentationTests
 
         Assert.That(items.UseItem(owner, item), Is.True);
         Assert.That(item == null, Is.True);
-        Assert.That(inventory.HasItem(owner, item), Is.False);
+        Assert.That(owner == TurnOwner.Player ? inventory.playerItemInventory :
+            inventory.dealerItemInventory, Is.All.Null);
         Assert.That(defy == null, Is.False);
         Assert.That(defy.transform.parent, Is.Null);
         Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));
@@ -781,9 +989,11 @@ public sealed class PlayerItemPresentationTests
 
         Sequence sequence = (Sequence)Get(defy, "sequence");
         sequence.SetUpdate(UpdateType.Manual);
-        DOTween.ManualUpdate(0.3f, 0.3f);
+        float impactTime = (float)Get(defy, "activationDuration") +
+            (float)Get(defy, "moveDuration") + (float)Get(defy, "strikeDuration");
+        DOTween.ManualUpdate(impactTime - 0.01f, impactTime - 0.01f);
         Assert.That(Count(opponentChips), Is.EqualTo(visualChipsBefore));
-        DOTween.ManualUpdate(0.2f, 0.2f);
+        DOTween.ManualUpdate(0.02f, 0.02f);
         AssertChipVisuals();
         float targetX = owner == TurnOwner.Player ? 2f : -2f;
         Assert.That(defy.transform.position.x,
@@ -873,7 +1083,7 @@ public sealed class PlayerItemPresentationTests
 
     [TestCase(ItemType.chipPocket)]
     [TestCase(ItemType.defy)]
-    public void FailedPlayerEffect_DoesNotConsumeItemOrChangePresentation(ItemType type)
+    public void FailedPlayerEffect_ShakesWithoutConsumingOrChangingGame(ItemType type)
     {
         if (type == ItemType.chipPocket) Set(items, "chipPocketAmount", 0);
         else
@@ -885,6 +1095,7 @@ public sealed class PlayerItemPresentationTests
         GameObject item = Add(TurnOwner.Player, type);
         item.GetComponent<Item>().Use();
         Assert.That(item == null, Is.False);
+        Assert.That(item.GetComponent<ItemUseFeedback>(), Is.Not.Null);
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
         Assert.That(game.PlayerChips.Count, Is.EqualTo(19));
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.Player));
@@ -894,9 +1105,15 @@ public sealed class PlayerItemPresentationTests
 
     [TestCase(ItemType.prizmChip, "isCardAnimating")]
     [TestCase(ItemType.chipPocket, "isChipAnimating")]
+    [TestCase(ItemType.chipPocket, "isChipPocketAnimating")]
+    [TestCase(ItemType.chipPocket, "isDefyAnimating")]
+    [TestCase(ItemType.chipPocket, "isPrizmAnimating")]
+    [TestCase(ItemType.chipPocket, "isRefreshItemAnimating")]
     [TestCase(ItemType.defy, "isActionProcessing")]
     public void BusyPlayerInput_DoesNotApplyEffectOrConsumeItem(ItemType type, string flag)
     {
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
         if (type == ItemType.defy)
         {
             game.Turn.TrySet(TurnOwner.Dealer);
@@ -911,6 +1128,8 @@ public sealed class PlayerItemPresentationTests
             flag,
             true);
         item.GetComponent<Item>().Use();
+        Assert.That(item.GetComponent<ItemUseFeedback>(), Is.Null);
+        Assert.That(cues, Is.Empty);
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
         Assert.That(game.Pot.Amount, Is.EqualTo(potBefore));
         Assert.That(game.DealerChips.Count, Is.EqualTo(dealerBefore));

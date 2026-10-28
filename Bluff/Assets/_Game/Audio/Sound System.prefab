@@ -62,6 +62,7 @@ MonoBehaviour:
   itemPrizmChipSFX: {fileID: 8686345737536884949, guid: f802d8f72daad5248ad503dcd60efd61, type: 3}
   itemRefreshCardSFX: {fileID: 7760031898506863341, guid: e3ae3bd5f9fb583409c6edf5febe3ded, type: 3}
   clickSFX: {fileID: 4266792812724180463, guid: f81ee8e06cf231a47b3040a5bbd8a0b4, type: 3}
+  itemUseFailedSFX: {fileID: 4266792812724180463, guid: 70441118f5db425f8efd081dca5f0763, type: 3}
 --- !u!1001 &4489044224799699591
 PrefabInstance:
   m_ObjectHideFlags: 0

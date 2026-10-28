@@ -433,10 +433,17 @@ public sealed class GameplayController : MonoBehaviour
                             itemComponent.itemData != null
             ? $"ITEM {itemComponent.itemData.itemType}"
             : "ITEM";
-        RunPlayerBettingAction(
+        bool succeeded = RunPlayerBettingAction(
             actionName,
             () => itemSystem.UseItem(TurnOwner.Player, item),
             playClickCue: false);
+
+        if (!succeeded && gameState != null && presentation != null &&
+            !isShuttingDown && !isRestarting && !isActionProcessing &&
+            !IsFinalCutsceneBlockingInput && Time.timeScale > 0f)
+        {
+            presentation.PlayItemUseRejected(item);
+        }
     }
 
     private void OnRefreshCardConsumed(TurnOwner owner, GameObject item)
@@ -538,14 +545,14 @@ public sealed class GameplayController : MonoBehaviour
         return nextRoundFirstTurn;
     }
 
-    private void RunPlayerBettingAction(
+    private bool RunPlayerBettingAction(
         string actionName,
         Func<bool> action,
         bool playClickCue = true)
     {
         if (!CanAcceptPlayerBettingInput() || action == null)
         {
-            return;
+            return false;
         }
 
         isActionProcessing = true;
@@ -558,7 +565,7 @@ public sealed class GameplayController : MonoBehaviour
             if (!action())
             {
                 AddLog($"{OwnerText(TurnOwner.Player)} {actionName} 실패");
-                return;
+                return false;
             }
 
             if (playClickCue)
@@ -594,6 +601,7 @@ public sealed class GameplayController : MonoBehaviour
 
             AddLog($"{OwnerText(TurnOwner.Player)} {actionName}");
             AddBettingResultLog();
+            return true;
         }
         finally
         {

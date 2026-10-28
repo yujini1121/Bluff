@@ -6,5 +6,6 @@ public enum GameplayPresentationCue
     Item_Defy,
     Item_PrizmChip,
     Item_RefreshCard,
-    Click
+    Click,
+    Item_UseFailed
 }

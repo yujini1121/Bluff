@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class GameplayPresentationController : MonoBehaviour
@@ -26,6 +27,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
     private bool isRefreshItemAnimating;
     private RefreshCardPresentation activeRefreshItem;
     private bool refreshCardStartedForItem;
+    private readonly HashSet<ItemUseFeedback> itemUseFeedback = new HashSet<ItemUseFeedback>();
 
     public event Action<GameplayPresentationCue> CueRaised;
 
@@ -75,8 +77,38 @@ public sealed class GameplayPresentationController : MonoBehaviour
         RaiseCue(GameplayPresentationCue.Click);
     }
 
+    public void PlayItemUseRejected(GameObject item)
+    {
+        if (!isActiveAndEnabled || IsBusy || item == null || !item.activeInHierarchy)
+        {
+            return;
+        }
+
+        itemUseFeedback.RemoveWhere(candidate => candidate == null);
+        if (!item.TryGetComponent(out ItemUseFeedback feedback))
+        {
+            feedback = item.AddComponent<ItemUseFeedback>();
+        }
+
+        itemUseFeedback.Add(feedback);
+        if (feedback.PlayRejected())
+        {
+            RaiseCue(GameplayPresentationCue.Item_UseFailed);
+        }
+    }
+
+    private void CancelItemUseFeedback()
+    {
+        foreach (ItemUseFeedback feedback in itemUseFeedback)
+        {
+            if (feedback != null) feedback.Cancel();
+        }
+        itemUseFeedback.Clear();
+    }
+
     public void PlayChipPocket(TurnOwner owner, GameObject item)
     {
+        CancelItemUseFeedback();
         ChipPocketPresentation pocket = item != null
             ? item.GetComponentInChildren<ChipPocketPresentation>()
             : null;
@@ -121,6 +153,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void PlayDefy(TurnOwner owner, GameObject item)
     {
+        CancelItemUseFeedback();
         DefyPresentation defy = item != null
             ? item.GetComponentInChildren<DefyPresentation>()
             : null;
@@ -174,6 +207,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void PlayPrizm(TurnOwner owner, GameObject item)
     {
+        CancelItemUseFeedback();
         PrizmPresentation prizm = item != null
             ? item.GetComponentInChildren<PrizmPresentation>()
             : null;
@@ -218,6 +252,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     public void PlayRefreshItem(TurnOwner owner, GameObject item)
     {
+        CancelItemUseFeedback();
         RefreshCardPresentation refreshItem = item != null
             ? item.GetComponentInChildren<RefreshCardPresentation>()
             : null;
@@ -350,6 +385,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
 
     private void OnDisable()
     {
+        CancelItemUseFeedback();
         CancelPrizmPresentation();
         CancelDefyPresentation();
         CancelRefreshPresentation();

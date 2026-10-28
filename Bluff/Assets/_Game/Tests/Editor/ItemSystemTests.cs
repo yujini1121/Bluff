@@ -157,7 +157,12 @@ public sealed class ItemSystemTests
     public void RefreshCardConsumed_FiresAfterCommitAndInventoryRemoval(
         TurnOwner owner)
     {
-        GameState gameState = CreateRefreshRound(owner, false);
+        var gameState = new GameState(20, 20,
+            new Deck(new[] { new Card(9) }, new NoSwapRandom()));
+        SetRoundCards(gameState, 4, 1, 4, 2);
+        Assert.That(gameState.Pot.TryAdd(2), Is.True);
+        Assert.That(gameState.TrySetPhase(GamePhase.Betting), Is.True);
+        Assert.That(gameState.Turn.TrySet(owner), Is.True);
         ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
         GameObject item = AddItem(inventory, owner, ItemType.refreshCard);
         Card previousCard = gameState.PlayerCard;
@@ -427,6 +432,57 @@ public sealed class ItemSystemTests
         Assert.That(gameState.Betting.DealerTotalBet, Is.Zero);
     }
 
+    [TestCase(TurnOwner.Player, 0)]
+    [TestCase(TurnOwner.Dealer, 0)]
+    [TestCase(TurnOwner.Player, 2)]
+    [TestCase(TurnOwner.Dealer, 2)]
+    [TestCase(TurnOwner.Player, 6)]
+    [TestCase(TurnOwner.Dealer, 6)]
+    public void Defy_WithoutOutstandingCallRejectsRegardlessOfPot(TurnOwner owner, int pot)
+    {
+        GameState gameState = CreateBettingGame(owner);
+        if (pot > 0) Assert.That(gameState.Pot.TryAdd(pot), Is.True);
+        ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
+        GameObject item = AddItem(inventory, owner, ItemType.defy);
+        int succeededCount = 0;
+        itemSystem.ItemUseSucceeded += (_, __) => succeededCount++;
+
+        Assert.That(itemSystem.UseItem(owner, item), Is.False);
+
+        Assert.That(inventory.HasItem(owner, item), Is.True);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(owner));
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(pot));
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(20));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(20));
+        Assert.That(succeededCount, Is.Zero);
+    }
+
+    [TestCase(TurnOwner.Player)]
+    [TestCase(TurnOwner.Dealer)]
+    public void Defy_WithOutstandingCallSucceedsEvenWhenPotEqualsOldAnteThreshold(TurnOwner owner)
+    {
+        TurnOwner opponent = owner == TurnOwner.Player ? TurnOwner.Dealer : TurnOwner.Player;
+        GameState gameState = CreateBettingGame(opponent);
+        Assert.That(gameState.TryRaise(2), Is.True);
+        Assert.That(gameState.Pot.Amount, Is.EqualTo(2));
+        Assert.That(new ItemGameApi(gameState).GetCallAmount(owner), Is.EqualTo(2));
+        ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
+        GameObject item = AddItem(inventory, owner, ItemType.defy);
+        int succeededCount = 0;
+        itemSystem.ItemUseSucceeded += (_, __) => succeededCount++;
+
+        Assert.That(itemSystem.UseItem(owner, item), Is.True);
+
+        Assert.That(item == null, Is.True);
+        Assert.That(gameState.Phase, Is.EqualTo(GamePhase.Showdown));
+        Assert.That(gameState.CurrentTurn, Is.EqualTo(TurnOwner.None));
+        Assert.That(gameState.Pot.Amount, Is.Zero);
+        Assert.That(gameState.PlayerChips.Count, Is.EqualTo(20));
+        Assert.That(gameState.DealerChips.Count, Is.EqualTo(20));
+        Assert.That(succeededCount, Is.EqualTo(1));
+    }
+
     private static GameState CreateRefreshRound(TurnOwner owner, bool carriedPot)
     {
         var gameState = new GameState(20, 20, Deck.CreateIndianHoldemDeck());
@@ -522,5 +578,10 @@ public sealed class ItemSystemTests
     {
         createdObjects.Add(value);
         return value;
+    }
+
+    private sealed class NoSwapRandom : System.Random
+    {
+        public override int Next(int maxValue) => maxValue - 1;
     }
 }

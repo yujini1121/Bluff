@@ -4,8 +4,6 @@ using UnityEngine;
 public class ItemSystem : MonoBehaviour
 {
     [SerializeField] private Inventory inventory;
-    private const int AnteAmount = 1;
-    private const int TotalAnteAmount = AnteAmount * 2;
 
     private ItemGameApi itemGameApi;
 
@@ -66,14 +64,7 @@ public class ItemSystem : MonoBehaviour
     // 효과가 성공한 경우에만 아이템 소모 <- 안정성을 위해
     internal void RequestPlayerItemUse(GameObject item)
     {
-        if (item != null &&
-            item.TryGetComponent(out Item itemComponent) &&
-            itemComponent.itemData != null &&
-            (itemComponent.itemData.itemType == ItemType.refreshCard ||
-             itemComponent.itemData.itemType == ItemType.prizmChip ||
-             itemComponent.itemData.itemType == ItemType.chipPocket ||
-             itemComponent.itemData.itemType == ItemType.defy) &&
-            PlayerItemUseRequested != null)
+        if (item != null && PlayerItemUseRequested != null)
         {
             PlayerItemUseRequested.Invoke(item);    // 플레이어가 어떤 아이템을 사용하고 싶어하는지 전달
             return;
@@ -303,10 +294,9 @@ public class ItemSystem : MonoBehaviour
             case ItemType.chipPocket:
                 break;
             case ItemType.defy:
-                // Betting된 칩이 있을 경우에만 사용 가능
-                if (itemGameApi.GetPot() == TotalAnteAmount)
+                if (itemGameApi.GetCallAmount(owner) <= 0)
                 {
-                    Debug.LogWarning("'디파이' 아이템은 베팅이 진행된 후에 사용 가능합니다.");
+                    Debug.LogWarning("'디파이' 아이템은 상대의 레이즈에 응답할 때만 사용 가능합니다.");
                     return false;
                 }
                 break;
