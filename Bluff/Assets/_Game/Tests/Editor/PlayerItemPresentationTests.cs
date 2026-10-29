@@ -297,6 +297,47 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.Pot.Amount, Is.EqualTo(pot));
     }
 
+    [TestCase("Item_RefreshCard")]
+    [TestCase("Item_PrizmChip")]
+    [TestCase("Item_Defy")]
+    [TestCase("Item_ChipsPocket")]
+    public void ItemPrefab_ExposesFailureMotionSettingsBeforePlay(string prefabName)
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Prefabs/Items/" + prefabName + ".prefab");
+        ItemUseFeedback feedback = prefab.GetComponent<ItemUseFeedback>();
+        Assert.That(feedback, Is.Not.Null);
+        var settings = new SerializedObject(feedback);
+        Assert.That(settings.FindProperty("duration"), Is.Not.Null);
+        Assert.That(settings.FindProperty("rotationStrength"), Is.Not.Null);
+        Assert.That(settings.FindProperty("vibrato"), Is.Not.Null);
+        Assert.That(settings.FindProperty("elasticity"), Is.Not.Null);
+    }
+
+    [Test]
+    public void FailureFeedback_UsesInspectorMotionSettings()
+    {
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        ItemUseFeedback feedback = item.AddComponent<ItemUseFeedback>();
+        var settings = new SerializedObject(feedback);
+        settings.FindProperty("duration").floatValue = 0.8f;
+        settings.FindProperty("rotationStrength").vector3Value = new Vector3(6f, 24f, 6f);
+        settings.FindProperty("vibrato").intValue = 24;
+        settings.FindProperty("elasticity").floatValue = 1f;
+        settings.ApplyModifiedPropertiesWithoutUndo();
+        Quaternion origin = item.transform.localRotation;
+
+        item.GetComponent<Item>().Use();
+
+        Sequence shake = (Sequence)Get(feedback, "sequence");
+        Assert.That(shake.Duration(), Is.EqualTo(0.8f).Within(0.001f));
+        shake.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.03f, 0.03f);
+        Assert.That(Quaternion.Angle(item.transform.localRotation, origin), Is.GreaterThan(0.1f));
+        DOTween.ManualUpdate(1f, 1f);
+        Assert.That(item.transform.localRotation, Is.EqualTo(origin));
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void DisablingFeedbackOrPresentation_RestoresPositionAndKillsShake(bool disablePresentation)
@@ -329,7 +370,7 @@ public sealed class PlayerItemPresentationTests
     }
 
     [TestCase(false, "레이즈")]
-    [TestCase(true, "내 턴")]
+    [TestCase(true, "플레이어 턴")]
     public void FailedRequest_ShowsActualReasonInHud(bool dealerTurn, string expected)
     {
         AttachNoticeCanvas();
@@ -345,21 +386,51 @@ public sealed class PlayerItemPresentationTests
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
     }
 
-    [Test]
-    public void BusyRequest_ShowsNoticeWithoutShakingOrPlayingSound()
+    [TestCase("isCardAnimating")]
+    [TestCase("isChipAnimating")]
+    [TestCase("isChipPocketAnimating")]
+    [TestCase("isDefyAnimating")]
+    [TestCase("isPrizmAnimating")]
+    [TestCase("isRefreshItemAnimating")]
+    [TestCase("isActionProcessing")]
+    public void BusyRequest_SuppressesNoticeShakeAndSoundTogether(string flag)
     {
         AttachNoticeCanvas();
-        Set(presentation, "isCardAnimating", true);
+        Set(flag == "isActionProcessing" ? (object)ui : presentation, flag, true);
         GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
         var cues = new List<GameplayPresentationCue>();
         presentation.CueRaised += cues.Add;
 
         item.GetComponent<Item>().Use();
 
-        var notice = (ItemUseNotice)Get(view, "itemUseNotice");
-        Assert.That(notice.GetComponentInChildren<TMP_Text>().text, Does.Contain("연출"));
+        Assert.That(Get(view, "itemUseNotice"), Is.Null);
         Assert.That(item.GetComponent<ItemUseFeedback>(), Is.Null);
         Assert.That(cues, Is.Empty);
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+    }
+
+    [Test]
+    public void RepeatedRequest_DoesNotRestartNoticeWhileShakeAndSoundAreSuppressed()
+    {
+        AttachNoticeCanvas();
+        GameObject item = Add(TurnOwner.Player, ItemType.defy);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+        item.GetComponent<Item>().Use();
+        var notice = (ItemUseNotice)Get(view, "itemUseNotice");
+        Sequence noticeAnimation = (Sequence)Get(notice, "sequence");
+        Sequence shake = (Sequence)Get(item.GetComponent<ItemUseFeedback>(), "sequence");
+        noticeAnimation.SetUpdate(UpdateType.Manual);
+        shake.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(0.1f, 0.1f);
+        float noticeElapsed = noticeAnimation.Elapsed();
+
+        item.GetComponent<Item>().Use();
+
+        Assert.That(Get(view, "itemUseNotice"), Is.SameAs(notice));
+        Assert.That(Get(notice, "sequence"), Is.SameAs(noticeAnimation));
+        Assert.That(noticeAnimation.Elapsed(), Is.EqualTo(noticeElapsed));
+        Assert.That(cues, Is.EqualTo(new[] { GameplayPresentationCue.Item_UseFailed }));
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
     }
 
@@ -379,6 +450,8 @@ public sealed class PlayerItemPresentationTests
 
     private void AttachNoticeCanvas()
     {
+        Set(view, "itemUseNoticePrefab", AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Prefabs/UI/ItemUseNotice.prefab").GetComponent<ItemUseNotice>());
         GameObject canvas = Track(new GameObject("Notice HUD", typeof(RectTransform), typeof(Canvas)));
         var roundText = (TMP_Text)Get(view, "roundText");
         roundText.transform.SetParent(canvas.transform, false);

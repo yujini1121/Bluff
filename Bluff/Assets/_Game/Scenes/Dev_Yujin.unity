@@ -56402,6 +56402,7 @@ MonoBehaviour:
   resultDetailText: {fileID: 1833342101}
   restartButton: {fileID: 1541923312}
   roundText: {fileID: 953414833}
+  itemUseNoticePrefab: {fileID: 2859572318353158687, guid: b1723c93bc9084e47804103c62663f46, type: 3}
   dealerHandRankUI: {fileID: 1870027819}
   dealerHandRankText: {fileID: 1815269373}
   switchCamera: {fileID: 1769829635}

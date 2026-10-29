@@ -447,6 +447,7 @@ public sealed class GameplayController : MonoBehaviour
 
         if (gameState != null && presentation != null &&
             !isShuttingDown && !isRestarting &&
+            !presentation.IsBusy && !isActionProcessing &&
             !IsFinalCutsceneBlockingInput && Time.timeScale > 0f)
         {
             if (failureReason == ItemUseFailureReason.None)
@@ -457,11 +458,10 @@ public sealed class GameplayController : MonoBehaviour
             {
                 failureReason = ItemUseFailureReason.ActionInProgress;
             }
-            if (!presentation.IsBusy && !isActionProcessing)
+            if (presentation.PlayItemUseRejected(item))
             {
-                presentation.PlayItemUseRejected(item);
+                gameplayView.ShowItemUseFailure(failureReason);
             }
-            gameplayView.ShowItemUseFailure(failureReason);
         }
     }
 

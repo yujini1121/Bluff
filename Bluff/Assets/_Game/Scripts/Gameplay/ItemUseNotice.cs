@@ -1,83 +1,60 @@
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 public sealed class ItemUseNotice : MonoBehaviour
 {
-    private CanvasGroup canvasGroup;
-    private TMP_Text messageText;
+    [Header("UI References")]
+    [SerializeField] private CanvasGroup canvasGroup;
+    [SerializeField] private TMP_Text messageText;
+
+    [Header("Timing")]
+    [SerializeField, Min(0f)] private float fadeInDuration = 0.15f;
+    [SerializeField, Min(0f)] private float holdDuration = 2.4f;
+    [SerializeField, Min(0f)] private float fadeOutDuration = 0.45f;
+    [SerializeField] private Ease fadeInEase = Ease.OutQuad;
+    [SerializeField] private Ease fadeOutEase = Ease.InOutSine;
+
+    [Header("Responsive Layout")]
+    [SerializeField, Min(0f)] private float horizontalMargin = 24f;
+
     private Sequence sequence;
+    private float preferredWidth;
 
-    public static ItemUseNotice Create(Canvas canvas, TMP_FontAsset font)
+    public static ItemUseNotice Create(ItemUseNotice prefab, Canvas canvas, TMP_FontAsset fallbackFont = null)
     {
-        var root = new GameObject("ItemUseNotice", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
-        root.SetActive(false);
-        root.layer = canvas.gameObject.layer;
-        root.transform.SetParent(canvas.transform, false);
-        var rect = (RectTransform)root.transform;
-        rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 1f);
-        rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = new Vector2(0f, -165f);
-        rect.sizeDelta = new Vector2(Mathf.Clamp(((RectTransform)canvas.transform).rect.width - 48f, 240f, 660f), 72f);
-
-        Image background = root.GetComponent<Image>();
-        background.color = new Color(0.035f, 0.035f, 0.085f, 0.94f);
-        background.raycastTarget = false;
-        Outline outline = root.AddComponent<Outline>();
-        outline.effectColor = new Color(1f, 0.25f, 0.52f, 0.65f);
-        outline.effectDistance = new Vector2(1f, -1f);
-
-        var accent = new GameObject("Accent", typeof(RectTransform), typeof(Image));
-        accent.layer = root.layer;
-        accent.transform.SetParent(rect, false);
-        var accentRect = (RectTransform)accent.transform;
-        accentRect.anchorMin = new Vector2(0f, 0f);
-        accentRect.anchorMax = new Vector2(0f, 1f);
-        accentRect.pivot = new Vector2(0f, 0.5f);
-        accentRect.sizeDelta = new Vector2(3f, 0f);
-        accentRect.anchoredPosition = Vector2.zero;
-        accent.GetComponent<Image>().color = new Color(1f, 0.3f, 0.55f);
-        accent.GetComponent<Image>().raycastTarget = false;
-
-        var textObject = new GameObject("Reason", typeof(RectTransform));
-        textObject.layer = root.layer;
-        textObject.transform.SetParent(rect, false);
-        var text = textObject.AddComponent<TextMeshProUGUI>();
-        text.rectTransform.anchorMin = Vector2.zero;
-        text.rectTransform.anchorMax = Vector2.one;
-        text.rectTransform.offsetMin = new Vector2(24f, 10f);
-        text.rectTransform.offsetMax = new Vector2(-24f, -10f);
-        text.font = font;
-        text.fontSize = 24f;
-        text.enableAutoSizing = true;
-        text.fontSizeMin = 18f;
-        text.fontSizeMax = 24f;
-        text.alignment = TextAlignmentOptions.Center;
-        text.color = new Color(0.96f, 0.96f, 1f);
-        text.raycastTarget = false;
-        text.richText = false;
-
-        var notice = root.AddComponent<ItemUseNotice>();
-        notice.canvasGroup = root.GetComponent<CanvasGroup>();
-        notice.canvasGroup.blocksRaycasts = false;
-        notice.canvasGroup.interactable = false;
-        notice.canvasGroup.alpha = 0f;
-        notice.messageText = text;
+        if (prefab == null || canvas == null) return null;
+        ItemUseNotice notice = Instantiate(prefab, canvas.transform, false);
+        notice.name = prefab.name;
+        if (notice.messageText.font == null && fallbackFont != null)
+            notice.messageText.font = fallbackFont;
+        notice.preferredWidth = ((RectTransform)notice.transform).sizeDelta.x;
+        notice.ResizeToCanvas();
+        notice.Hide();
         return notice;
+    }
+
+    private void ResizeToCanvas()
+    {
+        var rect = (RectTransform)transform;
+        var parent = rect.parent as RectTransform;
+        if (parent == null) return;
+        float availableWidth = Mathf.Max(0f, parent.rect.width - horizontalMargin * 2f);
+        rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, Mathf.Min(preferredWidth, availableWidth));
     }
 
     public void Show(ItemUseFailureReason reason)
     {
         sequence?.Kill(false);
+        ResizeToCanvas();
         messageText.text = GetMessage(reason);
         transform.SetAsLastSibling();
         gameObject.SetActive(true);
         canvasGroup.alpha = 0f;
         sequence = DOTween.Sequence().SetAutoKill(true).SetUpdate(true);
-        sequence.Append(canvasGroup.DOFade(1f, 0.15f));
-        sequence.AppendInterval(2.4f);
-        sequence.Append(canvasGroup.DOFade(0f, 0.45f).SetEase(Ease.InOutSine));
+        sequence.Append(canvasGroup.DOFade(1f, fadeInDuration).SetEase(fadeInEase));
+        sequence.AppendInterval(holdDuration);
+        sequence.Append(canvasGroup.DOFade(0f, fadeOutDuration).SetEase(fadeOutEase));
         sequence.OnComplete(() =>
         {
             sequence = null;

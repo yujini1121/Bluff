@@ -21,6 +21,7 @@ public sealed class GameplayView : MonoBehaviour
     [SerializeField] private GameObject dealerHandRankUI;
     [SerializeField] private TMP_Text dealerHandRankText;
     [SerializeField] private SwitchCamera switchCamera;
+    [SerializeField] private ItemUseNotice itemUseNoticePrefab;
 
     [Header("Debug UI")]
     [SerializeField] private GameObject debugPanel;
@@ -60,8 +61,8 @@ public sealed class GameplayView : MonoBehaviour
         if (itemUseNotice == null)
         {
             Canvas canvas = roundText.canvas;
-            if (canvas == null) return;
-            itemUseNotice = ItemUseNotice.Create(canvas.rootCanvas, uiFont != null ? uiFont : roundText.font);
+            if (canvas == null || itemUseNoticePrefab == null) return;
+            itemUseNotice = ItemUseNotice.Create(itemUseNoticePrefab, canvas.rootCanvas, uiFont != null ? uiFont : roundText.font);
         }
 
         itemUseNotice.Show(reason);

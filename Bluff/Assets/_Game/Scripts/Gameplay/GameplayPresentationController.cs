@@ -77,11 +77,11 @@ public sealed class GameplayPresentationController : MonoBehaviour
         RaiseCue(GameplayPresentationCue.Click);
     }
 
-    public void PlayItemUseRejected(GameObject item)
+    public bool PlayItemUseRejected(GameObject item)
     {
         if (!isActiveAndEnabled || IsBusy || item == null || !item.activeInHierarchy)
         {
-            return;
+            return false;
         }
 
         itemUseFeedback.RemoveWhere(candidate => candidate == null);
@@ -91,10 +91,9 @@ public sealed class GameplayPresentationController : MonoBehaviour
         }
 
         itemUseFeedback.Add(feedback);
-        if (feedback.PlayRejected())
-        {
-            RaiseCue(GameplayPresentationCue.Item_UseFailed);
-        }
+        if (!feedback.PlayRejected()) return false;
+        RaiseCue(GameplayPresentationCue.Item_UseFailed);
+        return true;
     }
 
     private void CancelItemUseFeedback()
