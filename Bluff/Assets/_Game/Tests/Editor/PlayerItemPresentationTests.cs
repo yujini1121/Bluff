@@ -328,6 +328,64 @@ public sealed class PlayerItemPresentationTests
         Assert.That(item.transform.localRotation, Is.EqualTo(rotation));
     }
 
+    [TestCase(false, "레이즈")]
+    [TestCase(true, "내 턴")]
+    public void FailedRequest_ShowsActualReasonInHud(bool dealerTurn, string expected)
+    {
+        AttachNoticeCanvas();
+        if (dealerTurn) game.Turn.TrySet(TurnOwner.Dealer);
+        GameObject item = Add(TurnOwner.Player, dealerTurn ? ItemType.chipPocket : ItemType.defy);
+
+        item.GetComponent<Item>().Use();
+
+        var notice = (ItemUseNotice)Get(view, "itemUseNotice");
+        Assert.That(notice, Is.Not.Null);
+        Assert.That(notice.gameObject.activeSelf, Is.True);
+        Assert.That(notice.GetComponentInChildren<TMP_Text>().text, Does.Contain(expected));
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+    }
+
+    [Test]
+    public void BusyRequest_ShowsNoticeWithoutShakingOrPlayingSound()
+    {
+        AttachNoticeCanvas();
+        Set(presentation, "isCardAnimating", true);
+        GameObject item = Add(TurnOwner.Player, ItemType.chipPocket);
+        var cues = new List<GameplayPresentationCue>();
+        presentation.CueRaised += cues.Add;
+
+        item.GetComponent<Item>().Use();
+
+        var notice = (ItemUseNotice)Get(view, "itemUseNotice");
+        Assert.That(notice.GetComponentInChildren<TMP_Text>().text, Does.Contain("연출"));
+        Assert.That(item.GetComponent<ItemUseFeedback>(), Is.Null);
+        Assert.That(cues, Is.Empty);
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+    }
+
+    [Test]
+    public void SuccessfulRequest_HidesPreviousFailureNotice()
+    {
+        AttachNoticeCanvas();
+        Add(TurnOwner.Player, ItemType.defy).GetComponent<Item>().Use();
+        var notice = (ItemUseNotice)Get(view, "itemUseNotice");
+        Assert.That(notice.gameObject.activeSelf, Is.True);
+
+        Add(TurnOwner.Player, ItemType.chipPocket).GetComponent<Item>().Use();
+
+        Assert.That(notice.gameObject.activeSelf, Is.False);
+        Assert.That(game.PlayerChips.Count, Is.EqualTo(22));
+    }
+
+    private void AttachNoticeCanvas()
+    {
+        GameObject canvas = Track(new GameObject("Notice HUD", typeof(RectTransform), typeof(Canvas)));
+        var roundText = (TMP_Text)Get(view, "roundText");
+        roundText.transform.SetParent(canvas.transform, false);
+        roundText.font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(
+            "Assets/_Game/Art/UI/Cafe24PROSlimMax SDF.asset");
+    }
+
     [TestCase(TurnOwner.Player)]
     [TestCase(TurnOwner.Dealer)]
     public void SuccessfulUseDuringShake_RestoresOriginBeforeExistingAnimation(TurnOwner owner)

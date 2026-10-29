@@ -433,16 +433,35 @@ public sealed class GameplayController : MonoBehaviour
                             itemComponent.itemData != null
             ? $"ITEM {itemComponent.itemData.itemType}"
             : "ITEM";
+        ItemUseFailureReason failureReason = ItemUseFailureReason.None;
         bool succeeded = RunPlayerBettingAction(
             actionName,
-            () => itemSystem.UseItem(TurnOwner.Player, item),
+            () => itemSystem.UseItem(TurnOwner.Player, item, out failureReason),
             playClickCue: false);
 
-        if (!succeeded && gameState != null && presentation != null &&
-            !isShuttingDown && !isRestarting && !isActionProcessing &&
+        if (succeeded)
+        {
+            gameplayView.HideItemUseFailure();
+            return;
+        }
+
+        if (gameState != null && presentation != null &&
+            !isShuttingDown && !isRestarting &&
             !IsFinalCutsceneBlockingInput && Time.timeScale > 0f)
         {
-            presentation.PlayItemUseRejected(item);
+            if (failureReason == ItemUseFailureReason.None)
+            {
+                failureReason = itemSystem.GetUseFailureReason(TurnOwner.Player, item);
+            }
+            if (failureReason == ItemUseFailureReason.None)
+            {
+                failureReason = ItemUseFailureReason.ActionInProgress;
+            }
+            if (!presentation.IsBusy && !isActionProcessing)
+            {
+                presentation.PlayItemUseRejected(item);
+            }
+            gameplayView.ShowItemUseFailure(failureReason);
         }
     }
 
@@ -482,6 +501,7 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
+        gameplayView.HideItemUseFailure();
         RunRoundStartEffects();
         ResetRoundResult();
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");

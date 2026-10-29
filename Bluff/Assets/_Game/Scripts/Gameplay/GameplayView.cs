@@ -42,11 +42,39 @@ public sealed class GameplayView : MonoBehaviour
 
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
+    private ItemUseNotice itemUseNotice;
 
     public void Initialize()
     {
         ApplyUiFont();
         CacheCallActionTexts();
+    }
+
+    public void ShowItemUseFailure(ItemUseFailureReason reason)
+    {
+        if (!isActiveAndEnabled || roundText == null)
+        {
+            return;
+        }
+
+        if (itemUseNotice == null)
+        {
+            Canvas canvas = roundText.canvas;
+            if (canvas == null) return;
+            itemUseNotice = ItemUseNotice.Create(canvas.rootCanvas, uiFont != null ? uiFont : roundText.font);
+        }
+
+        itemUseNotice.Show(reason);
+    }
+
+    public void HideItemUseFailure()
+    {
+        if (itemUseNotice != null) itemUseNotice.Hide();
+    }
+
+    private void OnDisable()
+    {
+        HideItemUseFailure();
     }
 
     public bool HasReferences()

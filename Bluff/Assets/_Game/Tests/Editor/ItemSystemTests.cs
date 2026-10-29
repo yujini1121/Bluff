@@ -458,6 +458,35 @@ public sealed class ItemSystemTests
         Assert.That(succeededCount, Is.Zero);
     }
 
+    [TestCase(TurnOwner.Dealer, GamePhase.Betting, ItemType.chipPocket, false, ItemUseFailureReason.NotYourTurn)]
+    [TestCase(TurnOwner.Player, GamePhase.Showdown, ItemType.chipPocket, false, ItemUseFailureReason.NotBettingPhase)]
+    [TestCase(TurnOwner.Player, GamePhase.Betting, ItemType.defy, false, ItemUseFailureReason.NoRaiseToDefy)]
+    [TestCase(TurnOwner.Player, GamePhase.Betting, ItemType.refreshCard, true, ItemUseFailureReason.RefreshAfterBetting)]
+    public void RejectedUse_ReturnsSameReasonAsReadOnlyCheckWithoutChangingState(
+        TurnOwner turn, GamePhase phase, ItemType type, bool raised, ItemUseFailureReason expected)
+    {
+        GameState state = CreateBettingGame(raised ? TurnOwner.Dealer : turn);
+        if (raised) Assert.That(state.TryRaise(2), Is.True);
+        Assert.That(state.TrySetPhase(phase), Is.True);
+        ItemSystem system = CreateItemSystem(state, out Inventory inventory);
+        GameObject item = AddItem(inventory, TurnOwner.Player, type);
+        int playerChips = state.PlayerChips.Count;
+        int dealerChips = state.DealerChips.Count;
+        int pot = state.Pot.Amount;
+        int deck = state.Deck.RemainingCount;
+
+        Assert.That(system.GetUseFailureReason(TurnOwner.Player, item), Is.EqualTo(expected));
+        Assert.That(system.UseItem(TurnOwner.Player, item, out ItemUseFailureReason actual), Is.False);
+        Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+        Assert.That(state.PlayerChips.Count, Is.EqualTo(playerChips));
+        Assert.That(state.DealerChips.Count, Is.EqualTo(dealerChips));
+        Assert.That(state.Pot.Amount, Is.EqualTo(pot));
+        Assert.That(state.Deck.RemainingCount, Is.EqualTo(deck));
+        Assert.That(state.Phase, Is.EqualTo(phase));
+        Assert.That(state.CurrentTurn, Is.EqualTo(turn));
+    }
+
     [TestCase(TurnOwner.Player)]
     [TestCase(TurnOwner.Dealer)]
     public void Defy_WithOutstandingCallSucceedsEvenWhenPotEqualsOldAnteThreshold(TurnOwner owner)
