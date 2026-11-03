@@ -13,7 +13,7 @@ public sealed class GameState
     public TurnOwner FoldedBy { get; private set; }
     public int FoldPenaltyAmount { get; private set; }
     public GameWinner FinalWinner { get; private set; }
-    public GameMode GameMode { get; }
+    public GameMode GameMode { get; private set; }
     public int CurrentRound { get; private set; }
     public TurnState Turn { get; }
     public TurnOwner CurrentTurn => Turn.Owner;
@@ -202,6 +202,20 @@ public sealed class GameState
         ResetRoundResult();
         Turn.Reset();
         Phase = GamePhase.Setup;
+        return true;
+    }
+
+    public bool CanContinueAsEndless => GameMode == GameMode.RoundLimited &&
+        Phase == GamePhase.GameOver && CurrentRound >= MaximumRoundCount &&
+        FinalWinner != GameWinner.None && PlayerChips.Count > 0 && DealerChips.Count > 0;
+
+    // Only change the match limit. The normal next-round path owns card/deck/ante resets.
+    public bool TryContinueAsEndless()
+    {
+        if (!CanContinueAsEndless) return false;
+        GameMode = GameMode.Endless;
+        FinalWinner = GameWinner.None;
+        Phase = GamePhase.RoundEnd;
         return true;
     }
 

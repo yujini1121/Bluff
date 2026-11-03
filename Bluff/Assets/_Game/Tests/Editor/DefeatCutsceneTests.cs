@@ -107,18 +107,21 @@ public sealed class DefeatCutsceneTests
         Assert.That(state.FinalWinner, Is.EqualTo(GameWinner.Dealer)); Assert.That(flow.IsPlaying, Is.False);
         bool sawChips = false, sawCards = false;
         float deadline = Time.realtimeSinceStartup + 25;
-        while (!flow.IsPlaying)
+        while (!(bool)game.GetType().GetMethod("CanRestartGame", Private).Invoke(game, null))
         {
             sawChips |= presentation.IsChipAnimating; sawCards |= presentation.IsCardAnimating;
-            Assert.That(result.activeSelf, Is.False);
+            Assert.That(flow.IsPlaying, Is.False);
             Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline)); yield return null;
         }
         Assert.That(sawChips && sawCards, Is.True); Assert.That(presentation.IsBusy, Is.False);
+        Assert.That(result.activeSelf, Is.True);
+        game.OnViewEndingClicked();
+        Assert.That(flow.IsPlaying, Is.True);
         Assert.That(Find<VictoryCutsceneController>().IsPlaying, Is.False);
         Assert.That(flow.TryPlay(GamePhase.GameOver, GameWinner.Dealer, true), Is.False);
         var director = flow.GetComponent<PlayableDirector>();
         var dialogue = Read<DialogueController>(flow, "dialogue");
-        foreach (var firstLine in new[] { "……유감입니다.", "처음에 말씀드렸죠. 패배에도 대가는 있다고." })
+        foreach (var firstLine in new[] { Read<string[]>(flow, "dealerLines")[0], Read<string[]>(flow, "warningLines")[0] })
         {
             yield return Until(() => flow.IsWaitingForDialogue, 6);
             Assert.That(dialogue.CurrentLine, Is.EqualTo(firstLine));
@@ -133,12 +136,14 @@ public sealed class DefeatCutsceneTests
             Assert.That(flow.IsWaitingForDialogue, Is.False);
         }
         yield return Until(() => !flow.IsPlaying, 10); yield return null;
-        Assert.That(result.activeSelf, Is.True); Assert.That(Find<SwitchCamera>().enabled, Is.True);
+        Assert.That(result.activeSelf, Is.False); Assert.That(Find<SwitchCamera>().enabled, Is.False);
+        Assert.That(Find<EndingScreenController>().IsVisible, Is.True);
+        typeof(GameplayUiSceneTests).GetMethod("Capture", BindingFlags.Static | BindingFlags.NonPublic)
+            .Invoke(null, new object[] { "Ending-Defeat-Natural" });
         Assert.That(Read<Volume>(flow, "effectsVolume").weight, Is.Zero);
         Assert.That(Read<GameObject>(flow, "screenRoot").activeSelf, Is.False);
-        game.OnRestartClicked(); yield return null;
-        yield return Until(() => Find<DefeatCutsceneController>() != flow, 6);
-        Assert.That(Find<DefeatCutsceneController>().HasPlayed, Is.False);
+        Find<EndingScreenController>().GoToTitle(); yield return null;
+        Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Title"));
     }
 
     [UnityTest]
@@ -161,10 +166,12 @@ public sealed class DefeatCutsceneTests
         state.PlayerChips.TrySpend(state.PlayerChips.Count - 1); presentation.RefreshChips(); presentation.RefreshCards();
         game.OnFoldClicked();
         Assert.That(state.FinalWinner, Is.EqualTo(GameWinner.Dealer)); Assert.That(flow.IsPlaying, Is.False);
-        yield return Until(() => flow.IsPlaying, 25);
+        yield return Until(() => (bool)game.GetType().GetMethod("CanRestartGame", Private).Invoke(game, null), 25);
+        game.OnViewEndingClicked();
+        Assert.That(flow.IsPlaying, Is.True);
         Assert.That(presentation.IsBusy, Is.False);
         flow.Skip(); yield return null;
-        Assert.That(Read<GameObject>(Read<GameplayView>(game, "gameplayView"), "resultOverlay").activeSelf, Is.True);
+        Assert.That(Find<EndingScreenController>().IsVisible, Is.True);
         game.enabled = false;
         var switcher = Find<SwitchCamera>(); var pause = Find<Pause>();
         var rig = Read<CutsceneCameraRig>(flow, "cameraRig");

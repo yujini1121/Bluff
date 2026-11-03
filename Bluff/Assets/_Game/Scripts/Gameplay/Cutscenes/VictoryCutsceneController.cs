@@ -30,6 +30,9 @@ public sealed class VictoryCutsceneController : MonoBehaviour
     public VictoryBeat Beat { get; private set; }
     public event Action Completed;
     public event Action MemoryPlaybackStarted;
+    public CanvasGroup[] GameplayHud => gameplayHud;
+    public Behaviour[] SuspendedInputs => suspendedInputs;
+    public TMPro.TMP_Text EndingCaption => overlay != null ? overlay.EndingCaption : null;
 
     private bool finishRequested;
     private bool resumeRequested;
@@ -70,15 +73,23 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         }
 
         IsPlaying = true;
-        CapturePresentation();
-        director.stopped += OnDirectorStopped;
-        director.timeUpdateMode = DirectorUpdateMode.UnscaledGameTime;
-        director.extrapolationMode = DirectorWrapMode.None;
-        director.time = 0d;
-        director.Play();
-        // Install the Entry override before the Brain's next update, even during a gameplay blend.
-        director.Evaluate();
-        return true;
+        try
+        {
+            CapturePresentation();
+            director.stopped += OnDirectorStopped;
+            director.timeUpdateMode = DirectorUpdateMode.UnscaledGameTime;
+            director.extrapolationMode = DirectorWrapMode.None;
+            director.time = 0d;
+            director.Play();
+            director.Evaluate();
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+            Finish();
+            return false;
+        }
     }
 
     private void CapturePresentation()
@@ -158,12 +169,19 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         if (Application.isPlaying && IsPlaying) finishRequested = true;
     }
 
-    private void OnDirectorStopped(PlayableDirector stoppedDirector) => CompleteTimeline();
+    // A natural stop can restore animated alpha values immediately. Hand off to the
+    // independent ending canvas in this callback, before another frame is rendered.
+    private void OnDirectorStopped(PlayableDirector stoppedDirector) => Finish(false);
 
     private void Update()
     {
         if (!IsPlaying) return;
-        if (finishRequested) { Finish(); return; }
+        if (finishRequested || Input.GetKeyDown(KeyCode.Escape)) { Finish(); return; }
+        if (director == null || !director.isActiveAndEnabled || dialogue == null ||
+            !dialogue.isActiveAndEnabled || overlay == null || !overlay.isActiveAndEnabled)
+        { Finish(); return; }
+        if (director.state != PlayState.Playing && !IsWaitingForDialogue && !resumeRequested)
+        { Finish(); return; }
         if (resumeRequested)
         {
             resumeRequested = false;
@@ -198,7 +216,7 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         Beat = VictoryBeat.None;
     }
 
-    private void Finish()
+    private void Finish(bool stopDirector = true)
     {
         if (!IsPlaying) return;
         IsPlaying = false;
@@ -207,7 +225,7 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         if (director != null)
         {
             director.stopped -= OnDirectorStopped;
-            director.Stop();
+            if (stopDirector) director.Stop();
         }
         if (cameraRig != null) cameraRig.Release();
         if (dialogue != null)
@@ -230,14 +248,14 @@ public sealed class VictoryCutsceneController : MonoBehaviour
             memoryChip.gameObject.SetActive(chipWasActive);
         }
         if (chipGlow != null && originalGlow != null) chipGlow.SetPropertyBlock(originalGlow);
-        for (int i = 0; i < gameplayHud.Length; i++)
+        for (int i = 0; hudStates != null && i < hudStates.Length; i++)
         {
             if (gameplayHud[i] == null) continue;
             gameplayHud[i].alpha = hudStates[i].Alpha;
             gameplayHud[i].interactable = hudStates[i].Interactable;
             gameplayHud[i].blocksRaycasts = hudStates[i].Raycasts;
         }
-        for (int i = 0; i < suspendedInputs.Length; i++)
+        for (int i = 0; inputStates != null && i < inputStates.Length; i++)
             if (suspendedInputs[i] != null) suspendedInputs[i].enabled = inputStates[i];
         Cursor.lockState = cursorLock;
         Cursor.visible = cursorVisible;

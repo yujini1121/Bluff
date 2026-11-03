@@ -11,6 +11,7 @@ public sealed class CutsceneOverlay : MonoBehaviour
     [SerializeField] private TMP_Text unlockCaption;
     public bool IsConfigured => uiRoot != null && shade != null && flash != null &&
         caption != null && unlockCaption != null;
+    public TMP_Text EndingCaption => caption;
 
     private void Awake() => Hide();
 

@@ -81,6 +81,8 @@ public sealed class PlayerItemPresentationTests
         Set(items, "inventory", inventory);
         ui = uiObject.AddComponent<GameplayController>();
         view = uiObject.AddComponent<GameplayView>();
+        Set(view, "resultText", AssetDatabase.LoadAssetAtPath<ResultFlowText>(
+            "Assets/_Game/ScriptableObjects/UI/ResultFlowText.asset"));
         presentation = uiObject.AddComponent<GameplayPresentationController>();
         Set(ui, "gameplayView", view);
         Set(ui, "presentation", presentation);
@@ -111,10 +113,11 @@ public sealed class PlayerItemPresentationTests
     {
         if (ui != null) Invoke(ui, "OnDisable");
         if (presentation != null) Invoke(presentation, "OnDisable");
+        // Finish tween cleanup while their callback targets are still alive.
+        DOTween.KillAll();
         for (int index = createdObjects.Count - 1; index >= 0; index--)
             if (createdObjects[index] != null) Object.DestroyImmediate(createdObjects[index]);
         createdObjects.Clear();
-        DOTween.KillAll();
         TweenInitialized.SetValue(null, previousTweenInitialized);
         Random.state = previousRandom;
     }
@@ -148,7 +151,7 @@ public sealed class PlayerItemPresentationTests
         ItemType type,
         GameplayPresentationCue expectedCue)
     {
-        Assert.That(SoundSystem.Instance, Is.Null);
+        Assert.That(SoundSystem.Instance == null, Is.True, "No live sound owner remains after PlayMode teardown");
         Bind(NewRound(type == ItemType.defy
             ? (owner == TurnOwner.Player ? TurnOwner.Dealer : TurnOwner.Player)
             : owner));
@@ -911,8 +914,8 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.CurrentTurn, Is.EqualTo(TurnOwner.None));
         Assert.That(game.Phase, Is.EqualTo(finalRound ? GamePhase.GameOver : GamePhase.RoundEnd));
         Button restart = (Button)Get(view, "restartButton");
-        Assert.That(restart.gameObject.activeSelf, Is.EqualTo(finalRound));
-        if (finalRound) Assert.That(restart.interactable, Is.True);
+        Assert.That(restart.gameObject.activeSelf, Is.False);
+        if (finalRound) Assert.That(((TMP_Text)Get(view, "resultDetailText")).text, Does.Contain("MATCH RESULT:"));
         else Assert.That(((TMP_Text)Get(view, "resultDetailText")).text, Is.EqualTo("PLAYER FOLD"));
     }
 
@@ -1522,7 +1525,18 @@ public sealed class PlayerItemPresentationTests
             Assert.That(((Transform)Get(cards, prefix + "CardRoot")).position,
                 Is.EqualTo(((Transform)Get(cards, prefix + "ShowdownCardPoint")).position));
         // CardVisualController는 PlayMode에서만 완료 알림을 보내므로 연결된 콜백을 진행한다.
-        if (!Application.isPlaying) completed();
+        if (!Application.isPlaying)
+        {
+            completed();
+            // EditMode does not advance MonoBehaviour coroutines. Advance the new result timer
+            // explicitly; the PlayMode result-flow tests verify its real elapsed-time behavior.
+            var pending = (Coroutine)Get(ui, "resultRevealCoroutine");
+            if (pending != null) ui.StopCoroutine(pending);
+            bool showdown = game.RoundEndReason == RoundEndReason.Showdown;
+            var delay = (IEnumerator)Invoke(ui, "RevealResultAfterDelay", showdown, null);
+            Assert.That(delay.MoveNext(), Is.True);
+            Assert.That(delay.MoveNext(), Is.False);
+        }
     }
 
     private void CompleteRefreshPresentation()

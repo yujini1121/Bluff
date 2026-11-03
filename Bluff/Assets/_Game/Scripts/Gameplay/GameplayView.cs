@@ -15,6 +15,10 @@ public sealed class GameplayView : MonoBehaviour
     [SerializeField] private TMP_Text resultTitleText;
     [SerializeField] private TMP_Text resultDetailText;
     [SerializeField] private Button restartButton;
+    [SerializeField] private ResultFlowText resultText;
+    [SerializeField] private GameObject finalResultContent;
+    [SerializeField] private TMP_Text finalResultTitleText;
+    [SerializeField] private TMP_Text finalResultDetailText;
 
     [Header("Gameplay HUD")]
     [SerializeField] private TMP_Text roundText;
@@ -44,6 +48,7 @@ public sealed class GameplayView : MonoBehaviour
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
     private ItemUseNotice itemUseNotice;
+    public CanvasGroup GameplayHud => GetComponent<CanvasGroup>();
 
     public void Initialize()
     {
@@ -81,6 +86,8 @@ public sealed class GameplayView : MonoBehaviour
     public bool HasReferences()
     {
         return resultOverlay != null &&
+               resultText != null && finalResultContent != null &&
+               finalResultTitleText != null && finalResultDetailText != null &&
                resultTitleText != null &&
                resultDetailText != null &&
                roundText != null &&
@@ -192,13 +199,20 @@ public sealed class GameplayView : MonoBehaviour
         bool showResolveShowdown,
         bool showNextRound,
         bool canResolveShowdown,
-        bool canStartNextRound)
+        bool canStartNextRound,
+        bool viewEnding = false)
     {
         contextActionArea.SetActive(showResolveShowdown || showNextRound);
         resolveShowdownButton.gameObject.SetActive(showResolveShowdown);
         nextRoundButton.gameObject.SetActive(showNextRound);
         resolveShowdownButton.interactable = canResolveShowdown;
         nextRoundButton.interactable = canStartNextRound;
+        if (resultText == null) return;
+        string label = viewEnding ? resultText.viewEndingLabel : resultText.nextRoundLabel;
+        var styledButton = nextRoundButton.GetComponent<MainButton>();
+        if (styledButton != null) styledButton.buttonText = label;
+        foreach (var text in nextRoundButton.GetComponentsInChildren<TMP_Text>(true))
+            text.text = label;
     }
 
     public void RefreshResult(
@@ -238,86 +252,53 @@ public sealed class GameplayView : MonoBehaviour
         bool shouldShow = isGameOver || isShowdownResult || isFoldResult;
 
         resultOverlay.SetActive(shouldShow);
-        restartButton.gameObject.SetActive(isGameOver);
-        restartButton.interactable = isGameOver && canRestartGame;
+        restartButton.gameObject.SetActive(false);
+        restartButton.interactable = false;
 
-        if (!shouldShow)
+        if (!shouldShow || resultText == null)
         {
             return;
         }
-
-        if (isGameOver)
-        {
-            switch (gameState.FinalWinner)
-            {
-                case GameWinner.Player:
-                    resultTitleText.text = "PLAYER WINS";
-                    break;
-                case GameWinner.Dealer:
-                    resultTitleText.text = "DEALER WINS";
-                    break;
-                case GameWinner.Draw:
-                    resultTitleText.text = "DRAW";
-                    break;
-                default:
-                    resultTitleText.text = string.Empty;
-                    break;
-            }
-
-            bool isFinalRoundLimitedResult =
-                gameState.GameMode == GameMode.RoundLimited &&
-                gameState.CurrentRound >= GameState.MaximumRoundCount;
-            if (isFinalRoundLimitedResult)
-            {
-                resultTitleText.text =
-                    "MATCH RESULT\n\n" + resultTitleText.text;
-                resultDetailText.text = BuildFinalChipSummary(gameState);
-                return;
-            }
-
-            if (isFoldResult)
-            {
-                resultDetailText.text = BuildFoldResultSummary(gameState);
-                return;
-            }
-
-            if (gameState.FinalWinner == GameWinner.Draw ||
-                roundWinner == RoundWinner.Draw)
-            {
-                resultDetailText.text = string.Empty;
-                return;
-            }
-
-            SetWinningHandDetail(
-                gameState,
-                playerHandRank,
-                dealerHandRank,
-                gameState.FinalWinner == GameWinner.Player);
-            return;
-        }
+        bool useFinalContent = isGameOver && finalResultContent != null;
+        if (finalResultContent != null) finalResultContent.SetActive(useFinalContent);
+        resultTitleText.gameObject.SetActive(!useFinalContent);
+        resultDetailText.gameObject.SetActive(!useFinalContent);
 
         if (isFoldResult)
         {
             bool playerWon = gameState.FoldedBy == TurnOwner.Dealer;
-            resultTitleText.text = playerWon ? "PLAYER WIN" : "DEALER WIN";
+            resultTitleText.text = playerWon ? resultText.roundPlayerWin : resultText.roundDealerWin;
             resultDetailText.text = BuildFoldResultSummary(gameState);
-            return;
         }
-
-        if (roundWinner == RoundWinner.Draw)
+        else if (roundWinner == RoundWinner.Draw)
         {
-            resultTitleText.text = "DRAW";
+            resultTitleText.text = resultText.roundDraw;
+            resultDetailText.text = string.Format(resultText.carriedPotFormat, gameState.Pot.Amount);
+        }
+        else if (isShowdownResult)
+        {
+            bool playerIsWinner = roundWinner == RoundWinner.Player;
+            resultTitleText.text = playerIsWinner ? resultText.roundPlayerWin : resultText.roundDealerWin;
+            SetWinningHandDetail(gameState, playerHandRank, dealerHandRank, playerIsWinner);
+        }
+        else
+        {
+            resultTitleText.text = resultText.matchComplete;
             resultDetailText.text = string.Empty;
-            return;
         }
 
-        bool playerIsWinner = roundWinner == RoundWinner.Player;
-        resultTitleText.text = playerIsWinner ? "PLAYER WIN" : "DEALER WIN";
-        SetWinningHandDetail(
-            gameState,
-            playerHandRank,
-            dealerHandRank,
-            playerIsWinner);
+        if (isGameOver)
+        {
+            string matchResult = gameState.FinalWinner == GameWinner.Draw ? resultText.matchDraw :
+                gameState.FinalWinner == GameWinner.Player ? resultText.matchPlayerWin : resultText.matchDealerWin;
+            resultDetailText.text = string.Format(resultText.finalSummaryFormat, resultDetailText.text,
+                matchResult, gameState.PlayerChips.Count, gameState.DealerChips.Count);
+            if (useFinalContent)
+            {
+                finalResultTitleText.text = resultTitleText.text;
+                finalResultDetailText.text = resultDetailText.text;
+            }
+        }
     }
 
     public void SetRestartEnabled(bool enabled)
@@ -423,18 +404,18 @@ public sealed class GameplayView : MonoBehaviour
             $"Deck Remaining {gameState.Deck.RemainingCount}";
     }
 
-    private static string BuildFoldResultSummary(GameState gameState)
+    private string BuildFoldResultSummary(GameState gameState)
     {
         string foldedBy = gameState.FoldedBy == TurnOwner.Player
-            ? "PLAYER FOLD"
-            : "DEALER FOLD";
+            ? resultText.playerFold
+            : resultText.dealerFold;
 
         if (gameState.FoldPenaltyAmount == 0)
         {
             return foldedBy;
         }
 
-        return foldedBy + " · PENALTY -" + gameState.FoldPenaltyAmount;
+        return string.Format(resultText.foldPenaltyFormat, foldedBy, gameState.FoldPenaltyAmount);
     }
 
     private static string BuildFoldPenaltyDebugText(GameState gameState)
@@ -470,32 +451,24 @@ public sealed class GameplayView : MonoBehaviour
             winnerHandRank);
     }
 
-    private static string BuildFinalChipSummary(GameState gameState)
-    {
-        return
-            "FINAL CHIPS" +
-            $"PLAYER {gameState.PlayerChips.Count} · " +
-            $"DEALER {gameState.DealerChips.Count}";
-    }
-
-    private static string HandRankGameText(HandRank handRank)
+    private string HandRankGameText(HandRank handRank)
     {
         switch (handRank)
         {
             case HandRank.Number:
-                return "NUMBER";
+                return resultText.numberHand;
             case HandRank.Double:
-                return "DOUBLE";
+                return resultText.doubleHand;
             case HandRank.Straight:
-                return "STRAIGHT";
+                return resultText.straightHand;
             case HandRank.Triple:
-                return "TRIPLE";
+                return resultText.tripleHand;
             default:
-                return "-";
+                return resultText.unknownHand;
         }
     }
 
-    private static string BuildHandDisplayText(
+    private string BuildHandDisplayText(
         Card privateCard,
         Card communityCard1,
         Card communityCard2,

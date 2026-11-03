@@ -213,11 +213,11 @@ public sealed class VictoryCutsceneTests
                 float time=(i+0.5f)/200f;
                 director.time=time; director.Evaluate();
                 float expectedFlash=(time>=9 && time<9.15f)||(time>=9.38f && time<9.47f) ? 0.8f : 0;
-                float expectedFade=time<14.35f ? Mathf.InverseLerp(10.4f,11,time) : 1-Mathf.SmoothStep(0,1,Mathf.InverseLerp(14.35f,15,time));
+                float expectedFade=Mathf.InverseLerp(10.4f,11,time);
                 Assert.That(flash.alpha,Is.EqualTo(expectedFlash).Within(0.00001f),"Original flash at " + time);
                 Assert.That(shade.alpha,Is.EqualTo(expectedFade).Within(0.00001f),"Original fade at " + time);
                 Assert.That(unlock.alpha,Is.EqualTo(time>=8 && time<9 ? 1 : 0).Within(0.00001f),"Original UNLOCK at " + time);
-                Assert.That(word.alpha,Is.EqualTo(time>=11 ? 1-Mathf.InverseLerp(12.6f,13.7f,time) : 0).Within(0.00001f),"Original caption at " + time);
+                Assert.That(word.alpha,Is.EqualTo(time>=11 ? 1 : 0).Within(0.00001f),"Ending caption at " + time);
             }
         }
         finally { director.Stop(); EditorSceneManager.OpenScene(VictoryCutsceneSetupEditor.ScenePath); }
@@ -259,16 +259,20 @@ public sealed class VictoryCutsceneTests
         Assert.That(flow.IsPlaying, Is.False);
         bool sawCards = false, sawChips = false;
         float deadline = Time.realtimeSinceStartup + 20f;
-        while (!flow.IsPlaying)
+        while (!(bool)game.GetType().GetMethod("CanRestartGame", Private).Invoke(game, null))
         {
             sawCards |= presentation.IsCardAnimating;
             sawChips |= presentation.IsChipAnimating;
-            Assert.That(result.activeSelf, Is.False, "No final result flash before the sequence");
+            Assert.That(flow.IsPlaying, Is.False, "Ending requires the player's confirmation");
             Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
             yield return null;
         }
         Assert.That(sawCards, Is.True);
         Assert.That(sawChips, Is.True);
+        Assert.That(result.activeSelf, Is.True);
+        CameraView resultCamera = switcher.CurrentView;
+        game.OnViewEndingClicked();
+        Assert.That(flow.IsPlaying, Is.True);
         Assert.That(presentation.IsBusy, Is.False, "The entire settlement must finish first");
         Assert.That(switcher.enabled, Is.False);
         Assert.That(Find<Pause>().enabled, Is.False);
@@ -324,19 +328,14 @@ public sealed class VictoryCutsceneTests
         Capture("10_FinalResult");
         Assert.That(memoryEvents, Is.EqualTo(1));
         AssertResultRestored(game, flow);
-        Assert.That(switcher.CurrentView, Is.EqualTo(CameraView.Dealer));
+        Assert.That(switcher.CurrentView, Is.EqualTo(resultCamera));
         for (int i = 0; i < 10; i++) { Invoke(game, "RefreshView"); yield return null; }
         Assert.That(flow.IsPlaying, Is.False);
-        Assert.That(restart.interactable, Is.True);
-        game.OnRestartClicked();
+        Assert.That(restart.interactable, Is.False);
+        Find<EndingScreenController>().GoToTitle();
         yield return null;
-        yield return Until(() => Find<VictoryCutsceneController>() != flow, 4);
-        Assert.That(Find<VictoryCutsceneController>().HasPlayed, Is.False);
-        Assert.That(Read<Slider>(SoundSystem.Instance, "MasterSlider").gameObject.scene,
-            Is.EqualTo(SceneManager.GetActiveScene()), "Persistent audio must bind the new scene's slider");
-        var restartedGame = Find<GameplayController>();
-        yield return Until(() => !Read<GameplayPresentationController>(restartedGame, "presentation").IsBusy, 15);
-        Assert.That(Read<GameState>(restartedGame, "gameState").Phase, Is.EqualTo(GamePhase.Betting));
+        Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Title"));
+        Assert.That(Time.timeScale, Is.EqualTo(1));
     }
 
     [UnityTest]
@@ -375,6 +374,8 @@ public sealed class VictoryCutsceneTests
             {
                 Assert.That(state.PlayerChips.Count > 0 && state.DealerChips.Count > 0, Is.True);
                 Assert.That(state.FinalWinner, Is.EqualTo(GameWinner.Player));
+                Assert.That(flow.IsPlaying, Is.False);
+                game.OnViewEndingClicked();
                 Assert.That(flow.IsPlaying, Is.True, "Limited match ends even when both players retain chips");
                 flow.Cancel();
             }
@@ -386,12 +387,16 @@ public sealed class VictoryCutsceneTests
                 if (outcome == 1)
                 {
                     var defeat = Find<DefeatCutsceneController>();
+                    Assert.That(defeat.IsPlaying, Is.False);
+                    Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.True);
+                    game.OnViewEndingClicked();
                     Assert.That(defeat.IsPlaying, Is.True);
                     Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.False);
                     defeat.Skip();
                     yield return null;
                 }
-                Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.True);
+                if (outcome == 1) Assert.That(Find<EndingScreenController>().IsVisible, Is.True);
+                else Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.True);
             }
         }
         GameModeSelection.Select(GameMode.RoundLimited);
@@ -425,7 +430,9 @@ public sealed class VictoryCutsceneTests
             presentation.PlayFold(TurnOwner.Dealer, pot, state.FoldPenaltyAmount, playerBefore, dealerBefore, pot,
                 () => Invoke(game, "CompleteFoldCardReveal"));
             Assert.That(flow.IsPlaying, Is.False);
-            yield return Until(() => flow.IsPlaying, 20);
+            yield return Until(() => (bool)game.GetType().GetMethod("CanRestartGame", Private).Invoke(game, null), 20);
+            game.OnViewEndingClicked();
+            Assert.That(flow.IsPlaying, Is.True);
             Assert.That(presentation.IsBusy, Is.False);
             Assert.That(Read<bool>(game, "isFoldResultVisible"), Is.True);
             if (path == 0)
@@ -471,13 +478,13 @@ public sealed class VictoryCutsceneTests
         var view = Read<GameplayView>(game, "gameplayView");
         Assert.That(flow.IsPlaying, Is.False);
         Assert.That(flow.HasPlayed, Is.True);
-        Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.True);
-        Assert.That(Read<Button>(view, "restartButton").interactable, Is.True);
-        Assert.That(Read<TMP_Text>(view, "resultTitleText").text, Does.Contain("PLAYER WINS"));
-        Assert.That(Find<SwitchCamera>().enabled, Is.True);
-        Assert.That(Find<Pause>().enabled, Is.True);
+        Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.False);
+        Assert.That(Read<Button>(view, "restartButton").interactable, Is.False);
+        Assert.That(Find<EndingScreenController>().IsVisible, Is.True);
+        Assert.That(Find<SwitchCamera>().enabled, Is.False);
+        Assert.That(Find<Pause>().enabled, Is.False);
         Assert.That(Read<Transform>(flow, "memoryChip").gameObject.activeSelf, Is.False);
-        Assert.That(Read<CanvasGroup[]>(flow, "gameplayHud").All(g => g.alpha > 0.99f), Is.True);
+        Assert.That(Read<CanvasGroup[]>(flow, "gameplayHud").All(g => g.alpha == 0), Is.True);
     }
 
     [Test]
@@ -706,7 +713,8 @@ public sealed class VictoryCutsceneTests
     private static string directorState(VictoryCutsceneController flow) => flow.GetComponent<PlayableDirector>().state.ToString();
 
     private static SignalEmitter Marker(PlayableDirector director,string name) => ((TimelineAsset)director.playableAsset)
-        .GetOutputTracks().OfType<SignalTrack>().SelectMany(t=>t.GetMarkers()).OfType<SignalEmitter>().Single(m=>m.asset.name == name);
+        .GetOutputTracks().OfType<SignalTrack>().SelectMany(t=>t.GetMarkers()).OfType<SignalEmitter>()
+        .Single(m=>m.asset.name.Replace("_", "").Replace(" ", "") == name.Replace("_", "").Replace(" ", ""));
 
     private static IEnumerator LoadReadyGame()
     {

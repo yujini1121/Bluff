@@ -19,6 +19,8 @@ public sealed class GameplayController : MonoBehaviour
 
     [Header("UI")]
     [SerializeField] private GameplayView gameplayView;
+    [SerializeField] private EndingScreenController endingScreen;
+    [SerializeField] private Pause[] gameplayPauses = Array.Empty<Pause>();
 
     [Header("딜러 생각 시간 설정")]
     [SerializeField, Min(0f)]
@@ -34,6 +36,9 @@ public sealed class GameplayController : MonoBehaviour
     [SerializeField, Min(0f), InspectorName("결과 표시 후 정산 대기 시간")]
     private float showdownResultDelay = 1f;
 
+    [SerializeField, Min(0f), InspectorName("카드 공개 후 결과창 등장 대기 시간")]
+    private float resultRevealDelay = 1.2f;
+
     private readonly List<string> logs = new List<string>();
     private GameState gameState;
     private ItemSystem subscribedItemSystem;
@@ -42,6 +47,7 @@ public sealed class GameplayController : MonoBehaviour
     private GameplaySoundController soundController;
     private Coroutine dealerActionCoroutine;
     private Coroutine showdownPresentationCoroutine;
+    private Coroutine resultRevealCoroutine;
     private HandRank playerHandRank;
     private HandRank dealerHandRank;
     private RoundWinner roundWinner;
@@ -53,6 +59,8 @@ public sealed class GameplayController : MonoBehaviour
     private bool isFoldResultVisible;
     private bool isShuttingDown;
     private bool isRestarting;
+    private bool finalEndingRequested;
+    private bool finalCutsceneConsumed;
     private bool recoverShowdownPresentationOnEnable;
     private bool recoverFoldPresentationOnEnable;
     private int selectedRaiseAmount = 1;
@@ -72,6 +80,11 @@ public sealed class GameplayController : MonoBehaviour
         isShuttingDown = false;
         SubscribeToItemSystemEvents();
 
+        if (finalEndingRequested && gameState != null && gameState.Phase == GamePhase.GameOver)
+        {
+            ShowEndingScreen();
+        }
+
         if (recoverFoldPresentationOnEnable &&
             gameState != null &&
             gameState.RoundEndReason == RoundEndReason.Fold &&
@@ -79,8 +92,8 @@ public sealed class GameplayController : MonoBehaviour
              gameState.Phase == GamePhase.GameOver))
         {
             recoverFoldPresentationOnEnable = false;
-            isFoldResultVisible = true;
             presentation.RecoverShowdown();
+            BeginResultRevealDelay(false);
             return;
         }
 
@@ -95,8 +108,8 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         recoverShowdownPresentationOnEnable = false;
-        isShowdownResultVisible = true;
         presentation.RecoverShowdown();
+        BeginResultRevealDelay(true);
     }
 
     private void Awake()
@@ -124,6 +137,7 @@ public sealed class GameplayController : MonoBehaviour
         gameplayView.Initialize();
         debugPanelOpen = false;
         CreateGame();
+        InitializeEndingScreen();
         RefreshView();
     }
 
@@ -145,7 +159,9 @@ public sealed class GameplayController : MonoBehaviour
         UpdateVisibleHandRanks();
         CancelInvalidDealerAction();
         TryScheduleDealerAction();
-        TryStartFinalCutscene();
+        if (finalEndingRequested && endingScreen != null && !endingScreen.IsActive &&
+            (victoryCutscene == null || !victoryCutscene.IsPlaying) &&
+            (defeatCutscene == null || !defeatCutscene.IsPlaying)) ShowEndingScreen();
         RefreshView();
     }
 
@@ -154,25 +170,32 @@ public sealed class GameplayController : MonoBehaviour
         UnsubscribeFromItemSystemEvents(unsubscribePlayerRequests: false);
         recoverFoldPresentationOnEnable =
             presentation != null &&
-            (presentation.IsCardAnimating || presentation.IsPrizmAnimating) &&
             gameState != null &&
             gameState.RoundEndReason == RoundEndReason.Fold &&
             !isFoldResultVisible;
         recoverShowdownPresentationOnEnable =
             presentation != null &&
-            presentation.IsCardAnimating &&
             gameState != null &&
             gameState.RoundEndReason == RoundEndReason.Showdown &&
-            roundWinner != RoundWinner.None;
+            roundWinner != RoundWinner.None &&
+            (!isShowdownResultVisible || presentation.IsCardAnimating ||
+             showdownPresentationCoroutine != null);
         isShuttingDown = true;
         if (victoryCutscene != null) victoryCutscene.Cancel();
         if (defeatCutscene != null) defeatCutscene.Cancel();
+        if (endingScreen != null) endingScreen.Release();
         isActionProcessing = false;
         if (presentation != null)
         {
             presentation.FinishCardPresentation();
         }
         CancelDealerAction();
+
+        if (resultRevealCoroutine != null)
+        {
+            StopCoroutine(resultRevealCoroutine);
+            resultRevealCoroutine = null;
+        }
 
         if (showdownPresentationCoroutine != null)
         {
@@ -183,6 +206,8 @@ public sealed class GameplayController : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (victoryCutscene != null) victoryCutscene.Completed -= ShowEndingScreen;
+        if (defeatCutscene != null) defeatCutscene.Completed -= ShowEndingScreen;
         UnsubscribeFromItemSystemEvents();
         soundController?.Dispose();
     }
@@ -308,7 +333,64 @@ public sealed class GameplayController : MonoBehaviour
 
     public void OnNextRoundClicked()
     {
+        if (gameState != null && gameState.Phase == GamePhase.GameOver)
+        {
+            OnViewEndingClicked();
+            return;
+        }
         RunProgressAction(GamePhase.RoundEnd, PrepareAndStartNextRound);
+    }
+
+    public void OnViewEndingClicked()
+    {
+        if (!CanRestartGame() || finalEndingRequested || endingScreen == null || !endingScreen.HasReferences) return;
+        presentation.PlayClickCue();
+        finalEndingRequested = true;
+        endingScreen.Begin();
+        TryStartFinalCutscene();
+        RefreshView();
+    }
+
+    private void InitializeEndingScreen()
+    {
+        if (victoryCutscene != null)
+        {
+            victoryCutscene.Completed += ShowEndingScreen;
+        }
+        if (defeatCutscene != null)
+        {
+            defeatCutscene.Completed += ShowEndingScreen;
+        }
+    }
+
+    private void ShowEndingScreen()
+    {
+        if (!CanHandlePresentationCallback() || !finalEndingRequested || endingScreen == null ||
+            gameState == null || gameState.Phase != GamePhase.GameOver) return;
+        endingScreen.gameObject.SetActive(true);
+        endingScreen.enabled = true;
+        endingScreen.Show(gameState.FinalWinner, gameState.CanContinueAsEndless, OnContinueEndlessClicked);
+        RefreshView();
+    }
+
+    public void OnContinueEndlessClicked()
+    {
+        if (!CanHandlePresentationCallback() || endingScreen == null || !endingScreen.IsVisible ||
+            !gameState.CanContinueAsEndless ||
+            (victoryCutscene != null && victoryCutscene.IsPlaying) ||
+            (defeatCutscene != null && defeatCutscene.IsPlaying)) return;
+
+        if (!gameState.TryContinueAsEndless()) return;
+        endingScreen.Release();
+        finalEndingRequested = false;
+        GameModeSelection.Select(GameMode.Endless);
+        Time.timeScale = 1f;
+        foreach (var pause in gameplayPauses)
+            if (pause != null) pause.ResumeGame();
+        // Reuse winner-first, draw-pot, deck-refill and per-round item rules.
+        // CreateGame/ItemSystem.Initialize would replace the live session.
+        PrepareAndStartNextRound();
+        RefreshView();
     }
 
     public void OnRestartClicked()
@@ -349,6 +431,8 @@ public sealed class GameplayController : MonoBehaviour
 
     private void CreateGame()
     {
+        finalEndingRequested = finalCutsceneConsumed = false;
+        if (endingScreen != null) endingScreen.Release();
         if (victoryCutscene != null) victoryCutscene.ResetForGame();
         if (defeatCutscene != null) defeatCutscene.ResetForGame();
         Deck deck = Deck.CreateIndianHoldemDeck();
@@ -531,7 +615,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private TurnOwner GetNextRoundFirstTurnFromRoundResult()
     {
-        if (gameState == null || gameState.Phase == GamePhase.GameOver)
+        if (gameState == null)
         {
             return nextRoundFirstTurn;
         }
@@ -711,6 +795,9 @@ public sealed class GameplayController : MonoBehaviour
     private bool CanAcceptProgressInput(GamePhase requiredPhase)
     {
         return gameState != null &&
+               isActiveAndEnabled && !isShuttingDown &&
+               (requiredPhase != GamePhase.RoundEnd || IsRoundResultVisible) &&
+               resultRevealCoroutine == null && showdownPresentationCoroutine == null &&
                !IsFinalCutsceneBlockingInput &&
                !isRestarting &&
                !isActionProcessing &&
@@ -742,7 +829,7 @@ public sealed class GameplayController : MonoBehaviour
             gameState.RoundEndReason == RoundEndReason.Showdown &&
             roundWinner != RoundWinner.None;
 
-        return !hasSettledShowdown || isShowdownResultVisible;
+        return (!hasSettledShowdown || isShowdownResultVisible) && IsRoundResultVisible;
     }
 
     private void AddBettingResultLog()
@@ -1012,7 +1099,29 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        isFoldResultVisible = true;
+        BeginResultRevealDelay(false);
+    }
+
+    private bool IsRoundResultVisible => gameState != null &&
+        (gameState.RoundEndReason == RoundEndReason.Showdown ? isShowdownResultVisible :
+         gameState.RoundEndReason == RoundEndReason.Fold ? isFoldResultVisible : true);
+
+    private void BeginResultRevealDelay(bool showdown, Action afterVisible = null)
+    {
+        if (!CanHandlePresentationCallback() || resultRevealCoroutine != null ||
+            (showdown ? isShowdownResultVisible : isFoldResultVisible)) return;
+        resultRevealCoroutine = StartCoroutine(RevealResultAfterDelay(showdown, afterVisible));
+    }
+
+    private IEnumerator RevealResultAfterDelay(bool showdown, Action afterVisible)
+    {
+        // This delay starts only from the card animation's completion callback.
+        yield return new WaitForSecondsRealtime(Mathf.Max(0f, resultRevealDelay));
+        resultRevealCoroutine = null;
+        if (!CanHandlePresentationCallback()) yield break;
+        if (showdown) isShowdownResultVisible = true;
+        else isFoldResultVisible = true;
+        afterVisible?.Invoke();
         RefreshView();
     }
     private bool ResolveShowdown()
@@ -1051,7 +1160,6 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        isShowdownResultVisible = true;
         AddLog(
             $"플레이어 {HandRankText(playerHandRank)} / " +
             $"딜러 {HandRankText(dealerHandRank)}");
@@ -1065,12 +1173,11 @@ public sealed class GameplayController : MonoBehaviour
             AddLog(GameOverLogText(gameState.FinalWinner));
         }
 
-        RefreshView();
-        showdownPresentationCoroutine = StartCoroutine(
+        BeginResultRevealDelay(true, () => showdownPresentationCoroutine = StartCoroutine(
             ContinueShowdownAfterResultDelay(
                 playerChipsBefore,
                 dealerChipsBefore,
-                potBeforeSettlement));
+                potBeforeSettlement)));
     }
 
     private IEnumerator ContinueShowdownAfterResultDelay(
@@ -1169,12 +1276,15 @@ public sealed class GameplayController : MonoBehaviour
             maxRaiseAmount);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
-        bool canStartNextRound = gameState.Phase == GamePhase.RoundEnd;
+        bool canStartNextRound = IsRoundResultVisible &&
+            (gameState.Phase == GamePhase.RoundEnd || gameState.Phase == GamePhase.GameOver);
         gameplayView.RefreshProgress(
             canResolve,
             canStartNextRound,
             CanAcceptProgressInput(GamePhase.Showdown),
-            CanAcceptProgressInput(GamePhase.RoundEnd));
+            gameState.Phase == GamePhase.GameOver ? CanRestartGame() :
+                CanAcceptProgressInput(GamePhase.RoundEnd),
+            gameState.Phase == GamePhase.GameOver);
         gameplayView.RefreshResult(
             gameState,
             roundWinner,
@@ -1187,17 +1297,14 @@ public sealed class GameplayController : MonoBehaviour
     }
 
 
-    private bool IsFinalCutsceneBlockingInput => (victoryCutscene != null &&
-        (victoryCutscene.IsPlaying || (!victoryCutscene.HasPlayed &&
-         gameState != null && gameState.Phase == GamePhase.GameOver &&
-         gameState.FinalWinner == GameWinner.Player))) || (defeatCutscene != null &&
-        (defeatCutscene.IsPlaying || (!defeatCutscene.HasPlayed &&
-         gameState != null && gameState.Phase == GamePhase.GameOver &&
-         gameState.FinalWinner == GameWinner.Dealer)));
+    private bool IsFinalCutsceneBlockingInput =>
+        (endingScreen != null && endingScreen.IsActive) ||
+        (victoryCutscene != null && victoryCutscene.IsPlaying) ||
+        (defeatCutscene != null && defeatCutscene.IsPlaying);
 
     private void TryStartFinalCutscene()
     {
-        if (gameState == null || presentation == null || isShuttingDown ||
+        if (!finalEndingRequested || gameState == null || presentation == null || isShuttingDown ||
             isRestarting || Time.timeScale <= 0f) return;
 
         bool settled = !isActionProcessing && !presentation.IsBusy &&
@@ -1206,10 +1313,25 @@ public sealed class GameplayController : MonoBehaviour
             (gameState.RoundEndReason != RoundEndReason.Fold || isFoldResultVisible);
         if ((victoryCutscene != null && victoryCutscene.IsPlaying) ||
             (defeatCutscene != null && defeatCutscene.IsPlaying)) return;
-        if (gameState.FinalWinner == GameWinner.Player && victoryCutscene != null)
-            victoryCutscene.TryPlay(gameState.Phase, gameState.FinalWinner, settled);
-        else if (gameState.FinalWinner == GameWinner.Dealer && defeatCutscene != null)
-            defeatCutscene.TryPlay(gameState.Phase, gameState.FinalWinner, settled);
+        bool started = false;
+        if (!finalCutsceneConsumed)
+        {
+            finalCutsceneConsumed = true;
+            try
+            {
+                if (gameState.FinalWinner == GameWinner.Player && victoryCutscene != null)
+                    started = victoryCutscene.TryPlay(gameState.Phase, gameState.FinalWinner, settled);
+                else if (gameState.FinalWinner == GameWinner.Dealer && defeatCutscene != null)
+                    started = defeatCutscene.TryPlay(gameState.Phase, gameState.FinalWinner, settled);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
+                if (victoryCutscene != null) victoryCutscene.Cancel();
+                if (defeatCutscene != null) defeatCutscene.Cancel();
+            }
+        }
+        if (!started) ShowEndingScreen();
     }
 
     private bool IsPlayerShortAllInRequired()
@@ -1251,6 +1373,10 @@ public sealed class GameplayController : MonoBehaviour
 
     private void ResetRoundResult()
     {
+        if (resultRevealCoroutine != null) StopCoroutine(resultRevealCoroutine);
+        if (showdownPresentationCoroutine != null) StopCoroutine(showdownPresentationCoroutine);
+        resultRevealCoroutine = showdownPresentationCoroutine = null;
+        recoverFoldPresentationOnEnable = recoverShowdownPresentationOnEnable = false;
         playerHandRank = HandRank.None;
         dealerHandRank = HandRank.None;
         roundWinner = RoundWinner.None;
