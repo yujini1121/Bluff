@@ -746,6 +746,10 @@ PrefabInstance:
       propertyPath: audioObject
       value: 
       objectReference: {fileID: 3589229334536270587}
+    - target: {fileID: 114748854960545546, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
+      propertyPath: enableHoverSound
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 114821807817164798, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
       value: "\uC774\uC5B4\uC11C \uACC4\uC18D\uD558\uAE30"
@@ -954,6 +958,10 @@ PrefabInstance:
       propertyPath: audioObject
       value: 
       objectReference: {fileID: 3589229334536270587}
+    - target: {fileID: 114748854960545546, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
+      propertyPath: enableHoverSound
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 114821807817164798, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
       value: "\uBA54\uC778\uD654\uBA74\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30"
