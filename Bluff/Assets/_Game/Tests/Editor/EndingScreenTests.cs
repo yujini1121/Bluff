@@ -45,17 +45,22 @@ public sealed class EndingScreenTests
         try
         {
             int continueCalls = 0;
-            screen.Show(winner, canContinue, () => continueCalls++);
+            int restartCalls = 0;
+            screen.Show(winner, canContinue, () => continueCalls++, () => restartCalls++);
             Assert.That(screen.IsVisible, Is.True);
             Assert.That(hud.alpha, Is.Zero);
             Assert.That(hud.interactable || hud.blocksRaycasts, Is.False);
             Assert.That(input.enabled, Is.False);
             Assert.That(Cursor.visible, Is.True);
-            Assert.That(Read<Button>(screen, "continueButton").interactable, Is.EqualTo(canContinue));
+            Assert.That(Read<Button>(screen, "continueButton").interactable, Is.True);
+            Assert.That(Read<MainButton>(screen, "continueButtonLabel").buttonText,
+                Is.EqualTo(canContinue ? "이어서 계속하기" : "다시하기"));
             Assert.That(Read<Button>(screen, "continueButton").gameObject.activeInHierarchy, Is.True);
             Assert.That(Read<Button>(screen, "titleButton").gameObject.activeInHierarchy, Is.True);
+            if (EventSystem.current != null) Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null);
             screen.OnContinueClicked();
             Assert.That(continueCalls, Is.EqualTo(canContinue ? 1 : 0));
+            Assert.That(restartCalls, Is.EqualTo(canContinue ? 0 : 1));
             Assert.That(Read<Button>(screen, "titleButton").interactable,
                 Is.EqualTo(Application.CanStreamedLevelBeLoaded("Title")));
             Assert.That(Read<TMP_Text>(screen, "caption").text, Is.EqualTo(winner == GameWinner.Draw ? "MATCH DRAW" :
@@ -149,4 +154,120 @@ public sealed class EndingScreenTests
 
     private static void Capture(string name) => typeof(GameplayUiSceneTests)
         .GetMethod("Capture", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { name });
+
+    [Test]
+    public void SecondaryAction_BlocksReentryAndCanRetryAfterCallbackFailure()
+    {
+        EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity");
+        var screen = Find<EndingScreenController>();
+        int calls = 0;
+        screen.Show(GameWinner.Dealer, false, null, () =>
+        {
+            calls++;
+            screen.OnContinueClicked();
+            if (calls == 1) throw new System.InvalidOperationException("Test action failed");
+            screen.Release();
+        });
+        LogAssert.Expect(LogType.Exception, new System.Text.RegularExpressions.Regex("InvalidOperationException: Test action failed"));
+        screen.OnContinueClicked();
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(screen.IsVisible, Is.True);
+        Assert.That(Read<Button>(screen, "continueButton").interactable, Is.True);
+        screen.OnContinueClicked(); screen.OnContinueClicked();
+        Assert.That(calls, Is.EqualTo(2));
+        Assert.That(screen.IsVisible, Is.False);
+    }
+
+    [UnityTest]
+    public IEnumerator InitialFocus_IsEmpty_AndNavigationStartsOnlyOnInput()
+    {
+        EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity");
+        yield return new EnterPlayMode();
+        yield return RunEndingNavigation();
+    }
+
+    private static IEnumerator RunEndingNavigation()
+    {
+        float deadline = Time.realtimeSinceStartup + 30;
+        while (Find<GameplayPresentationController>().IsBusy)
+        {
+            Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
+            yield return null;
+        }
+        var events = EventSystem.current;
+        var module = events.GetComponent<StandaloneInputModule>();
+        var originalInput = module.inputOverride;
+        var input = events.gameObject.AddComponent<EndingNavigationInput>();
+        input.horizontalAxis = module.horizontalAxis;
+        input.verticalAxis = module.verticalAxis;
+        input.pointer = new Vector2(-10, -10);
+        module.inputOverride = input;
+        var screen = Find<EndingScreenController>();
+        var title = Read<Button>(screen, "titleButton");
+        var next = Read<Button>(screen, "continueButton");
+        int submits = 0;
+        try
+        {
+            typeof(EventSystem).GetField("m_HasFocus", Hidden).SetValue(events, true);
+            screen.Show(GameWinner.Player, true, () => submits++, () => { });
+            yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.Null);
+            Assert.That(ButtonState(title), Is.EqualTo("Normal"));
+            Assert.That(ButtonState(next), Is.EqualTo("Normal"));
+            Capture("Ending-Initial-Unselected");
+            input.move = Vector2.down;
+            yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(title.gameObject));
+            input.move = Vector2.zero;
+            yield return null; yield return null;
+            ExecuteEvents.Execute(events.currentSelectedGameObject,
+                new AxisEventData(events) { moveVector = Vector2.down, moveDir = MoveDirection.Down }, ExecuteEvents.moveHandler);
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(next.gameObject));
+            ExecuteEvents.Execute(events.currentSelectedGameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
+            Assert.That(submits, Is.EqualTo(1));
+            input.move = Vector2.zero;
+            input.pointer = RectTransformUtility.WorldToScreenPoint(null, title.transform.position);
+            yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.Null);
+            Assert.That(ButtonState(title), Is.EqualTo("Highlighted"));
+            Assert.That(ButtonState(next), Is.EqualTo("Normal"));
+            Capture("Ending-Pointer-Hover");
+            input.pointer = new Vector2(-10, -10);
+            yield return null; yield return null;
+            Assert.That(ButtonState(title), Is.EqualTo("Normal"));
+            screen.Show(GameWinner.Player, false, null, () => { });
+            input.move = Vector2.down;
+            yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.Null);
+            input.move = Vector2.zero;
+            yield return null; yield return null;
+            input.move = Vector2.down;
+            yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(title.gameObject));
+        }
+        finally
+        {
+            module.inputOverride = originalInput;
+            screen.Release();
+            Object.Destroy(input);
+        }
+    }
+
+    private static string ButtonState(Button button) => typeof(Selectable)
+        .GetProperty("currentSelectionState", Hidden).GetValue(button).ToString();
+}
+
+public sealed class EndingNavigationInput : BaseInput
+{
+    public string horizontalAxis, verticalAxis;
+    public Vector2 move, pointer;
+    public override float GetAxisRaw(string axisName) => axisName == horizontalAxis ? move.x : axisName == verticalAxis ? move.y : 0f;
+    public override bool GetButtonDown(string buttonName) => false;
+    public override bool GetMouseButton(int button) => false;
+    public override bool GetMouseButtonDown(int button) => false;
+    public override bool GetMouseButtonUp(int button) => false;
+    public override bool mousePresent => true;
+    public override Vector2 mousePosition => pointer;
+    public override Vector2 mouseScrollDelta => Vector2.zero;
+    public override int touchCount => 0;
 }

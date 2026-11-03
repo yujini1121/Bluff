@@ -50,13 +50,17 @@ public sealed class ResultFlowAssetTests
     {
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(EndingPrefab).GetComponent<EndingScreenController>();
         Assert.That(prefab, Is.Not.Null);
+        Assert.That(Read<MainButton>(prefab, "continueButtonLabel"),
+            Is.SameAs(Read<Button>(prefab, "continueButton").GetComponent<MainButton>()));
+        Assert.That(Read<string>(prefab, "continueLabel"), Is.EqualTo("이어서 계속하기"));
+        Assert.That(Read<string>(prefab, "restartLabel"), Is.EqualTo("다시하기"));
         foreach (var entry in new[] { ("titleButton", "GoToTitle"), ("continueButton", "OnContinueClicked") })
         {
             var button = Read<Button>(prefab, entry.Item1);
             var original = PrefabUtility.GetCorrespondingObjectFromOriginalSource(button.gameObject);
             Assert.That(AssetDatabase.GetAssetPath(original), Is.EqualTo(SciFiButton));
             Assert.That(button.GetComponent<MainButton>(), Is.Not.Null);
-            string label = entry.Item1 == "titleButton" ? "타이틀로 돌아가기" : "엔드리스 이어하기";
+            string label = entry.Item1 == "titleButton" ? "메인화면으로 돌아가기" : "이어서 계속하기";
             var main = button.GetComponent<MainButton>();
             Assert.That(main.buttonText, Is.EqualTo(label));
             foreach (var text in new[] { main.normalText, main.highlightedText, main.pressedText })
@@ -87,11 +91,12 @@ public sealed class ResultFlowAssetTests
         {
             settings.roundPlayerWin = "CUSTOM ROUND";
             settings.matchDealerWin = "CUSTOM MATCH";
+            settings.finalTitleFormat = "CUSTOM TITLE {0}";
             settings.finalSummaryFormat = "{0}|{1}|{2}|{3}";
             settings.viewEndingLabel = "CUSTOM ENDING";
             view.GetType().GetField("resultText", Hidden).SetValue(view, settings);
-            var finalTitle = Read<TMP_Text>(view, "finalResultTitleText");
-            var finalDetail = Read<TMP_Text>(view, "finalResultDetailText");
+            var finalTitle = Read<TMP_Text>(view, "resultTitleText");
+            var finalDetail = Read<TMP_Text>(view, "resultDetailText");
             finalTitle.rectTransform.anchoredPosition = new Vector2(20, 110);
             finalDetail.rectTransform.sizeDelta = new Vector2(530, 150);
             finalDetail.fontSize = 21;
@@ -102,7 +107,8 @@ public sealed class ResultFlowAssetTests
             Assert.That(state.TrySettleShowdown(out var winner), Is.True);
             view.RefreshResult(state, winner, HandRank.Triple, HandRank.Double, true, false, true);
             view.RefreshProgress(false, true, false, true, true);
-            Assert.That(finalTitle.text, Is.EqualTo("CUSTOM ROUND"));
+            Assert.That(finalTitle.text, Is.EqualTo("CUSTOM TITLE CUSTOM MATCH"));
+            Assert.That(Read<GameObject>(view, "finalResultContent").activeSelf, Is.False);
             Assert.That(finalDetail.text, Does.Contain("CUSTOM MATCH"));
             Assert.That(finalTitle.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(20, 110)));
             Assert.That(finalDetail.rectTransform.sizeDelta, Is.EqualTo(new Vector2(530, 150)));
@@ -112,6 +118,7 @@ public sealed class ResultFlowAssetTests
             view.RefreshResult(state, winner, HandRank.Triple, HandRank.Double, true, false, false);
             Assert.That(Read<GameObject>(view, "finalResultContent").activeSelf, Is.False);
             Assert.That(Read<TMP_Text>(view, "resultTitleText").gameObject.activeSelf, Is.True);
+            Assert.That(finalTitle.text, Is.EqualTo("CUSTOM ROUND"));
             Assert.That(finalTitle.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(20, 110)));
         }
         finally { Object.DestroyImmediate(settings); }

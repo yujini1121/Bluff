@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 893230d740ba47f7b76f913c70436638, type: 3}
   m_Name: ResultFlowText
   m_EditorClassIdentifier:
-  roundPlayerWin: 'ROUND: PLAYER WIN'
-  roundDealerWin: 'ROUND: DEALER WIN'
-  roundDraw: 'ROUND: DRAW'
+  roundPlayerWin: PLAYER WIN
+  roundDealerWin: DEALER WIN
+  roundDraw: DRAW
   matchComplete: MATCH COMPLETE
   playerFold: PLAYER FOLD
   dealerFold: DEALER FOLD
@@ -28,7 +28,10 @@ MonoBehaviour:
   matchPlayerWin: PLAYER WINS
   matchDealerWin: DEALER WINS
   matchDraw: DRAW
-  finalSummaryFormat: "{0}\nMATCH RESULT: {1}\nFINAL CHIPS\nPLAYER {2} \xB7 DEALER
-    {3}"
+  finalTitleFormat: 'MATCH RESULT
+
+
+    {0}'
+  finalSummaryFormat: "FINAL CHIPSPLAYER {2} \xB7 DEALER {3}"
   nextRoundLabel: NEXT ROUND
-  viewEndingLabel: VIEW ENDING
+  viewEndingLabel: NEXT ROUND

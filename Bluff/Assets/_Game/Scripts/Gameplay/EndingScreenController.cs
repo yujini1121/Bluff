@@ -1,12 +1,12 @@
 using System;
 using System.Linq;
+using Michsky.UI.Shift;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// Owns presentation only. The original GameState and ItemSystem remain with GameplayController.
 public sealed class EndingScreenController : MonoBehaviour
 {
     [Header("Authored UI references")]
@@ -16,6 +16,9 @@ public sealed class EndingScreenController : MonoBehaviour
     [SerializeField] private TMP_Text neutralCaption;
     [SerializeField] private Button titleButton;
     [SerializeField] private Button continueButton;
+    [SerializeField] private MainButton continueButtonLabel;
+    [SerializeField] private string continueLabel;
+    [SerializeField] private string restartLabel;
     [SerializeField] private string titleSceneName;
 
     [Header("Scene gameplay references")]
@@ -31,10 +34,14 @@ public sealed class EndingScreenController : MonoBehaviour
     private GameObject previousSelection;
     private Action continueAction;
     private bool navigating;
+    private bool invokingAction;
+    private bool navigationReady;
+    private Vector2 lastPointerPosition;
     public bool IsActive { get; private set; }
     public bool IsVisible => canvas != null && canvas.enabled;
     public bool HasReferences => canvas != null && victoryCaption != null && defeatCaption != null &&
-        neutralCaption != null && titleButton != null && continueButton != null &&
+        neutralCaption != null && titleButton != null && continueButton != null && continueButtonLabel != null &&
+        !string.IsNullOrEmpty(continueLabel) && !string.IsNullOrEmpty(restartLabel) &&
         !string.IsNullOrEmpty(titleSceneName);
 
     private struct HudState { public float Alpha; public bool Interactable, Raycasts; }
@@ -48,10 +55,13 @@ public sealed class EndingScreenController : MonoBehaviour
 
     public void OnContinueClicked()
     {
-        if (!navigating && IsVisible && continueButton.interactable) continueAction?.Invoke();
+        if (navigating || invokingAction || !IsVisible || !continueButton.interactable || continueAction == null) return;
+        invokingAction = true;
+        try { continueAction.Invoke(); }
+        catch (Exception exception) { Debug.LogException(exception, this); }
+        finally { invokingAction = false; }
     }
 
-    // Capture before the cutscene captures its own state, so its cleanup restores our locked state.
     public void Begin()
     {
         if (IsActive || !HasReferences) return;
@@ -65,7 +75,7 @@ public sealed class EndingScreenController : MonoBehaviour
         EnforceLock();
     }
 
-    public void Show(GameWinner winner, bool canContinue, Action onContinue)
+    public void Show(GameWinner winner, bool canContinue, Action onContinue, Action onRestart = null)
     {
         if (!HasReferences) return;
         Begin();
@@ -73,16 +83,53 @@ public sealed class EndingScreenController : MonoBehaviour
         victoryCaption.gameObject.SetActive(caption == victoryCaption);
         defeatCaption.gameObject.SetActive(caption == defeatCaption);
         neutralCaption.gameObject.SetActive(caption == neutralCaption);
-        continueAction = onContinue;
-        continueButton.interactable = canContinue;
+        continueAction = canContinue ? onContinue : onRestart;
+        string label = canContinue ? continueLabel : restartLabel;
+        continueButtonLabel.buttonText = label;
+        continueButtonLabel.normalText.text = label;
+        continueButtonLabel.highlightedText.text = label;
+        continueButtonLabel.pressedText.text = label;
+        continueButton.interactable = continueAction != null;
         continueButton.gameObject.SetActive(true);
         titleButton.interactable = Application.CanStreamedLevelBeLoaded(titleSceneName);
         canvas.enabled = true;
         EnforceLock();
-        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(titleButton.gameObject);
+        navigationReady = false;
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+            var module = EventSystem.current.currentInputModule as StandaloneInputModule;
+            if (module != null) lastPointerPosition = module.input.mousePosition;
+        }
     }
 
-    private void LateUpdate() { if (IsActive) EnforceLock(); }
+    private void LateUpdate()
+    {
+        if (!IsActive) return;
+        EnforceLock();
+        UpdateNavigationSelection();
+    }
+
+    private void UpdateNavigationSelection()
+    {
+        var events = EventSystem.current;
+        if (!IsVisible || navigating || events == null || !events.isFocused || !events.sendNavigationEvents ||
+            !(events.currentInputModule is StandaloneInputModule module)) return;
+
+        Vector2 pointer = module.input.mousePosition;
+        if (pointer != lastPointerPosition)
+        {
+            events.SetSelectedGameObject(null);
+            navigationReady = false;
+        }
+        lastPointerPosition = pointer;
+        bool moving = !Mathf.Approximately(module.input.GetAxisRaw(module.horizontalAxis), 0f) ||
+                      !Mathf.Approximately(module.input.GetAxisRaw(module.verticalAxis), 0f);
+        if (!moving) { navigationReady = true; return; }
+        if (!navigationReady || events.currentSelectedGameObject != null) return;
+        var first = titleButton.IsInteractable() ? titleButton : continueButton;
+        if (first.IsInteractable()) events.SetSelectedGameObject(first.gameObject);
+    }
 
     private void EnforceLock()
     {

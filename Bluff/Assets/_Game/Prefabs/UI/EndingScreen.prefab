@@ -261,6 +261,9 @@ MonoBehaviour:
   neutralCaption: {fileID: 7775117534318842571}
   titleButton: {fileID: 2075469205457295573}
   continueButton: {fileID: 1020787440003066622}
+  continueButtonLabel: {fileID: 1019239394650135276}
+  continueLabel: "\uC774\uC5B4\uC11C \uACC4\uC18D\uD558\uAE30"
+  restartLabel: "\uB2E4\uC2DC\uD558\uAE30"
   titleSceneName: Title
   hud: []
   inputs: []
@@ -717,7 +720,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114059537788190568, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
-      value: "\uC5D4\uB4DC\uB9AC\uC2A4 \uC774\uC5B4\uD558\uAE30"
+      value: "\uC774\uC5B4\uC11C \uACC4\uC18D\uD558\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 114059537788190568, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_fontAsset
@@ -729,7 +732,7 @@ PrefabInstance:
       objectReference: {fileID: -8255645493277324994, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
     - target: {fileID: 114669326242473296, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
-      value: "\uC5D4\uB4DC\uB9AC\uC2A4 \uC774\uC5B4\uD558\uAE30"
+      value: "\uC774\uC5B4\uC11C \uACC4\uC18D\uD558\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 114669326242473296, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_fontAsset
@@ -745,7 +748,7 @@ PrefabInstance:
       objectReference: {fileID: 3589229334536270587}
     - target: {fileID: 114821807817164798, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
-      value: "\uC5D4\uB4DC\uB9AC\uC2A4 \uC774\uC5B4\uD558\uAE30"
+      value: "\uC774\uC5B4\uC11C \uACC4\uC18D\uD558\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 114821807817164798, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_fontAsset
@@ -793,7 +796,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114976744953285138, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: buttonText
-      value: "\uC5D4\uB4DC\uB9AC\uC2A4 \uC774\uC5B4\uD558\uAE30"
+      value: "\uC774\uC5B4\uC11C \uACC4\uC18D\uD558\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 224930668947981608, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_Pivot.x
@@ -889,6 +892,17 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 224930668947981608, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
   m_PrefabInstance: {fileID: 1134179683649949950}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1019239394650135276 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 114976744953285138, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
+  m_PrefabInstance: {fileID: 1134179683649949950}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f6465851424ac84fa7e7c1d80acd1b7, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!114 &1020787440003066622 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 114835938403400192, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
@@ -914,7 +928,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114059537788190568, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
-      value: "\uD0C0\uC774\uD2C0\uB85C \uB3CC\uC544\uAC00\uAE30"
+      value: "\uBA54\uC778\uD654\uBA74\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 114059537788190568, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_fontAsset
@@ -926,7 +940,7 @@ PrefabInstance:
       objectReference: {fileID: -8255645493277324994, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
     - target: {fileID: 114669326242473296, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
-      value: "\uD0C0\uC774\uD2C0\uB85C \uB3CC\uC544\uAC00\uAE30"
+      value: "\uBA54\uC778\uD654\uBA74\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 114669326242473296, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_fontAsset
@@ -942,7 +956,7 @@ PrefabInstance:
       objectReference: {fileID: 3589229334536270587}
     - target: {fileID: 114821807817164798, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_text
-      value: "\uD0C0\uC774\uD2C0\uB85C \uB3CC\uC544\uAC00\uAE30"
+      value: "\uBA54\uC778\uD654\uBA74\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 114821807817164798, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_fontAsset
@@ -990,7 +1004,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114976744953285138, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: buttonText
-      value: "\uD0C0\uC774\uD2C0\uB85C \uB3CC\uC544\uAC00\uAE30"
+      value: "\uBA54\uC778\uD654\uBA74\uC73C\uB85C \uB3CC\uC544\uAC00\uAE30"
       objectReference: {fileID: 0}
     - target: {fileID: 224930668947981608, guid: e667a8f81bf8ebb4e8e15073ee7d697d, type: 3}
       propertyPath: m_Pivot.x

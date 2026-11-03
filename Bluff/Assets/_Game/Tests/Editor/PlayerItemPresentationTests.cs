@@ -113,7 +113,6 @@ public sealed class PlayerItemPresentationTests
     {
         if (ui != null) Invoke(ui, "OnDisable");
         if (presentation != null) Invoke(presentation, "OnDisable");
-        // Finish tween cleanup while their callback targets are still alive.
         DOTween.KillAll();
         for (int index = createdObjects.Count - 1; index >= 0; index--)
             if (createdObjects[index] != null) Object.DestroyImmediate(createdObjects[index]);
@@ -915,7 +914,7 @@ public sealed class PlayerItemPresentationTests
         Assert.That(game.Phase, Is.EqualTo(finalRound ? GamePhase.GameOver : GamePhase.RoundEnd));
         Button restart = (Button)Get(view, "restartButton");
         Assert.That(restart.gameObject.activeSelf, Is.False);
-        if (finalRound) Assert.That(((TMP_Text)Get(view, "resultDetailText")).text, Does.Contain("MATCH RESULT:"));
+        if (finalRound) Assert.That(((TMP_Text)Get(view, "resultTitleText")).text, Does.StartWith("MATCH RESULT\n\n"));
         else Assert.That(((TMP_Text)Get(view, "resultDetailText")).text, Is.EqualTo("PLAYER FOLD"));
     }
 
@@ -1528,8 +1527,6 @@ public sealed class PlayerItemPresentationTests
         if (!Application.isPlaying)
         {
             completed();
-            // EditMode does not advance MonoBehaviour coroutines. Advance the new result timer
-            // explicitly; the PlayMode result-flow tests verify its real elapsed-time behavior.
             var pending = (Coroutine)Get(ui, "resultRevealCoroutine");
             if (pending != null) ui.StopCoroutine(pending);
             bool showdown = game.RoundEndReason == RoundEndReason.Showdown;

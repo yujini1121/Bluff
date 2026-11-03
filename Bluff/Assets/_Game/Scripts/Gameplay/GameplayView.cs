@@ -259,10 +259,27 @@ public sealed class GameplayView : MonoBehaviour
         {
             return;
         }
-        bool useFinalContent = isGameOver && finalResultContent != null;
-        if (finalResultContent != null) finalResultContent.SetActive(useFinalContent);
-        resultTitleText.gameObject.SetActive(!useFinalContent);
-        resultDetailText.gameObject.SetActive(!useFinalContent);
+        if (finalResultContent != null) finalResultContent.SetActive(false);
+        resultTitleText.gameObject.SetActive(true);
+        resultDetailText.gameObject.SetActive(true);
+
+        if (isGameOver)
+        {
+            string matchResult = gameState.FinalWinner == GameWinner.Draw ? resultText.matchDraw :
+                gameState.FinalWinner == GameWinner.Player ? resultText.matchPlayerWin : resultText.matchDealerWin;
+            resultTitleText.text = matchResult;
+            if (gameState.GameMode == GameMode.RoundLimited && gameState.CurrentRound >= GameState.MaximumRoundCount)
+            {
+                resultTitleText.text = string.Format(resultText.finalTitleFormat, matchResult);
+                resultDetailText.text = string.Format(resultText.finalSummaryFormat, string.Empty,
+                    matchResult, gameState.PlayerChips.Count, gameState.DealerChips.Count);
+            }
+            else if (isFoldResult) resultDetailText.text = BuildFoldResultSummary(gameState);
+            else if (gameState.FinalWinner == GameWinner.Draw || roundWinner == RoundWinner.Draw)
+                resultDetailText.text = string.Empty;
+            else SetWinningHandDetail(gameState, playerHandRank, dealerHandRank, gameState.FinalWinner == GameWinner.Player);
+            return;
+        }
 
         if (isFoldResult)
         {
@@ -273,7 +290,7 @@ public sealed class GameplayView : MonoBehaviour
         else if (roundWinner == RoundWinner.Draw)
         {
             resultTitleText.text = resultText.roundDraw;
-            resultDetailText.text = string.Format(resultText.carriedPotFormat, gameState.Pot.Amount);
+            resultDetailText.text = string.Empty;
         }
         else if (isShowdownResult)
         {
@@ -287,18 +304,6 @@ public sealed class GameplayView : MonoBehaviour
             resultDetailText.text = string.Empty;
         }
 
-        if (isGameOver)
-        {
-            string matchResult = gameState.FinalWinner == GameWinner.Draw ? resultText.matchDraw :
-                gameState.FinalWinner == GameWinner.Player ? resultText.matchPlayerWin : resultText.matchDealerWin;
-            resultDetailText.text = string.Format(resultText.finalSummaryFormat, resultDetailText.text,
-                matchResult, gameState.PlayerChips.Count, gameState.DealerChips.Count);
-            if (useFinalContent)
-            {
-                finalResultTitleText.text = resultTitleText.text;
-                finalResultDetailText.text = resultDetailText.text;
-            }
-        }
     }
 
     public void SetRestartEnabled(bool enabled)

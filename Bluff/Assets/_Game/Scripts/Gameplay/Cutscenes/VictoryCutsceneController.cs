@@ -169,8 +169,6 @@ public sealed class VictoryCutsceneController : MonoBehaviour
         if (Application.isPlaying && IsPlaying) finishRequested = true;
     }
 
-    // A natural stop can restore animated alpha values immediately. Hand off to the
-    // independent ending canvas in this callback, before another frame is rendered.
     private void OnDirectorStopped(PlayableDirector stoppedDirector) => Finish(false);
 
     private void Update()

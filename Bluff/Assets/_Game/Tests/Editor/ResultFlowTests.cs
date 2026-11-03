@@ -24,7 +24,7 @@ public sealed class ResultFlowTests
     }
 
     [Test]
-    public void FinalResult_SeparatesRoundWinnerFromMatchWinner()
+    public void FinalResult_RestoresOriginalMatchWinnerAndChipSummary()
     {
         EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity");
         Assert.That(Read<float>(Find<GameplayController>(), "resultRevealDelay"), Is.EqualTo(1.2f));
@@ -39,8 +39,33 @@ public sealed class ResultFlowTests
         Assert.That(state.FinalWinner, Is.EqualTo(GameWinner.Dealer));
         var view = Find<GameplayView>();
         view.RefreshResult(state, winner, HandRank.Triple, HandRank.Double, true, false, true);
-        Assert.That(Read<TMP_Text>(view, "resultTitleText").text, Does.Contain("ROUND: PLAYER WIN"));
-        Assert.That(Read<TMP_Text>(view, "resultDetailText").text, Does.Contain("TRIPLE").And.Contain("MATCH RESULT: DEALER WINS").And.Contain("PLAYER 5"));
+        Assert.That(Read<TMP_Text>(view, "resultTitleText").text, Is.EqualTo("MATCH RESULT\n\nDEALER WINS"));
+        Assert.That(Read<TMP_Text>(view, "resultDetailText").text, Is.EqualTo("FINAL CHIPSPLAYER 5 · DEALER 30"));
+        Assert.That(Read<GameObject>(view, "finalResultContent").activeSelf, Is.False);
+        Assert.That(Read<TMP_Text>(view, "resultTitleText").gameObject.activeSelf, Is.True);
+        state.TrySetPhase(GamePhase.RoundEnd);
+        view.RefreshResult(state, winner, HandRank.Triple, HandRank.Double, true, false, false);
+        Assert.That(Read<TMP_Text>(view, "resultTitleText").text, Is.EqualTo("PLAYER WIN"));
+        Assert.That(Read<TMP_Text>(view, "resultDetailText").text, Is.EqualTo("4  TRIPLE"));
+    }
+
+    [TestCase(RoundWinner.Player, "PLAYER WIN")]
+    [TestCase(RoundWinner.Dealer, "DEALER WIN")]
+    [TestCase(RoundWinner.Draw, "DRAW")]
+    public void RoundResult_RestoresOriginalWinnerText(RoundWinner expected, string title)
+    {
+        EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity");
+        var state = new GameState(20, 20, Deck.CreateIndianHoldemDeck());
+        state.TrySetPlayerCard(new Card(expected == RoundWinner.Dealer ? 7 : 4));
+        state.TrySetDealerCard(new Card(expected == RoundWinner.Player ? 7 : 4));
+        state.TrySetCommunityCards(new Card(4), new Card(4));
+        state.TrySetPhase(GamePhase.Showdown);
+        Assert.That(state.TrySettleShowdown(out var winner), Is.True);
+        Assert.That(winner, Is.EqualTo(expected));
+        var view = Find<GameplayView>();
+        view.RefreshResult(state, winner, HandRank.Triple, HandRank.Triple, true, false, false);
+        Assert.That(Read<TMP_Text>(view, "resultTitleText").text, Is.EqualTo(title));
+        if (winner == RoundWinner.Draw) Assert.That(Read<TMP_Text>(view, "resultDetailText").text, Is.Empty);
     }
 
     [UnityTest]
@@ -66,7 +91,7 @@ public sealed class ResultFlowTests
             Assert.That(state.TryFold(true), Is.True);
             Set(controller, "isFoldResultVisible", false);
             Call(controller, "CompleteFoldCardReveal");
-            Call(controller, "CompleteFoldCardReveal"); // Duplicate callbacks cannot start two timers.
+            Call(controller, "CompleteFoldCardReveal");
             Assert.That(Read<bool>(controller, "isFoldResultVisible"), Is.False);
             controller.OnNextRoundClicked();
             Assert.That(state.Phase, Is.EqualTo(GamePhase.RoundEnd));
@@ -83,7 +108,7 @@ public sealed class ResultFlowTests
         }
         state.TrySetPlayerCard(new Card(4)); state.TrySetDealerCard(new Card(7));
         state.TrySetCommunityCards(new Card(4), new Card(4));
-        state.DealerChips.TryAdd(10); // Force a round win that differs from the chip-count match result.
+        state.DealerChips.TryAdd(10);
         state.TrySetPhase(GamePhase.Showdown);
         state.TryGetHandRank(TurnOwner.Player, out var playerRank);
         state.TryGetHandRank(TurnOwner.Dealer, out var dealerRank);

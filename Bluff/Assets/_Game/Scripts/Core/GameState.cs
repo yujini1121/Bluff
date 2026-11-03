@@ -209,7 +209,6 @@ public sealed class GameState
         Phase == GamePhase.GameOver && CurrentRound >= MaximumRoundCount &&
         FinalWinner != GameWinner.None && PlayerChips.Count > 0 && DealerChips.Count > 0;
 
-    // Only change the match limit. The normal next-round path owns card/deck/ante resets.
     public bool TryContinueAsEndless()
     {
         if (!CanContinueAsEndless) return false;

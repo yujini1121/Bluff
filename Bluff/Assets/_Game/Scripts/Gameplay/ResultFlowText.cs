@@ -24,7 +24,9 @@ public sealed class ResultFlowText : ScriptableObject
     public string matchPlayerWin;
     public string matchDealerWin;
     public string matchDraw;
-    [TextArea, Tooltip("{0}: round detail, {1}: match winner, {2}: player chips, {3}: dealer chips")]
+    [TextArea, Tooltip("{0}: match winner")]
+    public string finalTitleFormat;
+    [TextArea, Tooltip("{1}: match winner, {2}: player chips, {3}: dealer chips")]
     public string finalSummaryFormat;
 
     [Header("Progress buttons")]

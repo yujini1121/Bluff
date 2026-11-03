@@ -61,6 +61,8 @@ public sealed class GameplayController : MonoBehaviour
     private bool isRestarting;
     private bool finalEndingRequested;
     private bool finalCutsceneConsumed;
+    private GameMode endingGameMode;
+    private GameWinner endingWinner;
     private bool recoverShowdownPresentationOnEnable;
     private bool recoverFoldPresentationOnEnable;
     private int selectedRaiseAmount = 1;
@@ -345,6 +347,8 @@ public sealed class GameplayController : MonoBehaviour
     {
         if (!CanRestartGame() || finalEndingRequested || endingScreen == null || !endingScreen.HasReferences) return;
         presentation.PlayClickCue();
+        endingGameMode = gameState.GameMode;
+        endingWinner = gameState.FinalWinner;
         finalEndingRequested = true;
         endingScreen.Begin();
         TryStartFinalCutscene();
@@ -369,33 +373,42 @@ public sealed class GameplayController : MonoBehaviour
             gameState == null || gameState.Phase != GamePhase.GameOver) return;
         endingScreen.gameObject.SetActive(true);
         endingScreen.enabled = true;
-        endingScreen.Show(gameState.FinalWinner, gameState.CanContinueAsEndless, OnContinueEndlessClicked);
+        endingScreen.Show(endingWinner, gameState.CanContinueAsEndless, OnContinueEndlessClicked, OnRestartClicked);
         RefreshView();
     }
 
     public void OnContinueEndlessClicked()
     {
-        if (!CanHandlePresentationCallback() || endingScreen == null || !endingScreen.IsVisible ||
+        if (!CanHandlePresentationCallback() || isRestarting || isActionProcessing || presentation.IsBusy ||
+            endingScreen == null || !endingScreen.IsVisible ||
             !gameState.CanContinueAsEndless ||
             (victoryCutscene != null && victoryCutscene.IsPlaying) ||
             (defeatCutscene != null && defeatCutscene.IsPlaying)) return;
 
-        if (!gameState.TryContinueAsEndless()) return;
-        endingScreen.Release();
-        finalEndingRequested = false;
-        GameModeSelection.Select(GameMode.Endless);
-        Time.timeScale = 1f;
-        foreach (var pause in gameplayPauses)
-            if (pause != null) pause.ResumeGame();
-        // Reuse winner-first, draw-pot, deck-refill and per-round item rules.
-        // CreateGame/ItemSystem.Initialize would replace the live session.
-        PrepareAndStartNextRound();
-        RefreshView();
+        try
+        {
+            if (!gameState.TryContinueAsEndless()) { ShowEndingScreen(); return; }
+            Time.timeScale = 1f;
+            if (!PrepareAndStartNextRound()) throw new InvalidOperationException("Endless round could not be started.");
+            GameModeSelection.Select(GameMode.Endless);
+            endingScreen.Release();
+            Time.timeScale = 1f;
+            finalEndingRequested = false;
+            foreach (var pause in gameplayPauses)
+                if (pause != null) pause.ResumeGame();
+            RefreshView();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+            RecoverEndingAfterActionFailure(endingWinner);
+        }
     }
 
     public void OnRestartClicked()
     {
-        if (!CanRestartGame())
+        bool fromEnding = finalEndingRequested && endingScreen != null && endingScreen.IsVisible;
+        if (!CanRestartFromResult(fromEnding))
         {
             return;
         }
@@ -415,12 +428,33 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
-        isRestarting = true;
-        isActionProcessing = true;
-        gameplayView.SetRestartEnabled(false);
-        CancelDealerAction();
-        presentation.PlayClickCue();
-        SceneManager.LoadScene(buildIndex);
+        try
+        {
+            GameModeSelection.Select(fromEnding ? endingGameMode : gameState.GameMode);
+            isRestarting = true;
+            isActionProcessing = true;
+            gameplayView.SetRestartEnabled(false);
+            CancelDealerAction();
+            presentation.PlayClickCue();
+            if (endingScreen != null) endingScreen.Release();
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(buildIndex);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception, this);
+            isRestarting = isActionProcessing = false;
+            if (fromEnding) RecoverEndingAfterActionFailure(endingWinner);
+            else RefreshView();
+        }
+    }
+
+    private void RecoverEndingAfterActionFailure(GameWinner winner)
+    {
+        gameState.TrySetPhase(GamePhase.GameOver);
+        finalEndingRequested = true;
+        endingScreen.Show(winner, false, null, OnRestartClicked);
+        RefreshView();
     }
 
     public void OnDebugToggleClicked()
@@ -574,7 +608,7 @@ public sealed class GameplayController : MonoBehaviour
         presentation?.PlayItemUseCue(type);
     }
 
-    private void StartRound()
+    private bool StartRound()
     {
         TurnOwner roundFirstTurn = nextRoundFirstTurn;
 
@@ -582,7 +616,7 @@ public sealed class GameplayController : MonoBehaviour
         {
             presentation.FinishCardPresentation();
             AddLog("라운드 시작 실패 - 남은 카드와 현재 단계를 확인하세요");
-            return;
+            return false;
         }
 
         gameplayView.HideItemUseFailure();
@@ -591,6 +625,7 @@ public sealed class GameplayController : MonoBehaviour
         AddLog($"라운드 시작 - {OwnerText(gameState.CurrentTurn)} 선공");
 
         presentation.PlayRoundStart();
+        return true;
     }
 
     private bool PrepareAndStartNextRound()
@@ -609,8 +644,7 @@ public sealed class GameplayController : MonoBehaviour
         presentation.RefreshCards();
         ResetRoundResult();
         AddLog($"다음 라운드 준비 - 이월 팟: {carriedPot}");
-        StartRound();
-        return true;
+        return StartRound();
     }
 
     private TurnOwner GetNextRoundFirstTurnFromRoundResult()
@@ -808,15 +842,22 @@ public sealed class GameplayController : MonoBehaviour
 
     private bool CanRestartGame()
     {
+        return CanRestartFromResult(false);
+    }
+
+    private bool CanRestartFromResult(bool fromEnding)
+    {
         if (gameState == null ||
-            IsFinalCutsceneBlockingInput ||
+            (!fromEnding && IsFinalCutsceneBlockingInput) ||
+            (victoryCutscene != null && victoryCutscene.IsPlaying) ||
+            (defeatCutscene != null && defeatCutscene.IsPlaying) ||
             isRestarting ||
             isShuttingDown ||
             !isActiveAndEnabled ||
             !gameObject.scene.IsValid() ||
             !gameObject.scene.isLoaded ||
             gameState.Phase != GamePhase.GameOver ||
-            gameState.FinalWinner == GameWinner.None ||
+            (gameState.FinalWinner == GameWinner.None && !fromEnding) ||
             isActionProcessing ||
             presentation.IsBusy ||
             dealerActionCoroutine != null ||
@@ -829,7 +870,7 @@ public sealed class GameplayController : MonoBehaviour
             gameState.RoundEndReason == RoundEndReason.Showdown &&
             roundWinner != RoundWinner.None;
 
-        return (!hasSettledShowdown || isShowdownResultVisible) && IsRoundResultVisible;
+        return fromEnding || ((!hasSettledShowdown || isShowdownResultVisible) && IsRoundResultVisible);
     }
 
     private void AddBettingResultLog()
@@ -1115,7 +1156,6 @@ public sealed class GameplayController : MonoBehaviour
 
     private IEnumerator RevealResultAfterDelay(bool showdown, Action afterVisible)
     {
-        // This delay starts only from the card animation's completion callback.
         yield return new WaitForSecondsRealtime(Mathf.Max(0f, resultRevealDelay));
         resultRevealCoroutine = null;
         if (!CanHandlePresentationCallback()) yield break;
