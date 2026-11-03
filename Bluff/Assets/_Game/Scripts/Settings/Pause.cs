@@ -22,4 +22,11 @@ public class Pause : MonoBehaviour
     {
         get { return isPaused; }
     }
+
+    public void ResumeGame()
+    {
+        isPaused = false;
+        if (pauseMenu != null) pauseMenu.SetActive(false);
+        Time.timeScale = 1f;
+    }
 }

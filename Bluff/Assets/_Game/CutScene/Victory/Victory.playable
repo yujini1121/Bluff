@@ -222,7 +222,7 @@ MonoBehaviour:
     m_PreExtrapolationMode: 1
     m_PostExtrapolationTime: Infinity
     m_PreExtrapolationTime: 10.4
-    m_DisplayName: Fade / return under black
+    m_DisplayName: Fade / hold black
   m_Markers:
     m_Objects: []
   m_InfiniteClipPreExtrapolation: 0
@@ -1533,7 +1533,7 @@ MonoBehaviour:
     m_PreExtrapolationMode: 1
     m_PostExtrapolationTime: Infinity
     m_PreExtrapolationTime: 11
-    m_DisplayName: YOU CHOSE TO FORGET. / fade out
+    m_DisplayName: YOU CHOSE TO FORGET. / hold ending
   m_Markers:
     m_Objects: []
   m_InfiniteClipPreExtrapolation: 0

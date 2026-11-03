@@ -1,11 +1,22 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum ItemUseFailureReason
+{
+    None,
+    NotOwned,
+    InvalidItem,
+    NotBettingPhase,
+    NotYourTurn,
+    RefreshAfterBetting,
+    NoRaiseToDefy,
+    ActionInProgress,
+    EffectUnavailable
+}
+
 public class ItemSystem : MonoBehaviour
 {
     [SerializeField] private Inventory inventory;
-    private const int AnteAmount = 1;
-    private const int TotalAnteAmount = AnteAmount * 2;
 
     private ItemGameApi itemGameApi;
 
@@ -66,14 +77,7 @@ public class ItemSystem : MonoBehaviour
     // 효과가 성공한 경우에만 아이템 소모 <- 안정성을 위해
     internal void RequestPlayerItemUse(GameObject item)
     {
-        if (item != null &&
-            item.TryGetComponent(out Item itemComponent) &&
-            itemComponent.itemData != null &&
-            (itemComponent.itemData.itemType == ItemType.refreshCard ||
-             itemComponent.itemData.itemType == ItemType.prizmChip ||
-             itemComponent.itemData.itemType == ItemType.chipPocket ||
-             itemComponent.itemData.itemType == ItemType.defy) &&
-            PlayerItemUseRequested != null)
+        if (item != null && PlayerItemUseRequested != null)
         {
             PlayerItemUseRequested.Invoke(item);    // 플레이어가 어떤 아이템을 사용하고 싶어하는지 전달
             return;
@@ -85,23 +89,30 @@ public class ItemSystem : MonoBehaviour
     // true -> 아이템 사용 성공 / false -> 아이템 사용 실패 반환
     public bool UseItem(TurnOwner owner, GameObject item)
     {
-        if (!TryGetValidItem(owner, item, out ItemType type))
+        return UseItem(owner, item, out _);
+    }
+
+    public bool UseItem(TurnOwner owner, GameObject item, out ItemUseFailureReason failureReason)
+    {
+        if (!TryGetValidItem(owner, item, out ItemType type, out failureReason))
         {
             return false;
         }
 
-        if (!CanUseItem(owner, type))
+        if (!CanUseItem(owner, type, out failureReason))
         {
             return false;
         }
 
         if (!TryApplyEffect(owner, type))
         {
+            failureReason = ItemUseFailureReason.EffectUnavailable;
             return false;
         }
 
         if (!RemoveUsedItem(owner, item, type))
         {
+            failureReason = ItemUseFailureReason.NotOwned;
             return false;
         }
 
@@ -117,13 +128,27 @@ public class ItemSystem : MonoBehaviour
         return true;
     }
 
+    public ItemUseFailureReason GetUseFailureReason(TurnOwner owner, GameObject item)
+    {
+        if (!TryGetValidItem(owner, item, out ItemType type, out ItemUseFailureReason reason))
+        {
+            return reason;
+        }
+
+        CanUseItem(owner, type, out reason);
+        return reason;
+    }
+
     // 사용할 ItemType 가져오기
-    private bool TryGetValidItem(TurnOwner owner, GameObject item, out ItemType type)
+    private bool TryGetValidItem(TurnOwner owner, GameObject item, out ItemType type,
+        out ItemUseFailureReason failureReason)
     {
         type = default;
+        failureReason = ItemUseFailureReason.None;
 
         if (inventory == null || item == null || !inventory.HasItem(owner, item))
         {
+            failureReason = ItemUseFailureReason.NotOwned;
             Debug.LogWarning("인벤토리에 아이템이 없습니다.");
             return false;
         }
@@ -131,6 +156,7 @@ public class ItemSystem : MonoBehaviour
         if (!item.TryGetComponent(out Item itemComponent) ||
             itemComponent.itemData == null)
         {
+            failureReason = ItemUseFailureReason.InvalidItem;
             Debug.LogWarning("아이템 정보가 없습니다.");
             return false;
         }
@@ -271,11 +297,20 @@ public class ItemSystem : MonoBehaviour
         }
     }
 
-    private bool CanUseItem(TurnOwner owner, ItemType itemType)
+    private bool CanUseItem(TurnOwner owner, ItemType itemType,
+        out ItemUseFailureReason failureReason)
     {
+        failureReason = ItemUseFailureReason.None;
+        if (itemGameApi == null)
+        {
+            failureReason = ItemUseFailureReason.EffectUnavailable;
+            return false;
+        }
+
         // 아이템은 Betting Phase에서만 사용 가능
         if (itemGameApi.GetCurrentPhase() != GamePhase.Betting)
         {
+            failureReason = ItemUseFailureReason.NotBettingPhase;
             Debug.LogWarning("아이템은 Betting Phase에서만 사용 가능합니다.");
             return false;
         }
@@ -283,6 +318,7 @@ public class ItemSystem : MonoBehaviour
         // 아이템은 자신의 턴일 때만 사용 가능 
         if (itemGameApi.GetCurrentTurn() != owner)
         {
+            failureReason = ItemUseFailureReason.NotYourTurn;
             Debug.LogWarning("아이템은 내 차례일 때만 사용할 수 있습니다.");
             return false;
         }
@@ -294,6 +330,7 @@ public class ItemSystem : MonoBehaviour
                 // 현재 라운드의 자발적 베팅 전에만 사용 가능 -> Draw로 Pot이 이월될때 버그 발생해서 수정
                 if (!itemGameApi.IsBeforeVoluntaryBetting())
                 {
+                    failureReason = ItemUseFailureReason.RefreshAfterBetting;
                     Debug.LogWarning("'새로고침 카드' 아이템은 베팅이 진행되기 전에 사용 가능합니다.");
                     return false;
                 }
@@ -303,14 +340,15 @@ public class ItemSystem : MonoBehaviour
             case ItemType.chipPocket:
                 break;
             case ItemType.defy:
-                // Betting된 칩이 있을 경우에만 사용 가능
-                if (itemGameApi.GetPot() == TotalAnteAmount)
+                if (itemGameApi.GetCallAmount(owner) <= 0)
                 {
-                    Debug.LogWarning("'디파이' 아이템은 베팅이 진행된 후에 사용 가능합니다.");
+                    failureReason = ItemUseFailureReason.NoRaiseToDefy;
+                    Debug.LogWarning("'디파이' 아이템은 상대의 레이즈에 응답할 때만 사용 가능합니다.");
                     return false;
                 }
                 break;
             default:
+                failureReason = ItemUseFailureReason.InvalidItem;
                 Debug.LogWarning("잘못된 아이템 타입입니다.");
                 return false;
         }

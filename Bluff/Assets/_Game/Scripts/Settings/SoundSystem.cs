@@ -20,6 +20,7 @@ public class SoundSystem : MonoBehaviour
     [SerializeField] private AudioSource itemPrizmChipSFX;
     [SerializeField] private AudioSource itemRefreshCardSFX;
     [SerializeField] private AudioSource clickSFX;
+    [SerializeField] private AudioSource itemUseFailedSFX;
 
 
     private int currentBGMIndex = 0;
@@ -128,6 +129,18 @@ public class SoundSystem : MonoBehaviour
     public void PlayClickSFX()
     {
         AudioSource instantiatedSFX = Instantiate(clickSFX, this.gameObject.transform);
+        instantiatedSFX.Play();
+        Destroy(instantiatedSFX.gameObject, instantiatedSFX.clip.length);
+    }
+
+    public void PlayItemUseFailedSFX()
+    {
+        if (itemUseFailedSFX == null || itemUseFailedSFX.clip == null)
+        {
+            return;
+        }
+
+        AudioSource instantiatedSFX = Instantiate(itemUseFailedSFX, this.gameObject.transform);
         instantiatedSFX.Play();
         Destroy(instantiatedSFX.gameObject, instantiatedSFX.clip.length);
     }

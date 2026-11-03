@@ -26,6 +26,11 @@ public sealed class ItemGameApi
         return gameState.Pot.Amount;
     }
 
+    public int GetCallAmount(TurnOwner owner)
+    {
+        return gameState.Betting.GetCallAmount(owner);
+    }
+
     public bool IsBeforeVoluntaryBetting()
     {
         // 일반 라운드는 Ante 1/1, Draw 이월 라운드는 Ante 없이 0/0으로 시작

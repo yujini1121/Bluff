@@ -31,6 +31,11 @@ public sealed class DefeatCutsceneController : MonoBehaviour
     public bool IsPlaying { get; private set; }
     public bool IsWaitingForDialogue { get; private set; }
     public event Action Completed;
+    public CanvasGroup[] GameplayHud => gameplayHud;
+    public Behaviour[] SuspendedInputs => suspendedInputs;
+    public TMPro.TMP_Text EndingCaption => screenRoot != null
+        ? screenRoot.GetComponentsInChildren<TMPro.TMP_Text>(true).FirstOrDefault(t => t.gameObject.name == "YOU LOST")
+        : null;
 
     private struct HudState { public float Alpha; public bool Interactable, Raycasts; }
     private HudState[] hudStates;
@@ -175,25 +180,27 @@ public sealed class DefeatCutsceneController : MonoBehaviour
         if (director == null || !director.isActiveAndEnabled || dialogue == null ||
             !dialogue.isActiveAndEnabled || screenRoot == null || !screenRoot.activeInHierarchy)
         { Finish(); return; }
+        if (director.state != PlayState.Playing && !IsWaitingForDialogue && !resumeRequested)
+        { Finish(); return; }
         if (resumeRequested) { resumeRequested = false; director.Resume(); }
         if (IsWaitingForDialogue && Time.frameCount > dialogueStartFrame &&
             (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space))) dialogue.Next();
     }
 
     public void CompleteTimeline() { if (Application.isPlaying && IsPlaying) finishRequested = true; }
-    private void OnDirectorStopped(PlayableDirector source) => CompleteTimeline();
+    private void OnDirectorStopped(PlayableDirector source) => Finish(false);
     public void Cancel() => Finish();
     [ContextMenu("Skip Defeat Cutscene (Play Mode)")]
     public void Skip() => Finish();
     public void ResetForGame() { Finish(); HasPlayed = false; }
 
-    private void Finish()
+    private void Finish(bool stopDirector = true)
     {
         if (!IsPlaying) return;
         IsPlaying = IsWaitingForDialogue = false;
         if (screenTearing != null) screenTearing.Release();
         finishRequested = resumeRequested = dealerStarted = warningStarted = false;
-        if (director != null) { director.stopped -= OnDirectorStopped; director.Stop(); }
+        if (director != null) { director.stopped -= OnDirectorStopped; if (stopDirector) director.Stop(); }
         if (cameraRig != null) cameraRig.Release();
         if (audioMuffle != null) audioMuffle.Release();
         if (dialogue != null)

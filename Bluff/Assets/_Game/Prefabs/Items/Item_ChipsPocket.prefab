@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7926339741780193762}
   - component: {fileID: 3961983683828119587}
   - component: {fileID: 1813163406302059593}
+  - component: {fileID: 7112345678901234567}
   m_Layer: 0
   m_Name: Item_ChipsPocket
   m_TagString: Untagged
@@ -570,3 +571,20 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6434335576100366830, guid: b7cc0848739da3e4f9bcbe935c849eff, type: 3}
   m_PrefabInstance: {fileID: 7024593288342218122}
   m_PrefabAsset: {fileID: 0}
+
+--- !u!114 &7112345678901234567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4266628273308215506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 932be67a45ab48cf94eae73ad4f60493, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  duration: 0.4
+  rotationStrength: {x: 4, y: 18, z: 4}
+  vibrato: 18
+  elasticity: 0.9

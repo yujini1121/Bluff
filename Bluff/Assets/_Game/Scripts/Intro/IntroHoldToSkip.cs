@@ -10,6 +10,7 @@ public sealed class IntroHoldToSkip : MonoBehaviour
     private bool available;
     private float heldSeconds;
     private float progress;
+    private bool waitForRelease;
     public float Progress => progress;
     public bool IsAvailable => available;
 
@@ -23,9 +24,22 @@ public sealed class IntroHoldToSkip : MonoBehaviour
 
     private void Update() => Tick(Input.GetKey(KeyCode.Escape), Time.unscaledDeltaTime);
 
+    public void SuppressUntilRelease()
+    {
+        waitForRelease = true;
+        SetAvailable(available);
+    }
+
     public void Tick(bool held, float deltaTime)
     {
         if (!available) return;
+        if ((flow != null && flow.IsSlotSessionActive) || waitForRelease)
+        {
+            if (flow != null && flow.IsSlotSessionActive) waitForRelease = true;
+            else if (!held) waitForRelease = false;
+            SetAvailable(available);
+            return;
+        }
         if (flow == null || flow.State == IntroFlowController.IntroState.Transition)
         {
             SetAvailable(false);

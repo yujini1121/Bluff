@@ -43,6 +43,7 @@ GameObject:
   - component: {fileID: 830426582807848127}
   - component: {fileID: 8892701695503137263}
   - component: {fileID: 4757412689296239242}
+  - component: {fileID: 7112345678901234567}
   m_Layer: 0
   m_Name: Item_PrizmChip
   m_TagString: Untagged
@@ -249,3 +250,20 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 724e9675dc4a6ec4d8e12a20cd481864, type: 3}
   m_PrefabInstance: {fileID: 4245277149671710510}
   m_PrefabAsset: {fileID: 0}
+
+--- !u!114 &7112345678901234567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4180414832903803173}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 932be67a45ab48cf94eae73ad4f60493, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  duration: 0.4
+  rotationStrength: {x: 4, y: 18, z: 4}
+  vibrato: 18
+  elasticity: 0.9

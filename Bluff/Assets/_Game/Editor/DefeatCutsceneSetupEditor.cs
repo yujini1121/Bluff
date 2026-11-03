@@ -164,7 +164,7 @@ public static class DefeatCutsceneSetupEditor
         Alpha(timeline, director, captions, shade.gameObject, "Sudden Blackout",
             new[] {0f, 8.65f, 11.5f}, new[] {0f, 1f, 1f}, true);
         Alpha(timeline, director, captions, captionObject, "YOU LOST - restrained fade",
-            new[] {0f, 9.25f, 9.65f, 10.7f, 11.25f, 11.5f}, new[] {0f, 0f, 1f, 1f, 0f, 0f});
+            new[] {0f, 9.25f, 9.65f, 10.7f, 11.25f, 11.5f}, new[] {0f, 0f, 1f, 1f, 1f, 1f});
 
         var audioGroup = timeline.CreateTrack<GroupTrack>(null, "AUDIO");
         var muffle = Child(root.transform, "Ambient Muffle").gameObject.AddComponent<DefeatAudioMuffle>();
@@ -214,11 +214,12 @@ public static class DefeatCutsceneSetupEditor
         Require(cameras[0].start == 0 && ((CinemachineShot)cameras[0].asset).VirtualCamera.Resolve(director) ==
             Ref<CinemachineVirtualCamera>(Ref<CutsceneCameraRig>(flow, "cameraRig"), "virtualCamera"), "Entry snapshot must be the first Shot at zero.");
         var volume = Ref<Volume>(flow, "effectsVolume");
-        Require(AssetDatabase.GetAssetPath(volume.sharedProfile).StartsWith(Folder + "/"), "Defeat must use its own Volume Profile.");
+        string timelineFolder = Path.GetDirectoryName(AssetDatabase.GetAssetPath(timeline)).Replace('\\', '/');
+        Require(AssetDatabase.GetAssetPath(volume.sharedProfile).StartsWith(timelineFolder + "/"), "Defeat must use its own Volume Profile.");
         Require(All<Volume>(scene).All(v => v == volume || v.sharedProfile != volume.sharedProfile), "Defeat Volume Profile must not be shared with gameplay.");
         var markers = timeline.GetOutputTracks().OfType<SignalTrack>().SelectMany(t => t.GetMarkers()).OfType<SignalEmitter>().ToArray();
-        double first = markers.Single(m => m.asset.name == "Dealer_Declaration").time;
-        double second = markers.Single(m => m.asset.name == "Final_Warning").time;
+        double first = markers.Single(m => m.asset.name.Replace('_', ' ') == "Dealer Declaration").time;
+        double second = markers.Single(m => m.asset.name.Replace('_', ' ') == "Final Warning").time;
         double end = markers.Single(m => m.asset.name == "Finish").time;
         Require(first > 0 && second > first && end > second && end <= director.duration + 0.001, "Signal order/duration invalid.");
         Debug.Log("Defeat: all active Track bindings, three Shots, dialogue/finish Signals and dedicated Volume validated.");

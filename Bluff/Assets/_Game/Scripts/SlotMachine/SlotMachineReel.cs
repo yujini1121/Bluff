@@ -45,7 +45,7 @@ public sealed class SlotMachineReel : MonoBehaviour
         spin.Append(DOTween.To(() => travel, value => { travel = value; Draw(); }, destination, 0.16f).SetEase(Ease.OutSine));
         spin.OnComplete(() => {
             spin = null;
-            travel = Mod(destination, sprites.Count); // An identical cyclic strip; nothing visibly jumps.
+            travel = Mod(destination, sprites.Count);
             CurrentSymbol = symbol;
             Draw();
             stopped?.Invoke();

@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 893230d740ba47f7b76f913c70436638, type: 3}
+  m_Name: ResultFlowText
+  m_EditorClassIdentifier:
+  roundPlayerWin: PLAYER WIN
+  roundDealerWin: DEALER WIN
+  roundDraw: DRAW
+  matchComplete: MATCH COMPLETE
+  playerFold: PLAYER FOLD
+  dealerFold: DEALER FOLD
+  foldPenaltyFormat: "{0} \xB7 PENALTY -{1}"
+  carriedPotFormat: POT {0} CARRIED OVER
+  numberHand: NUMBER
+  doubleHand: DOUBLE
+  straightHand: STRAIGHT
+  tripleHand: TRIPLE
+  unknownHand: '-'
+  matchPlayerWin: PLAYER WINS
+  matchDealerWin: DEALER WINS
+  matchDraw: DRAW
+  finalTitleFormat: 'MATCH RESULT
+
+
+    {0}'
+  finalSummaryFormat: "FINAL CHIPSPLAYER {2} \xB7 DEALER {3}"
+  nextRoundLabel: NEXT ROUND
+  viewEndingLabel: NEXT ROUND

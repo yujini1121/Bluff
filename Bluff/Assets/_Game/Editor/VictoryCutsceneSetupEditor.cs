@@ -86,8 +86,8 @@ public static class VictoryCutsceneSetupEditor
         // Camera parity is tested against the retained source at 60 samples/second;
         // no additional camera tracks or hierarchy changes are necessary.
         // Original PresentBeat used linear reveal/glow/fade/text ramps, not smoothstep.
-        SetAlpha("Fade",new[] {0f,0.6f,3.95f,4.6f},new[] {0f,1f,1f,0f},true);
-        SetAlpha("YOU_CHOSE_TO_FORGET.",new[] {0f,0.0001f,1.6f,2.7f,3f},new[] {0f,1f,1f,0f,0f},true);
+        SetAlpha("Fade",new[] {0f,0.6f,3.95f,4.6f},new[] {0f,1f,1f,1f},true);
+        SetAlpha("YOU_CHOSE_TO_FORGET.",new[] {0f,0.0001f,1.6f,2.7f,3f},new[] {0f,1f,1f,1f,1f},true);
         SetAlpha("UNLOCK",new[] {0f,0.0001f,1f},new[] {0f,1f,0f},false);
         SetAlpha("Memory_Flash",new[] {0f,0.0001f,0.15f,0.38f,0.47f,0.6f},new[] {0f,0.8f,0f,0.8f,0f,0f},false);
         AssetDatabase.SaveAssets();
@@ -389,7 +389,8 @@ public static class VictoryCutsceneSetupEditor
             Require(reaction != null && reaction.GetPersistentEventCount() > 0, "Unconnected Signal: " + marker.name);
         }
         foreach (string signal in new[] { "Dialogue_Start", "Memory_Playback", "Return_Camera", "Finish" })
-            Require(timeline.GetOutputTracks().OfType<SignalTrack>().SelectMany(t => t.GetMarkers()).OfType<SignalEmitter>().Any(m=>m.asset.name == signal), "Missing Signal: " + signal);
+            Require(timeline.GetOutputTracks().OfType<SignalTrack>().SelectMany(t => t.GetMarkers()).OfType<SignalEmitter>()
+                .Any(m=>m.asset != null && m.asset.name.Replace("_", " ") == signal.Replace("_", " ")), "Missing Signal: " + signal);
         Require(Ref<VictoryCutsceneController>(All<GameplayController>(scene).Single(),"victoryCutscene") == flow, "Gameplay trigger is not linked.");
         Debug.Log("Victory Timeline references, Shots, chip animation and Signals validated.");
     }

@@ -55,6 +55,10 @@ public sealed class GameplaySoundController : IDisposable
             case GameplayPresentationCue.Click:
                 SoundSystem.Instance.PlayClickSFX();
                 break;
+
+            case GameplayPresentationCue.Item_UseFailed:
+                SoundSystem.Instance.PlayItemUseFailedSFX();
+                break;
         }
     }
 }

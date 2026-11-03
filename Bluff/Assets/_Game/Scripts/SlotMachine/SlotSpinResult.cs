@@ -3,7 +3,6 @@ using System;
 public enum SlotSpinMode { Normal, ForceWin, ForceLoss }
 public enum SlotOutcome { Loss, Win, Jackpot }
 
-/// <summary>A result is selected before the reels move and never changes during the spin.</summary>
 [Serializable]
 public sealed class SlotSpinResult
 {
@@ -38,7 +37,6 @@ public sealed class SlotSpinResult
         int b = win ? a : random.Next(count);
         int c = win ? a : random.Next(count);
         if (!win && a == b && b == c) {
-            // Draw from all other symbols without an unbounded rejection loop.
             c = random.Next(count - 1);
             if (c >= a) c++;
         }

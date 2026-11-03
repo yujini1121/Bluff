@@ -20,6 +20,7 @@ public sealed class IntroFlowController : MonoBehaviour
     [SerializeField, TextArea] private string[] dialogueLines;
     [SerializeField] private IntroFadeController fadeController;
     [SerializeField] private IntroHoldToSkip holdToSkip;
+    [SerializeField] private IntroSlotSession slotSession;
     [SerializeField] private PlayableDirector doorDirector;
     [SerializeField] private Transform seatedView;
     [SerializeField, Min(0.01f)] private float seatingSpeed = 0.7f;
@@ -28,7 +29,11 @@ public sealed class IntroFlowController : MonoBehaviour
     private Quaternion seatingRotation;
 
     public IntroState State { get; private set; } = IntroState.Corridor;
-    public bool CanInteract => State == IntroState.DealerInteraction && playerViewCamera != null &&
+    public bool IsSlotSessionActive => slotSession != null && slotSession.IsActive;
+    public bool IsFreeRoam => isActiveAndEnabled &&
+        (State == IntroState.Corridor || State == IntroState.DealerInteraction);
+    public bool CanUseSlots => IsFreeRoam && !IsSlotSessionActive && playerMove != null && playerMove.IsMoveInputEnabled;
+    public bool CanInteract => !IsSlotSessionActive && State == IntroState.DealerInteraction && playerViewCamera != null &&
         dealerLookTarget != null &&
         Vector3.Distance(playerViewCamera.transform.position, dealerLookTarget.position) <= interactionDistance &&
         Vector3.Angle(playerViewCamera.transform.forward,
@@ -46,6 +51,7 @@ public sealed class IntroFlowController : MonoBehaviour
 
     private void OnDisable()
     {
+        if (slotSession != null) slotSession.ReleaseView();
         if (dialogueController != null) dialogueController.DialogueCompleted -= HandleDialogueCompleted;
         if (barDirector != null) barDirector.stopped -= HandleBarStopped;
         if (State == IntroState.BarCutscene)
@@ -77,6 +83,7 @@ public sealed class IntroFlowController : MonoBehaviour
 
     private void Update()
     {
+        if (IsSlotSessionActive) { SetPrompt(false); return; }
         if (State == IntroState.Seating)
         {
             TickSeating(Time.deltaTime);
@@ -85,10 +92,10 @@ public sealed class IntroFlowController : MonoBehaviour
         if (State == IntroState.BarCutscene && barDirector.time >= barDirector.duration - 0.001d)
             CompleteBarSequence();
 
-        if (State == IntroState.DealerInteraction)
+        if (State == IntroState.DealerInteraction || State == IntroState.Corridor)
         {
-            SetPrompt(CanInteract);
-            if (Input.GetKeyDown(KeyCode.E)) TryInteract();
+            SetPrompt(CanInteract || (slotSession != null && slotSession.FindNearby() != null));
+            if (Input.GetKeyDown(KeyCode.E)) HandleInteractionInput();
         }
         else if (State == IntroState.Dialogue && Time.frameCount > dialogueStartFrame &&
                  (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Space)))
@@ -97,9 +104,21 @@ public sealed class IntroFlowController : MonoBehaviour
         }
     }
 
+    public bool HandleInteractionInput()
+    {
+        if (!CanUseSlots) return false;
+        if (CanInteract) return TryInteract();
+        return slotSession != null && slotSession.TryEnterNearby();
+    }
+
+    public void SuppressSkipUntilRelease()
+    {
+        if (holdToSkip != null) holdToSkip.SuppressUntilRelease();
+    }
+
     public bool BeginBarSequence()
     {
-        if (State != IntroState.Corridor || barDirector == null || barCamera == null ||
+        if (IsSlotSessionActive || State != IntroState.Corridor || barDirector == null || barCamera == null ||
             playerMove == null || playerViewCamera == null || outputCamera == null) return false;
         State = IntroState.BarCutscene;
         playerMove.SetMoveInputEnabled(false);
@@ -194,7 +213,7 @@ public sealed class IntroFlowController : MonoBehaviour
         if (State == IntroState.Dialogue) BeginTransition();
     }
 
-    public void SkipIntro() => BeginTransition();
+    public void SkipIntro() { if (!IsSlotSessionActive) BeginTransition(); }
 
     private void BeginTransition()
     {
