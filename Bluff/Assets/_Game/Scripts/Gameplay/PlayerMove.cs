@@ -10,7 +10,7 @@ public class PlayerMove : MonoBehaviour
     [SerializeField] private float speed = 3f;
 
     [Header("회전 감도")]
-    [SerializeField] private float mouseSensitivity = 150f;
+    [SerializeField] private float mouseSensitivity = 60f;
 
     [Header("상하 각도 제한")]
     [SerializeField] private float minPitch = -85f; // 아래로 내려다보는 최대 각도
