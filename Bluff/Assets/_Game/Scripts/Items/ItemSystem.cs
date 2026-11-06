@@ -41,6 +41,25 @@ public class ItemSystem : MonoBehaviour
         this.itemGameApi = itemGameApi;
     }
 
+    public Item GetInventoryItem(TurnOwner owner, int index)
+    {
+        if (inventory == null)
+        {
+            return null;
+        }
+        GameObject[] ownedItems = GetOwnedItems(owner);
+        if (ownedItems == null || index < 0 || index >= ownedItems.Length)
+        {
+            return null;
+        }
+        GameObject itemObject = ownedItems[index];
+        if (itemObject != null && itemObject.TryGetComponent(out Item itemComponent))
+        {
+            return itemComponent;
+        }
+        return null;
+    }
+
     public void GetItem()
     {
         // 플레이어 아이템 지급

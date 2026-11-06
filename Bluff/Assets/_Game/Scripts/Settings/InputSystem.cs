@@ -9,6 +9,7 @@ public class InputSystem : MonoBehaviour
     [SerializeField] private SwitchCamera switchCamera;
     [SerializeField] private GameplayController gameplayController;
     [SerializeField] private UIOverray uiOverray;
+    [SerializeField] private ItemSystem itemSystem;
 
     [Header("키 홀딩 시간")]
     [SerializeField] private float holdStartTime = 0.5f;
@@ -120,6 +121,24 @@ public class InputSystem : MonoBehaviour
             if (Input.GetKeyDown(KeyCode.A))
             {
                 gameplayController.OnRaiseMaxClicked();
+            }
+
+            // Using Item
+            if (Input.GetKeyDown(KeyCode.F1))
+            {
+                itemSystem.GetInventoryItem(TurnOwner.Player, 0).Use();
+            }
+            if (Input.GetKeyDown(KeyCode.F2))
+            {
+                itemSystem.GetInventoryItem(TurnOwner.Player, 1).Use();
+            }
+            if (Input.GetKeyDown(KeyCode.F3))
+            {
+                itemSystem.GetInventoryItem(TurnOwner.Player, 2).Use();
+            }
+            if (Input.GetKeyDown(KeyCode.F4))
+            {
+                itemSystem.GetInventoryItem(TurnOwner.Player, 3).Use();
             }
 
             // Showdown & Next Round
