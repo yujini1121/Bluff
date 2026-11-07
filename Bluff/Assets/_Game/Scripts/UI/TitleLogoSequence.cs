@@ -6,7 +6,7 @@ public sealed class TitleLogoSequence : MonoBehaviour
 {
     [Header("Canvas Groups")]
     [SerializeField] private CanvasGroup overlayCanvasGroup;
-    [SerializeField] private CanvasGroup logo1CanvasGroup;
+    // [SerializeField] private CanvasGroup logo1CanvasGroup;
     [SerializeField] private CanvasGroup logo2CanvasGroup;
     [SerializeField] private CanvasGroup logo3CanvasGroup;
 
@@ -21,7 +21,8 @@ public sealed class TitleLogoSequence : MonoBehaviour
 
     private void Awake()
     {
-        if (overlayCanvasGroup == null || logo1CanvasGroup == null ||
+        if (overlayCanvasGroup == null ||
+            // logo1CanvasGroup == null ||
             logo2CanvasGroup == null || logo3CanvasGroup == null)
         {
             Debug.LogError("CanvasGroup 확인", this);
@@ -32,7 +33,7 @@ public sealed class TitleLogoSequence : MonoBehaviour
         overlayCanvasGroup.alpha = 1f;
         overlayCanvasGroup.interactable = false;
         overlayCanvasGroup.blocksRaycasts = true;
-        PrepareLogo(logo1CanvasGroup);
+        // PrepareLogo(logo1CanvasGroup);
         PrepareLogo(logo2CanvasGroup);
         PrepareLogo(logo3CanvasGroup);
     }
@@ -45,8 +46,8 @@ public sealed class TitleLogoSequence : MonoBehaviour
         }
 
         sequence = DOTween.Sequence().SetUpdate(true);
-        AppendLogo(logo1CanvasGroup);
-        sequence.AppendInterval(logoInterval);
+        // AppendLogo(logo1CanvasGroup);
+        // sequence.AppendInterval(logoInterval);
         AppendLogo(logo2CanvasGroup);
         sequence.AppendInterval(logoInterval);
         AppendLogo(logo3CanvasGroup);

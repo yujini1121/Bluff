@@ -4,34 +4,42 @@ using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Button))]
-public sealed class TitleMenuArrowTarget : MonoBehaviour, IPointerEnterHandler, ISelectHandler
+public sealed class TitleMenuArrowTarget : MonoBehaviour,
+    IPointerEnterHandler, ISelectHandler, IDeselectHandler
 {
     [SerializeField] private TitleMenuArrow arrow;
 
     private Button button;
-    private RectTransform targetRect;
+
+    public RectTransform TargetRect { get; private set; }
+    public bool CanShowArrow => isActiveAndEnabled && button.IsActive() && button.IsInteractable();
 
     private void Awake()
     {
         button = GetComponent<Button>();
-        targetRect = GetComponent<RectTransform>();
+        TargetRect = GetComponent<RectTransform>();
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        MoveArrow();
+        if (arrow != null) arrow.SetHovered(this, true);
     }
 
     public void OnSelect(BaseEventData eventData)
     {
-        MoveArrow();
+        if (arrow != null) arrow.SetSelected(this, true);
     }
 
-    private void MoveArrow()
+    public void OnDeselect(BaseEventData eventData)
     {
-        if (isActiveAndEnabled && arrow != null && button.IsActive() && button.IsInteractable())
-        {
-            arrow.MoveTo(targetRect);
-        }
+        if (arrow != null) arrow.SetSelected(this, false);
+    }
+
+    private void OnDisable()
+    {
+        if (arrow == null) return;
+
+        arrow.SetHovered(this, false);
+        arrow.SetSelected(this, false);
     }
 }
