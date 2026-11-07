@@ -186,11 +186,17 @@ public sealed class DialogueControllerTests
         Object.DestroyImmediate(testObject);
         yield return new EnterPlayMode();
         SetUp();
+        var indicatorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/_Game/Prefabs/UI/Dialogue Continue Indicator.prefab");
+        var indicator = Object.Instantiate(indicatorPrefab, testObject.transform);
+        var indicatorFade = indicator.GetComponent<CanvasGroup>();
+        SetField("continueIndicator", indicator);
         SetField("characterInterval", 0.1f);
         runtimeCompletions = 0;
         controller.DialogueCompleted += HandleRuntimeCompleted;
         controller.StartDialogue(new[] { "ABCDEFGHIJ", "Last sentence" });
         Assert.That(dialogueText.maxVisibleCharacters, Is.Zero);
+        Assert.That(indicator.activeSelf, Is.False);
         float deadline = Time.realtimeSinceStartup + 3f;
         while (dialogueText.maxVisibleCharacters == 0)
         {
@@ -202,18 +208,22 @@ public sealed class DialogueControllerTests
         controller.Next();
         Assert.That(controller.CurrentLineIndex, Is.Zero);
         Assert.That(dialogueText.maxVisibleCharacters, Is.EqualTo(10));
+        Assert.That(indicator.activeSelf, Is.True);
         yield return null;
         controller.Next();
         Assert.That(controller.CurrentLineIndex, Is.EqualTo(1));
         controller.Next();
         Assert.That(controller.IsTyping, Is.True);
+        Assert.That(indicator.activeSelf, Is.False);
         yield return null;
         controller.Next();
         Assert.That(runtimeCompletions, Is.Zero, "Finishing the last line must not complete the dialogue");
+        Assert.That(indicator.activeSelf, Is.True);
         yield return null;
         controller.Next();
         controller.Next();
         Assert.That(runtimeCompletions, Is.EqualTo(1));
+        Assert.That(indicator.activeSelf, Is.False);
 
         AudioClip runtimeClip = AudioClip.Create("Runtime dialogue tone", 441, 1, 44100, false);
         try
@@ -241,6 +251,13 @@ public sealed class DialogueControllerTests
             Assert.That(controller.CurrentLine, Is.EqualTo("New"));
             Assert.That(dialogueText.maxVisibleCharacters, Is.EqualTo(3));
             Assert.That(controller.IsTyping, Is.False);
+            Assert.That(indicator.activeSelf, Is.True);
+            deadline = Time.realtimeSinceStartup + 2f;
+            while (indicatorFade.alpha < 0.99f)
+            {
+                Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline), "The indicator fades in during unscaled dialogue");
+                yield return null;
+            }
         }
         finally { Time.timeScale = previousTimeScale; }
 

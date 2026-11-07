@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Michsky.UI.Shift;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Events;
@@ -63,8 +64,8 @@ public sealed class GameplayUiSceneTests
     public void Scene_SettingsSlidersBelongToTheNewPauseMenu()
     {
         OpenScene();
-        var menu = Read<GameObject>(Find<Pause>(), "pauseMenu");
-        Assert.That(menu.name, Is.EqualTo("Settings"));
+        var menu = Read<GameObject>(Read<Pause>(Find<InputSystem>(), "pause"), "pauseMenu");
+        Assert.That(menu.name, Is.EqualTo("Settings Area"));
         foreach (string field in new[] { "MasterSlider", "BGMVolumeSlider", "SFXVolumeSlider" })
         {
             var slider = Read<Slider>(Find<SoundSystem>(), field);
@@ -77,6 +78,7 @@ public sealed class GameplayUiSceneTests
     public void Scene_HandRankAndTutorialButtonsToggleTheirPanels()
     {
         OpenScene();
+        InitializeOverlayControls();
         var root = Find<GameplayView>().transform.Find("GameRoot");
         foreach (var pair in new[] { ("Hand Rank Button", "Hand Rank Area"), ("Tutorial Button", "Tutorial Area") })
         {
@@ -99,6 +101,53 @@ public sealed class GameplayUiSceneTests
     }
 
     [Test]
+    public void Scene_MergedPanelsCloseInOrderAndSettingsPauseTheGame()
+    {
+        OpenScene();
+        InitializeOverlayControls();
+        var overlay = Find<UIOverray>();
+        Assert.That(Object.FindObjectsOfType<Pause>(true), Has.Length.EqualTo(1));
+        Assert.That(Read<UIOverray>(Find<InputSystem>(), "uiOverray"), Is.SameAs(overlay));
+        var root = Find<GameplayView>().transform.Find("GameRoot");
+        var keys = root.Find("Key Binding Area").gameObject;
+        var tutorial = root.Find("Tutorial Area").gameObject;
+        Assert.That(keys.activeSelf, Is.False);
+        InvokeInEditor(root.Find("Key Binding Button").GetComponent<Button>().onClick);
+        InvokeInEditor(root.Find("Tutorial Button").GetComponent<Button>().onClick);
+        Assert.That(keys.activeSelf && tutorial.activeSelf, Is.True);
+        Assert.That(overlay.UIPageCount, Is.EqualTo(2));
+        overlay.CloseUI();
+        Assert.That(tutorial.activeSelf, Is.False);
+        Assert.That(keys.activeSelf, Is.True);
+        overlay.CloseUI();
+        Assert.That(keys.activeSelf, Is.False);
+        Assert.That(overlay.UIPageCount, Is.Zero);
+        InvokeInEditor(root.Find("Setting Button").GetComponent<Button>().onClick);
+        var pause = Read<Pause>(Find<InputSystem>(), "pause");
+        Assert.That(pause.IsPaused, Is.True);
+        Assert.That(Read<GameObject>(pause, "pauseMenu").activeSelf, Is.True);
+        Assert.That(Time.timeScale, Is.Zero);
+        var close = Read<GameObject>(pause, "pauseMenu").GetComponentsInChildren<Button>(true)
+            .Single(button => HasEvent(button.onClick, pause, nameof(Pause.PauseGame)));
+        InvokeInEditor(close.onClick);
+        Assert.That(pause.IsPaused, Is.False);
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
+        Assert.That(Read<GameObject>(pause, "pauseMenu").activeSelf, Is.False);
+        Assert.That(root.GetComponentsInChildren<TMPro.TMP_Text>(true).Any(text => text.text == "[Q]"), Is.True);
+        var title = Read<GameObject>(pause, "pauseMenu").GetComponentInChildren<MoveToTitle>(true);
+        Assert.That(title, Is.Not.Null);
+        Assert.That(title.GetComponentsInChildren<Button>(true).Any(button =>
+            HasEvent(button.onClick, title, nameof(MoveToTitle.ToTitle))), Is.True);
+    }
+
+    private static void InitializeOverlayControls()
+    {
+        // Scene loading in Edit Mode does not call runtime Awake methods.
+        Invoke(Find<UIOverray>(), "Awake");
+        foreach (var control in Object.FindObjectsOfType<UiOnOff>(true)) Invoke(control, "Awake");
+    }
+
+    [Test]
     public void View_RefreshUsesTheMergedSliderAndRaiseButton()
     {
         OpenScene();
@@ -110,7 +159,7 @@ public sealed class GameplayUiSceneTests
         view.RefreshBetting(true, true, true, false, 4, 10);
         Assert.That(slider.value, Is.EqualTo(4));
         Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
-            Is.EqualTo("Raise (+4)"));
+            Is.EqualTo("Raise (+4) [R]"));
     }
 
     [Test]
@@ -123,11 +172,11 @@ public sealed class GameplayUiSceneTests
         var call = Read<Button[]>(view, "bettingActionButtons").Single(button =>
             HasEvent(button.onClick, Find<GameplayController>(), "OnCallClicked"));
         Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
-            Is.EqualTo("All in"));
+            Is.EqualTo("All in [R]"));
         view.RefreshBetting(true, true, false, false, 3, 5);
         Assert.That(call.interactable, Is.False);
         Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
-            Is.EqualTo("Raise (+3)"));
+            Is.EqualTo("Raise (+3) [R]"));
         view.RefreshBetting(false, false, false, false, 0, 0);
         Assert.That(Read<GameObject>(view, "playerActionBar").activeSelf, Is.False);
         Assert.That(Read<Slider>(view, "raiseSlider").interactable, Is.False);
@@ -182,7 +231,7 @@ public sealed class GameplayUiSceneTests
     }
 
     [UnityTest]
-    public IEnumerator ActualScene_FoldResultAndNextRoundWorkWithNewButtons()
+    public IEnumerator ActualScene_FoldResultNextRoundAndPausedTitleNavigationWorkWithNewButtons()
     {
         OpenScene();
         DelayDealer();
@@ -196,6 +245,17 @@ public sealed class GameplayUiSceneTests
         var controller = Find<GameplayController>();
         var view = Find<GameplayView>();
         yield return WaitUntil(() => CanBet(controller), "Initial round presentation");
+        var pause = Read<Pause>(Find<InputSystem>(), "pause");
+        view.transform.Find("GameRoot/Setting Button").GetComponent<Button>().onClick.Invoke();
+        yield return null;
+        Assert.That(pause.IsPaused, Is.True);
+        Assert.That(Read<GameObject>(pause, "pauseMenu").activeSelf, Is.True);
+        Assert.That(Time.timeScale, Is.Zero);
+        Read<GameObject>(pause, "pauseMenu").GetComponentsInChildren<Button>(true).Single(button =>
+            HasEvent(button.onClick, pause, nameof(Pause.PauseGame))).onClick.Invoke();
+        yield return null;
+        Assert.That(pause.IsPaused, Is.False);
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
         var fold = Read<Button[]>(view, "bettingActionButtons").Single(button =>
             HasEvent(button.onClick, controller, "OnFoldClicked"));
         fold.onClick.Invoke();
@@ -209,6 +269,13 @@ public sealed class GameplayUiSceneTests
         Assert.That(game.CurrentRound, Is.EqualTo(2));
         Assert.That(Read<GameObject>(view, "resultOverlay").activeSelf, Is.False);
         yield return WaitUntil(() => !Find<GameplayPresentationController>().IsBusy, "Next round presentation");
+        pause.PauseGame();
+        var title = Read<GameObject>(pause, "pauseMenu").GetComponentInChildren<MoveToTitle>(true);
+        title.GetComponentsInChildren<Button>(true).Single(button =>
+            HasEvent(button.onClick, title, nameof(MoveToTitle.ToTitle))).onClick.Invoke();
+        yield return null;
+        Assert.That(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name, Is.EqualTo("Title"));
+        Assert.That(Time.timeScale, Is.EqualTo(1f));
     }
 
     private static void OpenScene() => EditorSceneManager.OpenScene(ScenePath);

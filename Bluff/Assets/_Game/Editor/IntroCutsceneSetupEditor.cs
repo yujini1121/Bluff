@@ -179,12 +179,13 @@ public static class IntroCutsceneSetupEditor
         doorDirector.playOnAwake = false;
         doorDirector.extrapolationMode = DirectorWrapMode.Hold;
 
-        // Reuse the scene's TMP font/material by cloning its existing Next label.
-        TMP_Text source = All<TMP_Text>(scene).First(t => t.name == "Next Text");
+        // Reuse the scene's dialogue font and material for the interaction prompt.
+        TMP_Text source = (TMP_Text)new SerializedObject(dialogue).FindProperty("dialogueText").objectReferenceValue;
         GameObject prompt = UnityEngine.Object.Instantiate(source.gameObject, source.canvas.transform);
         prompt.name = "Dealer E Prompt";
         TMP_Text promptText = prompt.GetComponent<TMP_Text>();
         promptText.text = "E  Interact";
+        promptText.color = new Color(0.19607843f, 0.19607843f, 0.19607843f);
         promptText.fontSize = 30;
         promptText.alignment = TextAlignmentOptions.Center;
         promptText.raycastTarget = false;

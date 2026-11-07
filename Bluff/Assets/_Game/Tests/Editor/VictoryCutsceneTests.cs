@@ -86,10 +86,17 @@ public sealed class VictoryCutsceneTests
         }
         finally { EditorSceneManager.CloseScene(intro, true); }
         var panel = Read<GameObject>(flow, "dialoguePanel");
-        var next = panel.GetComponentInChildren<Button>(true);
-        Assert.That(next.onClick.GetPersistentTarget(0), Is.EqualTo(dialogue));
-        Assert.That(next.onClick.GetPersistentMethodName(0), Is.EqualTo("Next"));
-        Assert.That(flow.GetComponentsInChildren<Button>(true), Has.Length.EqualTo(1), "Only dialogue NEXT remains");
+        var clickArea = panel.GetComponent<Button>();
+        var clickRect = (RectTransform)clickArea.transform;
+        Assert.That(clickRect.anchorMin, Is.EqualTo(Vector2.zero));
+        Assert.That(clickRect.anchorMax, Is.EqualTo(Vector2.one));
+        Assert.That(clickRect.offsetMin, Is.EqualTo(Vector2.zero));
+        Assert.That(clickRect.offsetMax, Is.EqualTo(Vector2.zero));
+        Assert.That(clickArea.targetGraphic.color.a, Is.Zero);
+        Assert.That(clickArea.targetGraphic.raycastTarget, Is.True);
+        Assert.That(clickArea.onClick.GetPersistentTarget(0), Is.EqualTo(dialogue));
+        Assert.That(clickArea.onClick.GetPersistentMethodName(0), Is.EqualTo(nameof(DialogueController.Next)));
+        Assert.That(flow.GetComponentsInChildren<Button>(true), Has.Length.EqualTo(1), "Only the dialogue click area remains");
         var timeline = (UnityEngine.Timeline.TimelineAsset)director.playableAsset;
         var shots = timeline.GetOutputTracks().OfType<CinemachineTrack>().Single().GetClips().ToArray();
         Assert.That(shots.Select(c => ((CinemachineShot)c.asset).VirtualCamera.Resolve(director)).Distinct().Count(), Is.EqualTo(5));

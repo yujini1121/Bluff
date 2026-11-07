@@ -9,6 +9,7 @@ public sealed class DialogueController : MonoBehaviour
     [SerializeField] private TMP_Text dialogueText;
     [SerializeField] private string[] dialogueLines = Array.Empty<string>();
     [SerializeField] private GameObject dialoguePanel;
+    [SerializeField] private GameObject continueIndicator;
 
     [Header("Typing")]
     [SerializeField, Min(0f)] private float characterInterval = 0.04f;
@@ -46,9 +47,10 @@ public sealed class DialogueController : MonoBehaviour
 
     private void Start()
     {
-        if (dialoguePanel != null && !IsRunning)
+        if (!IsRunning)
         {
-            dialoguePanel.SetActive(false);
+            if (continueIndicator != null) continueIndicator.SetActive(false);
+            if (dialoguePanel != null) dialoguePanel.SetActive(false);
         }
     }
 
@@ -94,7 +96,7 @@ public sealed class DialogueController : MonoBehaviour
         if (IsTyping)
         {
             StopTyping();
-            if (dialogueText != null) dialogueText.maxVisibleCharacters = characterCount;
+            RevealCurrentLine();
             return;
         }
 
@@ -125,10 +127,9 @@ public sealed class DialogueController : MonoBehaviour
         Array.Copy(dialogueText.textInfo.characterInfo, lineCharacters, characterCount);
         dialogueText.maxVisibleCharacters = 0;
 
-        if (characterCount == 0) return;
-        if (characterInterval <= 0f || !isActiveAndEnabled)
+        if (characterCount == 0 || characterInterval <= 0f || !isActiveAndEnabled)
         {
-            dialogueText.maxVisibleCharacters = characterCount;
+            RevealCurrentLine();
             return;
         }
 
@@ -146,15 +147,20 @@ public sealed class DialogueController : MonoBehaviour
             PlayCharacterSound(lineCharacters[i]);
 
             float delay = GetCharacterDelay(i);
-            if (delay <= 0f)
-            {
-                dialogueText.maxVisibleCharacters = characterCount;
-                break;
-            }
+            if (delay <= 0f) break;
             yield return new WaitForSecondsRealtime(delay);
         }
         IsTyping = false;
         typingRoutine = null;
+        RevealCurrentLine();
+    }
+
+    private void RevealCurrentLine()
+    {
+        if (dialogueText == null) return;
+
+        dialogueText.maxVisibleCharacters = characterCount;
+        if (continueIndicator != null && isActiveAndEnabled) continueIndicator.SetActive(true);
     }
 
     private float GetCharacterDelay(int index)
@@ -216,6 +222,7 @@ public sealed class DialogueController : MonoBehaviour
         IsTyping = false;
         soundCharacterCount = 0;
         if (dialogueAudioSource != null) dialogueAudioSource.Stop();
+        if (continueIndicator != null) continueIndicator.SetActive(false);
     }
 
     private void OnDisable()

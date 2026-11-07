@@ -12,26 +12,6 @@ using UnityEngine.UI;
 
 public static class IntroBarRevisionEditor
 {
-    [MenuItem("Tools/Intro/Move Next To Former Skip Position")]
-    public static void MoveNextToFormerSkipPosition()
-    {
-        Scene scene = SceneManager.GetActiveScene();
-        if (scene.path != IntroCutsceneSetupEditor.IntroPath || EditorApplication.isPlayingOrWillChangePlaymode)
-            throw new InvalidOperationException("Open Intro in Edit Mode.");
-        var next = (RectTransform)Find(scene, "Next Button");
-        Undo.RecordObject(next, "Move Intro Next button");
-        // Exact RectTransform values read from the local pre-removal Skip Button backup.
-        next.anchorMin = next.anchorMax = new Vector2(0.5f, 0.5f);
-        next.pivot = new Vector2(0.5f, 0.5f);
-        next.anchoredPosition = new Vector2(815f, 70f);
-        var outline = Find(scene, "Bar ESC Keycap").GetComponentInChildren<IntroKeycapOutline>(true);
-        var serialized = new SerializedObject(outline);
-        serialized.FindProperty("thickness").floatValue = 3.5f;
-        serialized.ApplyModifiedPropertiesWithoutUndo();
-        EditorSceneManager.MarkSceneDirty(scene);
-        EditorSceneManager.SaveScene(scene);
-    }
-
     [MenuItem("Tools/Intro/Apply Bar Composition and Keycaps")]
     public static void ApplyOpenScene()
     {
@@ -87,7 +67,7 @@ public static class IntroBarRevisionEditor
         start.SetPositionAndRotation(entry,path.rotation);
 
         // Use a neutral TMP material rather than the purple material inherited by the old prompt.
-        var source = All<TMP_Text>(scene).First(t=>t.name=="Next Text");
+        var source = All<TMP_Text>(scene).Single(t => t.name == "Dialogue Text");
         var oldPrompt = Find(scene,"Dealer E Prompt");
         Transform canvas = source.canvas.transform;
         UnityEngine.Object.DestroyImmediate(oldPrompt.gameObject);
