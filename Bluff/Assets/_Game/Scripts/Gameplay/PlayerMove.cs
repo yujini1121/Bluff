@@ -51,17 +51,16 @@ public class PlayerMove : MonoBehaviour
     {
         if (MoveInputEnabled)
         {
-            Move();
+            Move(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         }
     }
 
-    private void Move()
+    private void Move(float x, float z)
     {
-        float x = Input.GetAxisRaw("Horizontal"); // A, D
-        float z = Input.GetAxisRaw("Vertical");   // W, S
-
         Vector3 move = transform.right * x + transform.forward * z;
-        rb.MovePosition(rb.position + move * speed * Time.fixedDeltaTime);
+        Vector3 velocity = Vector3.ClampMagnitude(move, 1f) * speed;
+        velocity.y = rb.velocity.y;
+        rb.velocity = velocity;
     }
 
     private void Rotate()
