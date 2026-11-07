@@ -19742,7 +19742,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cameraHolder: {fileID: 875688883}
   speed: 3.5
-  mouseSensitivity: 260
+  mouseSensitivity: 120
   minPitch: -85
   maxPitch: 85
 --- !u!1 &1705649468
