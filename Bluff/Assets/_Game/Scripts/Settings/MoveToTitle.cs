@@ -11,6 +11,7 @@ public class MoveToTitle : MonoBehaviour
 
     public void ToTitle()
     {
+        Time.timeScale = 1f;
         UnityEngine.SceneManagement.SceneManager.LoadScene("Title");
         soundSystem.StopBGM();
     }

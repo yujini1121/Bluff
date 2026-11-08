@@ -73,6 +73,8 @@ public sealed class GameplayController : MonoBehaviour
         gameState?.DealerChips.Count ?? 0;
     public int CurrentDeckRemainingCount =>
         gameState?.Deck.RemainingCount ?? 0;
+    public int GetCurrentBetChipCount(TurnOwner owner) =>
+        gameState?.Betting.GetTotalBet(owner) ?? 0;
     public GameMode CurrentGameMode =>
         gameState?.GameMode ?? GameModeSelection.SelectedMode;
     public int CurrentRound => gameState?.CurrentRound ?? 0;

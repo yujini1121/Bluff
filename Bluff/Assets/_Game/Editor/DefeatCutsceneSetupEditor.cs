@@ -128,6 +128,12 @@ public static class DefeatCutsceneSetupEditor
         panel.name = "Defeat Dialogue Panel";
         string textPath = AnimationUtility.CalculateTransformPath(Ref<TMP_Text>(sourceDialogue, "dialogueText").transform, sourcePanel.transform);
         Set(dialogue, "dialogueText", panel.transform.Find(textPath).GetComponent<TMP_Text>());
+        var sourceIndicator = Ref<GameObject>(sourceDialogue, "continueIndicator");
+        if (sourceIndicator != null)
+        {
+            string indicatorPath = AnimationUtility.CalculateTransformPath(sourceIndicator.transform, sourcePanel.transform);
+            Set(dialogue, "continueIndicator", panel.transform.Find(indicatorPath).gameObject);
+        }
         Set(dialogue, "dialoguePanel", panel);
         foreach (var button in panel.GetComponentsInChildren<Button>(true))
         {

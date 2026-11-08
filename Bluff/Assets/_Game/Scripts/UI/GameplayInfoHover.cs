@@ -5,7 +5,9 @@ public enum GameplayInfoHoverTarget
     PlayerChips,
     DealerChips,
     Deck,
-    Item
+    Item,
+    PlayerBetChips,
+    DealerBetChips
 }
 
 public sealed class GameplayInfoHover : MonoBehaviour
@@ -19,6 +21,9 @@ public sealed class GameplayInfoHover : MonoBehaviour
 
     private bool isHovered;
     private Camera worldCamera;
+    private int? shownBetCount;
+    private bool IsBetTarget => target == GameplayInfoHoverTarget.PlayerBetChips ||
+        target == GameplayInfoHoverTarget.DealerBetChips;
 
     private void Awake()
     {
@@ -41,7 +46,15 @@ public sealed class GameplayInfoHover : MonoBehaviour
 
         isHovered = true;
         worldCamera = Camera.main;
-        tooltip.Show(BuildInfoText());
+        tooltip.SetSize(target);
+        if (IsBetTarget)
+        {
+            UpdateBetCount();
+        }
+        else
+        {
+            tooltip.Show(BuildInfoText());
+        }
         UpdateTooltipPosition();
     }
 
@@ -54,6 +67,7 @@ public sealed class GameplayInfoHover : MonoBehaviour
     {
         if (isHovered)
         {
+            if (IsBetTarget) UpdateBetCount();
             UpdateTooltipPosition();
         }
     }
@@ -92,9 +106,24 @@ public sealed class GameplayInfoHover : MonoBehaviour
 
     private void StopHover()
     {
+        if (!isHovered) return;
+
         isHovered = false;
         worldCamera = null;
+        shownBetCount = null;
         tooltip?.Hide();
+    }
+
+    private void UpdateBetCount()
+    {
+        if (gameUi == null || tooltip == null) return;
+
+        TurnOwner owner = target == GameplayInfoHoverTarget.PlayerBetChips ? TurnOwner.Player : TurnOwner.Dealer;
+        int count = gameUi.GetCurrentBetChipCount(owner);
+        if (shownBetCount == count) return;
+
+        shownBetCount = count;
+        tooltip.Show(count.ToString());
     }
 
     private string BuildInfoText()
@@ -102,16 +131,12 @@ public sealed class GameplayInfoHover : MonoBehaviour
         switch (target)
         {
             case GameplayInfoHoverTarget.PlayerChips:
-                tooltip.SetSize(target);
                 return gameUi.CurrentPlayerChipCount.ToString();
             case GameplayInfoHoverTarget.DealerChips:
-                tooltip.SetSize(target);
                 return gameUi.CurrentDealerChipCount.ToString();
             case GameplayInfoHoverTarget.Deck:
-                tooltip.SetSize(target);
                 return gameUi.CurrentDeckRemainingCount.ToString();
             case GameplayInfoHoverTarget.Item:
-                tooltip.SetSize(target);
                 Item item = this.gameObject.GetComponent<Item>();
                 return item != null ? item.GetDescription() : string.Empty;
             default:

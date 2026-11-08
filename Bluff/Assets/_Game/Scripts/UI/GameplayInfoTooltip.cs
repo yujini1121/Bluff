@@ -85,6 +85,8 @@ public sealed class GameplayInfoTooltip : MonoBehaviour
         {
             case GameplayInfoHoverTarget.PlayerChips:
             case GameplayInfoHoverTarget.DealerChips:
+            case GameplayInfoHoverTarget.PlayerBetChips:
+            case GameplayInfoHoverTarget.DealerBetChips:
             case GameplayInfoHoverTarget.Deck:
                 tooltipRect.sizeDelta = new Vector2(50f, 40f);
                 break;
