@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 public sealed class TitleSceneController : MonoBehaviour
 {
-    private const string GameplaySceneName = "Intro";
+    private const string IntroSceneName = "Intro";
     private const string MasterVolume = "MasterVolume";
     private const string BGMVolume = "BGMVolume";
     private const string SFXVolume = "SFXVolume";
@@ -85,12 +85,12 @@ public sealed class TitleSceneController : MonoBehaviour
 
     public void StartRoundLimited()
     {
-        StartGame(GameMode.RoundLimited);
+        StartGame(GameMode.RoundLimited, IntroSceneName);
     }
 
     public void StartEndless()
     {
-        StartGame(GameMode.Endless);
+        StartGame(GameMode.Endless, IntroFlowController.GameplaySceneName);
     }
 
     public void ExitGame()
@@ -98,9 +98,9 @@ public sealed class TitleSceneController : MonoBehaviour
         UnityEngine.Application.Quit();
     }
 
-    private static void StartGame(GameMode gameMode)
+    private static void StartGame(GameMode gameMode, string sceneName)
     {
         GameModeSelection.Select(gameMode);
-        SceneManager.LoadScene(GameplaySceneName);
+        SceneManager.LoadScene(sceneName);
     }
 }
