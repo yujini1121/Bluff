@@ -147,6 +147,114 @@ public sealed class GameplayUiSceneTests
         foreach (var control in Object.FindObjectsOfType<UiOnOff>(true)) Invoke(control, "Awake");
     }
 
+    [TestCase(ScenePath)]
+    [TestCase("Assets/_Game/Scenes/Dev_Hwijun.unity")]
+    public void Scene_RoundMarkersUseScheduleAndHideInEndless(string scenePath)
+    {
+        EditorSceneManager.OpenScene(scenePath);
+        var controller = Find<GameplayController>();
+        var view = Find<GameplayView>();
+        var classicLayout = Read<GameObject>(view, "classicRoundLayout");
+        var panel = classicLayout.transform.parent;
+        Assert.That(panel.localScale, Is.EqualTo(new Vector3(1.5f, 1.5f, 1f)));
+        Assert.That(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(panel.gameObject),
+            Is.EqualTo("Assets/_Game/Prefabs/UI/RoundPanel.prefab"));
+        var progress = Read<RoundProgressView>(view, "roundProgress");
+        Assert.That(progress.transform.childCount, Is.EqualTo(10));
+        var roundLabel = Read<TMPro.TMP_Text>(view, "roundText");
+        view.Initialize(controller.IsItemRewardRound);
+
+        var white = Read<Color>(progress, "currentFillColor");
+        var past = Read<Color>(progress, "pastFillColor");
+        var future = Read<Color>(progress, "futureFillColor");
+        var futureBorder = Read<Color>(progress, "futureBorderColor");
+        var futureItem = Read<Color>(progress, "futureItemBorderColor");
+        var currentItem = Read<Color>(progress, "currentItemColor");
+        var pastItem = Read<Color>(progress, "pastItemColor");
+        Assert.That(white.grayscale, Is.GreaterThan(past.grayscale));
+        Assert.That(past.grayscale, Is.GreaterThan(future.grayscale));
+        Assert.That(currentItem.grayscale, Is.GreaterThan(futureItem.grayscale));
+        Assert.That(futureItem.grayscale, Is.GreaterThan(pastItem.grayscale));
+
+        view.RefreshRound(GameMode.RoundLimited, 3);
+        Assert.That(roundLabel.text, Is.EqualTo("Round 3 / 10"));
+        AssertMarker(1, past, past);
+        AssertMarker(2, pastItem, pastItem);
+        AssertMarker(3, white, white);
+        AssertMarker(4, futureBorder, future);
+        AssertMarker(5, futureItem, future);
+        view.RefreshRound(GameMode.RoundLimited, 5);
+        AssertMarker(5, currentItem, currentItem);
+
+        view.RefreshRound(GameMode.Endless, 11);
+        Assert.That(Read<TMPro.TMP_Text>(view, "endlessRoundText").text, Is.EqualTo("Round 11"));
+        Assert.That(roundLabel.gameObject.activeInHierarchy, Is.False);
+        Assert.That(Read<GameObject>(view, "endlessRoundLayout").activeSelf, Is.True);
+        Assert.That(progress.gameObject.activeSelf, Is.False);
+
+        SetRewardRounds(controller, 2, 4, 6, 8);
+        view.RefreshRound(GameMode.RoundLimited, 4);
+        Assert.That(progress.gameObject.activeSelf, Is.True);
+        AssertMarker(4, currentItem, currentItem);
+        AssertMarker(5, futureBorder, future);
+        AssertMarker(6, futureItem, future);
+
+        void AssertMarker(int round, Color border, Color fill)
+        {
+            var marker = progress.transform.GetChild(round - 1);
+            Assert.That(marker.GetComponent<Image>().color, Is.EqualTo(border), $"{round}R border");
+            Assert.That(marker.GetChild(0).GetComponent<Image>().color, Is.EqualTo(fill), $"{round}R fill");
+        }
+    }
+
+    [TestCase(GameMode.RoundLimited, false, 10, false)]
+    [TestCase(GameMode.Endless, false, 40, false)]
+    [TestCase(GameMode.Endless, true, 20, false)]
+    [TestCase(GameMode.Endless, false, 20, true)]
+    public void Scene_RoundRewardsSpawnOnlyOnScheduledRounds(GameMode mode, bool customSchedule, int lastRound, bool keepItems)
+    {
+        OpenScene();
+        var controller = Find<GameplayController>();
+        var state = new GameState(40, 40, Deck.CreateIndianHoldemDeck(), mode);
+        Set(controller, "gameState", state);
+        if (customSchedule)
+        {
+            SetRewardRounds(controller, 2, 4, 6, 8, 8);
+        }
+
+        int[] rewardRounds = customSchedule
+            ? new[] { 2, 4, 6, 8, 12, 14, 16, 18 }
+            : new[] { 2, 5, 8, 12, 15, 18, 22, 25, 28, 32, 35, 38 };
+        var inventory = Read<Inventory>(Find<ItemSystem>(), "inventory");
+        int originalItemCount = Object.FindObjectsOfType<Item>().Length;
+        int expected = 0;
+        for (int round = 1; round <= lastRound; round++)
+        {
+            typeof(GameState).GetProperty(nameof(GameState.CurrentRound)).SetValue(state, round);
+            if (rewardRounds.Contains(round) && expected < 4) expected++;
+            Invoke(controller, "RunRoundStartEffects");
+            Invoke(controller, "RunRoundStartEffects");
+            Assert.That(inventory.playerItemInventory.Count(item => item != null), Is.EqualTo(expected), $"{round}R player");
+            Assert.That(inventory.dealerItemInventory.Count(item => item != null), Is.EqualTo(expected), $"{round}R dealer");
+            Assert.That(Object.FindObjectsOfType<Item>().Length, Is.EqualTo(originalItemCount + 2 * expected), $"{round}R spawn count");
+
+            if (keepItems) continue;
+            foreach (var item in inventory.playerItemInventory.Concat(inventory.dealerItemInventory))
+                if (item != null) Object.DestroyImmediate(item);
+            expected = 0;
+        }
+    }
+
+    private static void SetRewardRounds(GameplayController controller, params int[] rounds)
+    {
+        var serializedController = new SerializedObject(controller);
+        var schedule = serializedController.FindProperty("itemRewardRounds");
+        schedule.arraySize = rounds.Length;
+        for (int index = 0; index < rounds.Length; index++)
+            schedule.GetArrayElementAtIndex(index).intValue = rounds[index];
+        serializedController.ApplyModifiedPropertiesWithoutUndo();
+    }
+
     [Test]
     public void View_RefreshUsesTheMergedSliderAndRaiseButton()
     {

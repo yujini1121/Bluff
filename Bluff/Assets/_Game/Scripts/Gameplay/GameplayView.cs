@@ -22,6 +22,10 @@ public sealed class GameplayView : MonoBehaviour
 
     [Header("Gameplay HUD")]
     [SerializeField] private TMP_Text roundText;
+    [SerializeField] private RoundProgressView roundProgress;
+    [SerializeField] private GameObject classicRoundLayout;
+    [SerializeField] private GameObject endlessRoundLayout;
+    [SerializeField] private TMP_Text endlessRoundText;
     [SerializeField] private GameObject dealerHandRankUI;
     [SerializeField] private TMP_Text dealerHandRankText;
     [SerializeField] private SwitchCamera switchCamera;
@@ -48,10 +52,12 @@ public sealed class GameplayView : MonoBehaviour
     private readonly List<TMP_Text> callActionTexts = new List<TMP_Text>();
     private readonly List<Button> callActionButtons = new List<Button>();
     private ItemUseNotice itemUseNotice;
+    private Predicate<int> isItemRewardRound;
     public CanvasGroup GameplayHud => GetComponent<CanvasGroup>();
 
-    public void Initialize()
+    public void Initialize(Predicate<int> isItemRewardRound = null)
     {
+        this.isItemRewardRound = isItemRewardRound;
         ApplyUiFont();
         CacheCallActionTexts();
     }
@@ -65,7 +71,7 @@ public sealed class GameplayView : MonoBehaviour
 
         if (itemUseNotice == null)
         {
-            Canvas canvas = roundText.canvas;
+            Canvas canvas = roundText.GetComponentInParent<Canvas>(true);
             if (canvas == null || itemUseNoticePrefab == null) return;
             itemUseNotice = ItemUseNotice.Create(itemUseNoticePrefab, canvas.rootCanvas, uiFont != null ? uiFont : roundText.font);
         }
@@ -107,9 +113,19 @@ public sealed class GameplayView : MonoBehaviour
 
     public void RefreshRound(GameMode gameMode, int currentRound)
     {
-        roundText.text = gameMode == GameMode.RoundLimited
+        bool isClassic = gameMode == GameMode.RoundLimited;
+        if (classicRoundLayout != null) classicRoundLayout.SetActive(isClassic);
+        if (endlessRoundLayout != null) endlessRoundLayout.SetActive(!isClassic);
+
+        TMP_Text label = !isClassic && endlessRoundText != null ? endlessRoundText : roundText;
+        label.text = isClassic
             ? $"Round {currentRound} / {GameState.MaximumRoundCount}"
             : $"Round {currentRound}";
+
+        if (roundProgress != null)
+        {
+            roundProgress.Refresh(isClassic, currentRound, isItemRewardRound);
+        }
     }
 
     public void RefreshDealerHand(GameState gameState)

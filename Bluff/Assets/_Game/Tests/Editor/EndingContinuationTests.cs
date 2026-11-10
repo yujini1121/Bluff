@@ -134,8 +134,10 @@ public sealed class EndingContinuationTests
         var state = Read<GameState>(controller, "gameState");
         var items = Read<ItemSystem>(controller, "itemSystem");
         var inventory = Read<Inventory>(items, "inventory");
+        Assert.That(inventory.playerItemInventory.Concat(inventory.dealerItemInventory).Count(i => i != null), Is.Zero);
+        items.GetItem();
         var retainedItems = inventory.playerItemInventory.Concat(inventory.dealerItemInventory).Where(i => i != null).ToArray();
-        Assert.That(retainedItems.Length, Is.GreaterThan(0));
+        Assert.That(retainedItems.Length, Is.EqualTo(2));
         typeof(GameState).GetProperty("CurrentRound").SetValue(state, 10);
         state.TrySetPhase(GamePhase.Showdown);
         state.TrySetPlayerCard(new Card(5)); state.TrySetDealerCard(new Card(5));
@@ -164,6 +166,11 @@ public sealed class EndingContinuationTests
         Assert.That(state.Pot.Amount, Is.EqualTo(carriedPot));
         foreach (var item in retainedItems)
             Assert.That(inventory.playerItemInventory.Concat(inventory.dealerItemInventory), Does.Contain(item));
+        Assert.That(inventory.playerItemInventory.Count(i => i != null), Is.EqualTo(1));
+        Assert.That(inventory.dealerItemInventory.Count(i => i != null), Is.EqualTo(1));
+        var view = Find<GameplayView>();
+        Assert.That(Read<TMPro.TMP_Text>(view, "endlessRoundText").text, Is.EqualTo("Round 11"));
+        Assert.That(Read<RoundProgressView>(view, "roundProgress").gameObject.activeSelf, Is.False);
         Assert.That(screen.IsVisible || screen.IsActive, Is.False);
         Assert.That(state.FinalWinner, Is.EqualTo(GameWinner.None));
         deadline = Time.realtimeSinceStartup + 30;
@@ -173,7 +180,17 @@ public sealed class EndingContinuationTests
             yield return null;
         }
         Assert.That(state.Phase, Is.EqualTo(GamePhase.Betting));
-        Assert.That(Find<GameplayView>().GameplayHud.alpha, Is.GreaterThan(0.99f));
+        Assert.That(view.GameplayHud.alpha, Is.GreaterThan(0.99f));
+        state.TrySetPhase(GamePhase.Showdown);
+        state.TrySetPlayerCard(new Card(5)); state.TrySetDealerCard(new Card(5));
+        state.TrySetCommunityCards(new Card(5), new Card(5));
+        Assert.That(state.TrySettleShowdown(out winner), Is.True);
+        Set(controller, "roundWinner", winner); Set(controller, "isShowdownResultVisible", true);
+        controller.OnNextRoundClicked();
+        Assert.That(state.CurrentRound, Is.EqualTo(12));
+        Assert.That(inventory.playerItemInventory.Count(i => i != null), Is.EqualTo(2));
+        Assert.That(inventory.dealerItemInventory.Count(i => i != null), Is.EqualTo(2));
+        yield return Ready();
         state.TrySetPhase(GamePhase.Showdown);
         state.TrySetPlayerCard(new Card(4)); state.TrySetDealerCard(new Card(7));
         state.TrySetCommunityCards(new Card(4), new Card(4));
@@ -295,8 +312,8 @@ public sealed class EndingContinuationTests
         var freshItems = Read<ItemSystem>(freshController, "itemSystem");
         Assert.That(freshItems, Is.Not.SameAs(items));
         var freshInventory = Read<Inventory>(freshItems, "inventory");
-        Assert.That(freshInventory.playerItemInventory.Count(i => i != null), Is.EqualTo(1));
-        Assert.That(freshInventory.dealerItemInventory.Count(i => i != null), Is.EqualTo(1));
+        Assert.That(freshInventory.playerItemInventory.Count(i => i != null), Is.Zero);
+        Assert.That(freshInventory.dealerItemInventory.Count(i => i != null), Is.Zero);
         Assert.That(Find<EndingScreenController>().IsActive, Is.False);
         Assert.That(Find<VictoryCutsceneController>().HasPlayed, Is.False);
         Assert.That(Find<DefeatCutsceneController>().HasPlayed, Is.False);
