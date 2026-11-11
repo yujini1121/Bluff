@@ -169,8 +169,9 @@ public sealed class EndingContinuationTests
         Assert.That(inventory.playerItemInventory.Count(i => i != null), Is.EqualTo(1));
         Assert.That(inventory.dealerItemInventory.Count(i => i != null), Is.EqualTo(1));
         var view = Find<GameplayView>();
-        Assert.That(Read<TMPro.TMP_Text>(view, "endlessRoundText").text, Is.EqualTo("Round 11"));
-        Assert.That(Read<RoundProgressView>(view, "roundProgress").gameObject.activeSelf, Is.False);
+        var roundLabel = Read<TMPro.TMP_Text>(view, "roundText");
+        Assert.That(roundLabel.text, Is.EqualTo("Round 11"));
+        Assert.That(Read<RoundProgressView>(view, "roundProgress").gameObject.activeInHierarchy, Is.True);
         Assert.That(screen.IsVisible || screen.IsActive, Is.False);
         Assert.That(state.FinalWinner, Is.EqualTo(GameWinner.None));
         deadline = Time.realtimeSinceStartup + 30;
@@ -188,6 +189,7 @@ public sealed class EndingContinuationTests
         Set(controller, "roundWinner", winner); Set(controller, "isShowdownResultVisible", true);
         controller.OnNextRoundClicked();
         Assert.That(state.CurrentRound, Is.EqualTo(12));
+        Assert.That(roundLabel.text, Is.EqualTo("Round 12"));
         Assert.That(inventory.playerItemInventory.Count(i => i != null), Is.EqualTo(2));
         Assert.That(inventory.dealerItemInventory.Count(i => i != null), Is.EqualTo(2));
         yield return Ready();

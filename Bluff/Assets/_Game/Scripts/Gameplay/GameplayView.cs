@@ -23,9 +23,6 @@ public sealed class GameplayView : MonoBehaviour
     [Header("Gameplay HUD")]
     [SerializeField] private TMP_Text roundText;
     [SerializeField] private RoundProgressView roundProgress;
-    [SerializeField] private GameObject classicRoundLayout;
-    [SerializeField] private GameObject endlessRoundLayout;
-    [SerializeField] private TMP_Text endlessRoundText;
     [SerializeField] private GameObject dealerHandRankUI;
     [SerializeField] private TMP_Text dealerHandRankText;
     [SerializeField] private SwitchCamera switchCamera;
@@ -113,18 +110,13 @@ public sealed class GameplayView : MonoBehaviour
 
     public void RefreshRound(GameMode gameMode, int currentRound)
     {
-        bool isClassic = gameMode == GameMode.RoundLimited;
-        if (classicRoundLayout != null) classicRoundLayout.SetActive(isClassic);
-        if (endlessRoundLayout != null) endlessRoundLayout.SetActive(!isClassic);
-
-        TMP_Text label = !isClassic && endlessRoundText != null ? endlessRoundText : roundText;
-        label.text = isClassic
+        roundText.text = gameMode == GameMode.RoundLimited
             ? $"Round {currentRound} / {GameState.MaximumRoundCount}"
             : $"Round {currentRound}";
 
         if (roundProgress != null)
         {
-            roundProgress.Refresh(isClassic, currentRound, isItemRewardRound);
+            roundProgress.Refresh(GameState.GetRoundInCycle(currentRound), isItemRewardRound);
         }
     }
 

@@ -147,21 +147,17 @@ public sealed class GameplayUiSceneTests
         foreach (var control in Object.FindObjectsOfType<UiOnOff>(true)) Invoke(control, "Awake");
     }
 
-    [TestCase(ScenePath)]
-    [TestCase("Assets/_Game/Scenes/Dev_Hwijun.unity")]
-    public void Scene_RoundMarkersUseScheduleAndHideInEndless(string scenePath)
+    [Test]
+    public void Scene_RoundMarkersUseScheduleAndRepeatInEndless()
     {
-        EditorSceneManager.OpenScene(scenePath);
+        OpenScene();
         var controller = Find<GameplayController>();
         var view = Find<GameplayView>();
-        var classicLayout = Read<GameObject>(view, "classicRoundLayout");
-        var panel = classicLayout.transform.parent;
-        Assert.That(panel.localScale, Is.EqualTo(new Vector3(1.5f, 1.5f, 1f)));
-        Assert.That(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(panel.gameObject),
+        var roundLabel = Read<TMPro.TMP_Text>(view, "roundText");
+        Assert.That(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(roundLabel.gameObject),
             Is.EqualTo("Assets/_Game/Prefabs/UI/RoundPanel.prefab"));
         var progress = Read<RoundProgressView>(view, "roundProgress");
         Assert.That(progress.transform.childCount, Is.EqualTo(10));
-        var roundLabel = Read<TMPro.TMP_Text>(view, "roundText");
         view.Initialize(controller.IsItemRewardRound);
 
         var white = Read<Color>(progress, "currentFillColor");
@@ -186,15 +182,27 @@ public sealed class GameplayUiSceneTests
         view.RefreshRound(GameMode.RoundLimited, 5);
         AssertMarker(5, currentItem, currentItem);
 
-        view.RefreshRound(GameMode.Endless, 11);
-        Assert.That(Read<TMPro.TMP_Text>(view, "endlessRoundText").text, Is.EqualTo("Round 11"));
-        Assert.That(roundLabel.gameObject.activeInHierarchy, Is.False);
-        Assert.That(Read<GameObject>(view, "endlessRoundLayout").activeSelf, Is.True);
-        Assert.That(progress.gameObject.activeSelf, Is.False);
+        foreach (int lastRound in new[] { 10, 20, 30, 40 })
+        {
+            view.RefreshRound(GameMode.Endless, lastRound);
+            AssertMarker(1, past, past);
+            AssertMarker(2, pastItem, pastItem);
+            AssertMarker(10, white, white);
+
+            view.RefreshRound(GameMode.Endless, lastRound + 1);
+            Assert.That(roundLabel.text, Is.EqualTo($"Round {lastRound + 1}"));
+            Assert.That(progress.gameObject.activeInHierarchy, Is.True);
+            AssertMarker(1, white, white);
+            for (int slot = 2; slot <= 10; slot++)
+                AssertMarker(slot, controller.IsItemRewardRound(lastRound + slot) ? futureItem : futureBorder, future);
+
+            view.RefreshRound(GameMode.Endless, lastRound + 2);
+            AssertMarker(1, past, past);
+            AssertMarker(2, currentItem, currentItem);
+        }
 
         SetRewardRounds(controller, 2, 4, 6, 8);
-        view.RefreshRound(GameMode.RoundLimited, 4);
-        Assert.That(progress.gameObject.activeSelf, Is.True);
+        view.RefreshRound(GameMode.Endless, 14);
         AssertMarker(4, currentItem, currentItem);
         AssertMarker(5, futureBorder, future);
         AssertMarker(6, futureItem, future);
@@ -202,13 +210,13 @@ public sealed class GameplayUiSceneTests
         void AssertMarker(int round, Color border, Color fill)
         {
             var marker = progress.transform.GetChild(round - 1);
-            Assert.That(marker.GetComponent<Image>().color, Is.EqualTo(border), $"{round}R border");
-            Assert.That(marker.GetChild(0).GetComponent<Image>().color, Is.EqualTo(fill), $"{round}R fill");
+            Assert.That(marker.GetComponent<Image>().color, Is.EqualTo(border), $"{roundLabel.text}, marker {round} border");
+            Assert.That(marker.GetChild(0).GetComponent<Image>().color, Is.EqualTo(fill), $"{roundLabel.text}, marker {round} fill");
         }
     }
 
     [TestCase(GameMode.RoundLimited, false, 10, false)]
-    [TestCase(GameMode.Endless, false, 40, false)]
+    [TestCase(GameMode.Endless, false, 50, false)]
     [TestCase(GameMode.Endless, true, 20, false)]
     [TestCase(GameMode.Endless, false, 20, true)]
     public void Scene_RoundRewardsSpawnOnlyOnScheduledRounds(GameMode mode, bool customSchedule, int lastRound, bool keepItems)
@@ -224,7 +232,7 @@ public sealed class GameplayUiSceneTests
 
         int[] rewardRounds = customSchedule
             ? new[] { 2, 4, 6, 8, 12, 14, 16, 18 }
-            : new[] { 2, 5, 8, 12, 15, 18, 22, 25, 28, 32, 35, 38 };
+            : new[] { 2, 5, 8, 12, 15, 18, 22, 25, 28, 32, 35, 38, 42, 45, 48 };
         var inventory = Read<Inventory>(Find<ItemSystem>(), "inventory");
         int originalItemCount = Object.FindObjectsOfType<Item>().Length;
         int expected = 0;

@@ -23,19 +23,13 @@ public sealed class RoundProgressView : MonoBehaviour
     [SerializeField] private Color currentItemColor;
     [SerializeField] private Color pastItemColor;
 
-    public void Refresh(bool visible, int currentRound, Predicate<int> isItemRewardRound)
+    public void Refresh(int currentRoundInCycle, Predicate<int> isItemRewardRound)
     {
-        gameObject.SetActive(visible);
-        if (!visible)
-        {
-            return;
-        }
-
         for (int index = 0; index < markers.Length; index++)
         {
             int round = index + 1;
-            bool isFuture = round > currentRound;
-            bool isCurrent = round == currentRound;
+            bool isFuture = round > currentRoundInCycle;
+            bool isCurrent = round == currentRoundInCycle;
             bool hasItemReward = isItemRewardRound?.Invoke(round) == true;
             Marker marker = markers[index];
             Color fillColor = isFuture ? futureFillColor : hasItemReward

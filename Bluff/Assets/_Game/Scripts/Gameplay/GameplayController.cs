@@ -6,8 +6,6 @@ using UnityEngine.SceneManagement;
 
 public sealed class GameplayController : MonoBehaviour
 {
-    private const int ItemRewardCycleLength = 10;
-
     [Header("게임 시작 설정")]
     [SerializeField, Min(0), InspectorName("플레이어 시작 칩")]
     private int playerStartingChips = 10;
@@ -91,7 +89,7 @@ public sealed class GameplayController : MonoBehaviour
             return false;
         }
 
-        int roundInCycle = (round - 1) % ItemRewardCycleLength + 1;
+        int roundInCycle = GameState.GetRoundInCycle(round);
         return Array.IndexOf(itemRewardRounds, roundInCycle) >= 0;
     }
 
