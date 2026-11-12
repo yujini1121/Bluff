@@ -53,7 +53,7 @@ public sealed class TitleSceneController : MonoBehaviour
 
         var events = EventSystem.current;
         menuSelection = events != null ? events.currentSelectedGameObject : null;
-        if (events != null) events.SetSelectedGameObject(null);
+        ResetMenuFocus();
 
         menuButtonGroup.SetActive(false);
         creditsPanel.SetActive(true);
@@ -64,10 +64,10 @@ public sealed class TitleSceneController : MonoBehaviour
     {
         if (creditsPanel == null || !creditsPanel.activeSelf) return;
 
+        ResetMenuFocus(menuSelection);
+        menuSelection = null;
         creditsPanel.SetActive(false);
         menuButtonGroup.SetActive(true);
-        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(menuSelection);
-        menuSelection = null;
     }
 
     public void OpenSettings()
@@ -75,11 +75,8 @@ public sealed class TitleSceneController : MonoBehaviour
         if (settingsPanel.activeSelf) return;
 
         var events = EventSystem.current;
-        if (events != null)
-        {
-            menuSelection = events.currentSelectedGameObject;
-            events.SetSelectedGameObject(null);
-        }
+        menuSelection = events != null ? events.currentSelectedGameObject : null;
+        ResetMenuFocus();
         settingsPanel.SetActive(true);
     }
 
@@ -87,10 +84,19 @@ public sealed class TitleSceneController : MonoBehaviour
     {
         if (!settingsPanel.activeSelf) return;
 
-        settingsPanel.SetActive(false);
-        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(menuSelection);
+        ResetMenuFocus(menuSelection);
         menuSelection = null;
+        settingsPanel.SetActive(false);
         PlayerPrefs.Save();
+    }
+
+    private void ResetMenuFocus(GameObject resumeTarget = null)
+    {
+        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
+        if (menuButtonGroup != null && menuButtonGroup.TryGetComponent<TitleMenuArrow>(out var menuArrow))
+        {
+            menuArrow.ResetFocus(resumeTarget);
+        }
     }
 
     public void SetMasterVolume(float volume) => SetVolume(MasterVolume, MasterSliderSaveKey, volume);
