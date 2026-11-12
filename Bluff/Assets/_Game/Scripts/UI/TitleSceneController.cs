@@ -19,6 +19,9 @@ public sealed class TitleSceneController : MonoBehaviour
     [SerializeField] private Slider masterVolumeSlider;
     [SerializeField] private Slider bgmVolumeSlider;
     [SerializeField] private Slider sfxVolumeSlider;
+    [SerializeField] private GameObject menuButtonGroup;
+    [SerializeField] private GameObject creditsPanel;
+    [SerializeField] private Button creditsBackButton;
 
     private GameObject menuSelection;
 
@@ -31,10 +34,40 @@ public sealed class TitleSceneController : MonoBehaviour
 
     private void Update()
     {
-        if (settingsPanel != null && settingsPanel.activeSelf && Input.GetKeyDown(KeyCode.Escape))
+        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+
+        if (creditsPanel != null && creditsPanel.activeSelf)
+        {
+            CloseCredits();
+        }
+        else if (settingsPanel != null && settingsPanel.activeSelf)
         {
             CloseSettings();
         }
+    }
+
+    public void OpenCredits()
+    {
+        if (creditsPanel == null || creditsPanel.activeSelf || menuButtonGroup == null) return;
+        if (settingsPanel != null && settingsPanel.activeSelf) return;
+
+        var events = EventSystem.current;
+        menuSelection = events != null ? events.currentSelectedGameObject : null;
+        if (events != null) events.SetSelectedGameObject(null);
+
+        menuButtonGroup.SetActive(false);
+        creditsPanel.SetActive(true);
+        if (events != null && creditsBackButton != null) events.SetSelectedGameObject(creditsBackButton.gameObject);
+    }
+
+    public void CloseCredits()
+    {
+        if (creditsPanel == null || !creditsPanel.activeSelf) return;
+
+        creditsPanel.SetActive(false);
+        menuButtonGroup.SetActive(true);
+        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(menuSelection);
+        menuSelection = null;
     }
 
     public void OpenSettings()
