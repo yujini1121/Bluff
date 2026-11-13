@@ -26,11 +26,13 @@ public sealed class IntroSceneSkeletonTests
         SceneManager.LoadScene("Intro");
         yield return null;
         yield return null;
+        yield return Seconds(0.2f);
         var flow = UnityEngine.Object.FindObjectOfType<IntroFlowController>();
         var player = UnityEngine.Object.FindObjectOfType<PlayerMove>();
         var view = Read<Transform>(player, "cameraHolder");
         var dialogue = Read<DialogueController>(flow, "dialogueController");
         Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        float standingEyeHeight = view.position.y;
         Assert.That(flow.BeginBarSequence(), Is.True);
         float deadline = Time.realtimeSinceStartup + 20f;
         var director = Read<PlayableDirector>(flow, "barDirector");
@@ -38,12 +40,12 @@ public sealed class IntroSceneSkeletonTests
         {
             Assert.That(Time.realtimeSinceStartup, Is.LessThan(deadline));
             if (director.time > 1.3)
-                Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+                Assert.That(Camera.main.transform.position.y, Is.EqualTo(standingEyeHeight).Within(0.02f));
             yield return null;
         }
         Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
         Assert.That(player.IsMoveInputEnabled, Is.True);
-        Vector3 start = new Vector3(7.9f, 1.77f, 15f);
+        Vector3 start = new Vector3(7.9f, standingEyeHeight, 15f);
         var target = Read<Transform>(flow, "dealerLookTarget");
         player.WarpViewPose(start, Quaternion.LookRotation(target.position - start));
         yield return null;
@@ -118,7 +120,9 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(Camera.allCamerasCount, Is.EqualTo(1));
         Assert.That(UnityEngine.Object.FindObjectsOfType<AudioListener>().Length, Is.EqualTo(1));
         Capture("01_Corridor");
-        Assert.That(Read<Transform>(player, "cameraHolder").localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        var view = Read<Transform>(player, "cameraHolder");
+        Assert.That(view.localPosition.y, Is.EqualTo(0f).Within(0.001f));
+        float standingEyeHeight = view.position.y;
         body.useGravity = false;
         Vector3 center = trigger.GetComponent<BoxCollider>().bounds.center;
         center.y = body.position.y;
@@ -166,8 +170,8 @@ public sealed class IntroSceneSkeletonTests
             previousPosition = Camera.main.transform.position;
             previousRotation = Camera.main.transform.rotation;
             if (bar.time < 9.35d)
-                Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f),
-                    "도착 직전까지 기존 보행 높이 유지");
+                Assert.That(Camera.main.transform.position.y, Is.EqualTo(standingEyeHeight).Within(0.02f),
+                    "컷신에서 플레이어 보행 시점 높이 유지");
         }
         yield return Seconds(0.5f);
         Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.DealerInteraction));
@@ -177,13 +181,13 @@ public sealed class IntroSceneSkeletonTests
         Assert.That(hold.IsAvailable, Is.True);
         Assert.That(Camera.main.transform.position.x, Is.EqualTo(9.65f).Within(0.02f));
         Assert.That(Camera.main.transform.position.z, Is.EqualTo(14.8f).Within(0.02f));
-        Assert.That(Camera.main.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
-        Assert.That(player.transform.position.y, Is.EqualTo(1.77f).Within(0.02f));
+        Assert.That(Camera.main.transform.position.y, Is.EqualTo(standingEyeHeight).Within(0.02f));
+        Assert.That(player.transform.position.y, Is.EqualTo(standingEyeHeight).Within(0.02f));
         Vector3 arrivalPosition = Camera.main.transform.position;
         body.useGravity = true;
         yield return Seconds(0.5f);
-        Assert.That(Mathf.Abs(Camera.main.transform.position.y - arrivalPosition.y), Is.LessThan(0.1f),
-            "컷신 종료 후 중력으로 시점이 내려앉으면 안 됨");
+        Assert.That(Camera.main.transform.position.y, Is.EqualTo(arrivalPosition.y).Within(0.02f),
+            "컷신 종료 후 플레이어 시점 높이 유지");
         Capture("04_Dealer_E_Wait");
         Assert.That(Vector3.Distance(model.position, originalDealerPosition), Is.LessThan(0.001f));
         Transform target = Read<Transform>(flow, "dealerLookTarget");

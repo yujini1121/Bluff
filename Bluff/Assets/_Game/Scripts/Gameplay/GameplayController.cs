@@ -16,6 +16,8 @@ public sealed class GameplayController : MonoBehaviour
     [SerializeField, Min(1), InspectorName("최대 로그 줄 수")]
     private int maxLogLines = 4;
     [SerializeField] private ItemSystem itemSystem;
+    [SerializeField, Tooltip("10라운드 구간 안의 지급 라운드 (1~10)")]
+    private int[] itemRewardRounds = { 2, 5, 8 };
 
     [Header("UI")]
     [SerializeField] private GameplayView gameplayView;
@@ -42,6 +44,7 @@ public sealed class GameplayController : MonoBehaviour
     private readonly List<string> logs = new List<string>();
     private GameState gameState;
     private ItemSystem subscribedItemSystem;
+    private int lastItemRewardRound;
     private TurnOwner nextRoundFirstTurn;
     private DealerTurnController dealerTurn;
     private GameplaySoundController soundController;
@@ -78,6 +81,17 @@ public sealed class GameplayController : MonoBehaviour
     public GameMode CurrentGameMode =>
         gameState?.GameMode ?? GameModeSelection.SelectedMode;
     public int CurrentRound => gameState?.CurrentRound ?? 0;
+
+    public bool IsItemRewardRound(int round)
+    {
+        if (round < 1 || itemRewardRounds == null)
+        {
+            return false;
+        }
+
+        int roundInCycle = GameState.GetRoundInCycle(round);
+        return Array.IndexOf(itemRewardRounds, roundInCycle) >= 0;
+    }
 
     private void OnEnable()
     {
@@ -138,7 +152,7 @@ public sealed class GameplayController : MonoBehaviour
         }
 
         soundController = new GameplaySoundController(presentation);
-        gameplayView.Initialize();
+        gameplayView.Initialize(IsItemRewardRound);
         debugPanelOpen = false;
         CreateGame();
         InitializeEndingScreen();
@@ -479,6 +493,7 @@ public sealed class GameplayController : MonoBehaviour
             Mathf.Max(0, dealerStartingChips),
             deck,
             GameModeSelection.SelectedMode);
+        lastItemRewardRound = 0;
         nextRoundFirstTurn = firstTurn == TurnOwner.Dealer
             ? TurnOwner.Dealer
             : TurnOwner.Player;
@@ -1127,11 +1142,13 @@ public sealed class GameplayController : MonoBehaviour
 
     private void RunRoundStartEffects()
     {
-        if (!isActiveAndEnabled)
+        int round = CurrentRound;
+        if (!isActiveAndEnabled || round == lastItemRewardRound || !IsItemRewardRound(round))
         {
             return;
         }
 
+        lastItemRewardRound = round;
         itemSystem.GetItem();
     }
 

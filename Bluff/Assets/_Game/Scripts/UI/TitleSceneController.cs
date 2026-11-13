@@ -19,6 +19,9 @@ public sealed class TitleSceneController : MonoBehaviour
     [SerializeField] private Slider masterVolumeSlider;
     [SerializeField] private Slider bgmVolumeSlider;
     [SerializeField] private Slider sfxVolumeSlider;
+    [SerializeField] private GameObject menuButtonGroup;
+    [SerializeField] private GameObject creditsPanel;
+    [SerializeField] private Button creditsBackButton;
 
     private GameObject menuSelection;
 
@@ -31,10 +34,40 @@ public sealed class TitleSceneController : MonoBehaviour
 
     private void Update()
     {
-        if (settingsPanel != null && settingsPanel.activeSelf && Input.GetKeyDown(KeyCode.Escape))
+        if (!Input.GetKeyDown(KeyCode.Escape)) return;
+
+        if (creditsPanel != null && creditsPanel.activeSelf)
+        {
+            CloseCredits();
+        }
+        else if (settingsPanel != null && settingsPanel.activeSelf)
         {
             CloseSettings();
         }
+    }
+
+    public void OpenCredits()
+    {
+        if (creditsPanel == null || creditsPanel.activeSelf || menuButtonGroup == null) return;
+        if (settingsPanel != null && settingsPanel.activeSelf) return;
+
+        var events = EventSystem.current;
+        menuSelection = events != null ? events.currentSelectedGameObject : null;
+        ResetMenuFocus();
+
+        menuButtonGroup.SetActive(false);
+        creditsPanel.SetActive(true);
+        if (events != null && creditsBackButton != null) events.SetSelectedGameObject(creditsBackButton.gameObject);
+    }
+
+    public void CloseCredits()
+    {
+        if (creditsPanel == null || !creditsPanel.activeSelf) return;
+
+        ResetMenuFocus(menuSelection);
+        menuSelection = null;
+        creditsPanel.SetActive(false);
+        menuButtonGroup.SetActive(true);
     }
 
     public void OpenSettings()
@@ -42,11 +75,8 @@ public sealed class TitleSceneController : MonoBehaviour
         if (settingsPanel.activeSelf) return;
 
         var events = EventSystem.current;
-        if (events != null)
-        {
-            menuSelection = events.currentSelectedGameObject;
-            events.SetSelectedGameObject(null);
-        }
+        menuSelection = events != null ? events.currentSelectedGameObject : null;
+        ResetMenuFocus();
         settingsPanel.SetActive(true);
     }
 
@@ -54,10 +84,19 @@ public sealed class TitleSceneController : MonoBehaviour
     {
         if (!settingsPanel.activeSelf) return;
 
-        settingsPanel.SetActive(false);
-        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(menuSelection);
+        ResetMenuFocus(menuSelection);
         menuSelection = null;
+        settingsPanel.SetActive(false);
         PlayerPrefs.Save();
+    }
+
+    private void ResetMenuFocus(GameObject resumeTarget = null)
+    {
+        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
+        if (menuButtonGroup != null && menuButtonGroup.TryGetComponent<TitleMenuArrow>(out var menuArrow))
+        {
+            menuArrow.ResetFocus(resumeTarget);
+        }
     }
 
     public void SetMasterVolume(float volume) => SetVolume(MasterVolume, MasterSliderSaveKey, volume);

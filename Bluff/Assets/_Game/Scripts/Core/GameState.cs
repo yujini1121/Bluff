@@ -8,6 +8,9 @@ public sealed class GameState
     private const int MaximumFoldPenaltyAmount = 10;
     public const int MaximumRoundCount = 10;
 
+    internal static int GetRoundInCycle(int round) =>
+        round > 0 ? (round - 1) % MaximumRoundCount + 1 : 0;
+
     public GamePhase Phase { get; private set; }
     public RoundEndReason RoundEndReason { get; private set; }
     public TurnOwner FoldedBy { get; private set; }
