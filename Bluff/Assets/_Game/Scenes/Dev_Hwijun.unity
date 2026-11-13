@@ -22401,6 +22401,7 @@ MonoBehaviour:
   dialogueText: {fileID: 2037961377}
   dialogueLines: []
   dialoguePanel: {fileID: 1351702791}
+  continueIndicator: {fileID: 0}
   characterInterval: 0.04
   commaDelay: 0.3
   sentenceDelay: 0.2
@@ -23134,7 +23135,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 200}
+  m_AnchoredPosition: {x: 0, y: 190}
   m_SizeDelta: {x: 200, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &714648797
@@ -38837,6 +38838,7 @@ MonoBehaviour:
   dialogueText: {fileID: 759575519}
   dialogueLines: []
   dialoguePanel: {fileID: 434299601}
+  continueIndicator: {fileID: 0}
   characterInterval: 0.04
   commaDelay: 0.3
   sentenceDelay: 0.2
