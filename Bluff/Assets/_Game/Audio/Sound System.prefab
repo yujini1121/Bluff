@@ -55,6 +55,7 @@ MonoBehaviour:
   bgmList:
   - {fileID: 1700441918637759315}
   - {fileID: 1165598145860757110}
+  titleBGM: {fileID: 8205199260989057161}
   chipStackSFX: {fileID: 63986045119831500, guid: 75451429092969640b27f7f25207b910, type: 3}
   cardSFX: {fileID: 6443609836815082446, guid: 7dcfeb5f09e8a9c4eba471f58ef562db, type: 3}
   itemChipsPocketSFX: {fileID: 8353446949070429668, guid: e340f960c4628c3459ffeec98ccf526b, type: 3}
@@ -277,6 +278,11 @@ PrefabInstance:
 --- !u!4 &3135140871989226270 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4629231729908384058, guid: 12380a58ec3cb5741b66a0d3a35c38d0, type: 3}
+  m_PrefabInstance: {fileID: 7763105938458929700}
+  m_PrefabAsset: {fileID: 0}
+--- !u!82 &8205199260989057161 stripped
+AudioSource:
+  m_CorrespondingSourceObject: {fileID: 1901274378668933805, guid: 12380a58ec3cb5741b66a0d3a35c38d0, type: 3}
   m_PrefabInstance: {fileID: 7763105938458929700}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &8494488727680619036

@@ -80,6 +80,7 @@ public sealed class TitleLogoSequence : MonoBehaviour
         sequence = null;
         overlayCanvasGroup.blocksRaycasts = false;
         overlayCanvasGroup.interactable = false;
+        StartCoroutine(SoundSystem.Instance.PlayTitleBGM());
         gameObject.SetActive(false);
     }
 

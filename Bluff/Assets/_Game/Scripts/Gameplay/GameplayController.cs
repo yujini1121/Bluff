@@ -16,6 +16,7 @@ public sealed class GameplayController : MonoBehaviour
     [SerializeField, Min(1), InspectorName("최대 로그 줄 수")]
     private int maxLogLines = 4;
     [SerializeField] private ItemSystem itemSystem;
+    private SoundSystem soundSystem;
     [SerializeField, Tooltip("10라운드 구간 안의 지급 라운드 (1~10)")]
     private int[] itemRewardRounds = { 2, 5, 8 };
 
@@ -164,6 +165,7 @@ public sealed class GameplayController : MonoBehaviour
         if (gameState != null && itemSystem != null)
         {
             StartRound();
+            StartCoroutine(SoundSystem.Instance.RepeatPlaybackBGM(SoundSystem.Instance.currentBGMIndex));
         }
     }
 

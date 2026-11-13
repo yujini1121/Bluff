@@ -13,6 +13,7 @@ public class SoundSystem : MonoBehaviour
     [SerializeField] private Slider SFXVolumeSlider;
 
     [SerializeField] private AudioSource[] bgmList;
+    [SerializeField] private AudioSource titleBGM;
     [SerializeField] private AudioSource chipStackSFX;
     [SerializeField] private AudioSource cardSFX;
     [SerializeField] private AudioSource itemChipsPocketSFX;
@@ -22,8 +23,8 @@ public class SoundSystem : MonoBehaviour
     [SerializeField] private AudioSource clickSFX;
     [SerializeField] private AudioSource itemUseFailedSFX;
 
-
-    private int currentBGMIndex = 0;
+    public int currentBGMIndex { get; private set; } = 0;
+    public bool isBGMPlaying { get; private set; } = false;
 
     void Awake()
     {
@@ -39,7 +40,6 @@ public class SoundSystem : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
-        StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
     void Start() => RestoreSliderValues();
@@ -68,6 +68,8 @@ public class SoundSystem : MonoBehaviour
         }
         bgmList[index].Play();
 
+        isBGMPlaying = true;
+
         yield return new WaitForSeconds(bgmList[index].clip.length);
 
         currentBGMIndex++;
@@ -80,7 +82,22 @@ public class SoundSystem : MonoBehaviour
 
     public void StopBGM()
     {
+        bgmList[currentBGMIndex].Stop();
+        isBGMPlaying = false;
         StopCoroutine(RepeatPlaybackBGM(currentBGMIndex));
+    }
+
+    public IEnumerator PlayTitleBGM()
+    {
+        titleBGM.Play();
+        yield return new WaitForSeconds(titleBGM.clip.length);
+        StartCoroutine(PlayTitleBGM());
+    }
+
+    public void StopTitleBGM()
+    {
+        titleBGM.Stop();
+        StopCoroutine(PlayTitleBGM());
     }
 
     // SFX Play

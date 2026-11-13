@@ -140,6 +140,7 @@ public sealed class TitleSceneController : MonoBehaviour
     private static void StartGame(GameMode gameMode, string sceneName)
     {
         GameModeSelection.Select(gameMode);
+        SoundSystem.Instance.StopTitleBGM();
         SceneManager.LoadScene(sceneName);
     }
 }
