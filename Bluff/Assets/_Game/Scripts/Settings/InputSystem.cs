@@ -4,18 +4,31 @@ using UnityEngine;
 
 public class InputSystem : MonoBehaviour
 {
+    public static InputSystem Instance { get; private set; }
+
     [Header("연결 스크립트")]
     [SerializeField] private Pause pause;
     [SerializeField] private SwitchCamera switchCamera;
     [SerializeField] private GameplayController gameplayController;
     [SerializeField] private UIOverray uiOverray;
     [SerializeField] private ItemSystem itemSystem;
+    [SerializeField] private PlayerMove playerMove;
 
     [Header("키 홀딩 시간")]
     [SerializeField] private float holdStartTime = 0.5f;
     [SerializeField] private float holdInterval = 0.1f;
     private float holdingTime = 0f;
     private int holdingCount = 0;
+
+    void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(this.gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     // Update is called once per frame
     void Update()
@@ -25,17 +38,19 @@ public class InputSystem : MonoBehaviour
         {
             if (pause.IsPaused)
             {
-                pause.PauseGame();
+                pause?.PauseGame();
+                playerMove?.MouseLock(true);
             }
             else
             {
                 if (uiOverray.UIPageCount > 0)
                 {
-                    uiOverray.CloseUI();
+                    uiOverray?.CloseUI();
                 }
                 else
                 {
-                    pause.PauseGame();
+                    pause?.PauseGame();
+                    playerMove?.MouseLock(false);
                 }
             }
         }
@@ -45,38 +60,38 @@ public class InputSystem : MonoBehaviour
             // Camera Switch : Player
             if (Input.GetKeyDown(KeyCode.Alpha1))
             {
-                switchCamera.SwitchToPlayerCam();
+                switchCamera?.SwitchToPlayerCam();
             }
             // Camera Switch : Community
             if (Input.GetKeyDown(KeyCode.Alpha2))
             {
-                switchCamera.SwitchToCommunityCam();
+                switchCamera?.SwitchToCommunityCam();
             }
             // Camera Switch : Dealer
             if (Input.GetKeyDown(KeyCode.Alpha3))
             {
-                switchCamera.SwitchToDealerCam();
+                switchCamera?.SwitchToDealerCam();
             }
 
             // Betting : Call
             if (Input.GetKeyDown(KeyCode.C))
             {
-                gameplayController.OnCallClicked();
+                gameplayController?.OnCallClicked();
             }
             // Betting : Raise
             if (Input.GetKeyDown(KeyCode.R))
             {
-                gameplayController.OnRaiseClicked();
+                gameplayController?.OnRaiseClicked();
             }
             // Betting : Fold
             if (Input.GetKeyDown(KeyCode.F))
             {
-                gameplayController.OnFoldClicked();
+                gameplayController?.OnFoldClicked();
             }
             // Betting : Raise Increase
             if (Input.GetKeyDown(KeyCode.E))
             {
-                gameplayController.OnRaiseIncreaseClicked();
+                gameplayController?.OnRaiseIncreaseClicked();
             }
             else if (Input.GetKey(KeyCode.E))
             {
@@ -85,7 +100,7 @@ public class InputSystem : MonoBehaviour
                 {
                     if (holdingTime >= holdStartTime + holdInterval * holdingCount)
                     {
-                        gameplayController.OnRaiseIncreaseClicked();
+                        gameplayController?.OnRaiseIncreaseClicked();
                         holdingCount++;
                     }
                 }
@@ -98,7 +113,7 @@ public class InputSystem : MonoBehaviour
             // Betting : Raise Decrease
             if (Input.GetKeyDown(KeyCode.Q))
             {
-                gameplayController.OnRaiseDecreaseClicked();
+                gameplayController?.OnRaiseDecreaseClicked();
             }
             else if (Input.GetKey(KeyCode.Q))
             {
@@ -107,7 +122,7 @@ public class InputSystem : MonoBehaviour
                 {
                     if (holdingTime >= holdStartTime + holdInterval * holdingCount)
                     {
-                        gameplayController.OnRaiseDecreaseClicked();
+                        gameplayController?.OnRaiseDecreaseClicked();
                         holdingCount++;
                     }
                 }
@@ -120,32 +135,32 @@ public class InputSystem : MonoBehaviour
             // Betting : Raise Max
             if (Input.GetKeyDown(KeyCode.A))
             {
-                gameplayController.OnRaiseMaxClicked();
+                gameplayController?.OnRaiseMaxClicked();
             }
 
             // Using Item
             if (Input.GetKeyDown(KeyCode.F1))
             {
-                itemSystem.GetInventoryItem(TurnOwner.Player, 0).Use();
+                itemSystem?.GetInventoryItem(TurnOwner.Player, 0)?.Use();
             }
             if (Input.GetKeyDown(KeyCode.F2))
             {
-                itemSystem.GetInventoryItem(TurnOwner.Player, 1).Use();
+                itemSystem?.GetInventoryItem(TurnOwner.Player, 1)?.Use();
             }
             if (Input.GetKeyDown(KeyCode.F3))
             {
-                itemSystem.GetInventoryItem(TurnOwner.Player, 2).Use();
+                itemSystem?.GetInventoryItem(TurnOwner.Player, 2)?.Use();
             }
             if (Input.GetKeyDown(KeyCode.F4))
             {
-                itemSystem.GetInventoryItem(TurnOwner.Player, 3).Use();
+                itemSystem?.GetInventoryItem(TurnOwner.Player, 3)?.Use();
             }
 
             // Showdown & Next Round
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                gameplayController.OnResolveShowdownClicked();
-                gameplayController.OnNextRoundClicked();
+                gameplayController?.OnResolveShowdownClicked();
+                gameplayController?.OnNextRoundClicked();
             }
         }
     }
