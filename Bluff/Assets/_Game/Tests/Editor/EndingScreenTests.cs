@@ -35,8 +35,6 @@ public sealed class EndingScreenTests
     {
         EditorSceneManager.OpenScene("Assets/_Game/Scenes/Dev_Yujin.unity");
         var owner = Find<GameplayController>();
-        var victory = Find<VictoryCutsceneController>();
-        var defeat = Find<DefeatCutsceneController>();
         var hud = Find<GameplayView>().GameplayHud;
         var input = Find<InputSystem>();
         bool enabledBefore = input.enabled;
@@ -64,7 +62,8 @@ public sealed class EndingScreenTests
             Assert.That(Read<Button>(screen, "titleButton").interactable,
                 Is.EqualTo(Application.CanStreamedLevelBeLoaded("Title")));
             Assert.That(Read<TMP_Text>(screen, "caption").text, Is.EqualTo(winner == GameWinner.Draw ? "MATCH DRAW" :
-                winner == GameWinner.Player ? victory.EndingCaption.text : defeat.EndingCaption.text));
+                winner == GameWinner.Player ? "YOU WON." : "YOU LOST."));
+            Assert.That(Read<GameObject>(screen, "statisticsPanel").activeSelf, Is.False);
             screen.Release(); screen.Release();
             Assert.That(input.enabled, Is.EqualTo(enabledBefore));
             Assert.That(hud.alpha, Is.EqualTo(0.73f));
@@ -217,11 +216,15 @@ public sealed class EndingScreenTests
             Capture("Ending-Initial-Unselected");
             input.move = Vector2.down;
             yield return null; yield return null;
-            Assert.That(events.currentSelectedGameObject, Is.SameAs(title.gameObject));
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(next.gameObject));
+
             input.move = Vector2.zero;
             yield return null; yield return null;
             ExecuteEvents.Execute(events.currentSelectedGameObject,
                 new AxisEventData(events) { moveVector = Vector2.down, moveDir = MoveDirection.Down }, ExecuteEvents.moveHandler);
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(title.gameObject));
+            ExecuteEvents.Execute(events.currentSelectedGameObject,
+                new AxisEventData(events) { moveVector = Vector2.up, moveDir = MoveDirection.Up }, ExecuteEvents.moveHandler);
             Assert.That(events.currentSelectedGameObject, Is.SameAs(next.gameObject));
             ExecuteEvents.Execute(events.currentSelectedGameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
             Assert.That(submits, Is.EqualTo(1));
@@ -243,7 +246,29 @@ public sealed class EndingScreenTests
             yield return null; yield return null;
             input.move = Vector2.down;
             yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(next.gameObject));
+
+            input.move = Vector2.zero;
+            var statistics = Read<Button>(screen, "statisticsButton");
+            var close = Read<Button>(screen, "closeStatisticsButton");
+            screen.Show(GameWinner.Player, false, null, () => { }, new MatchStatistics());
+            yield return null; yield return null;
+            input.move = Vector2.down;
+            yield return null; yield return null;
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(statistics.gameObject));
+            input.move = Vector2.zero;
+            yield return null; yield return null;
+            ExecuteEvents.Execute(statistics.gameObject,
+                new AxisEventData(events) { moveVector = Vector2.down, moveDir = MoveDirection.Down }, ExecuteEvents.moveHandler);
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(next.gameObject));
+            ExecuteEvents.Execute(next.gameObject,
+                new AxisEventData(events) { moveVector = Vector2.down, moveDir = MoveDirection.Down }, ExecuteEvents.moveHandler);
             Assert.That(events.currentSelectedGameObject, Is.SameAs(title.gameObject));
+            events.SetSelectedGameObject(statistics.gameObject);
+            ExecuteEvents.Execute(statistics.gameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(close.gameObject));
+            ExecuteEvents.Execute(close.gameObject, new BaseEventData(events), ExecuteEvents.submitHandler);
+            Assert.That(events.currentSelectedGameObject, Is.SameAs(statistics.gameObject));
         }
         finally
         {

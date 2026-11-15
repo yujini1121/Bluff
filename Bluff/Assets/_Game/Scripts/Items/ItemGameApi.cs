@@ -149,6 +149,14 @@ public sealed class ItemGameApi
         return gameState.TryFold(isFoldPenaltyWaived: true);
     }
 
+    internal void RecordItemUse(TurnOwner owner)
+    {
+        if (owner == TurnOwner.Player)
+        {
+            gameState.Statistics.PlayerItemsUsed++;
+        }
+    }
+
     private bool CanReplaceCard(CardTarget target)
     {
         switch (target)

@@ -14,6 +14,12 @@ public sealed class EndingScreenController : MonoBehaviour
     [SerializeField] private TMP_Text victoryCaption;
     [SerializeField] private TMP_Text defeatCaption;
     [SerializeField] private TMP_Text neutralCaption;
+    [SerializeField] private GameObject statisticsPanel;
+    [SerializeField] private TMP_Text statisticsValues;
+    [SerializeField] private string potValueFormat;
+    [SerializeField] private string roundValueFormat;
+    [SerializeField] private Button statisticsButton;
+    [SerializeField] private Button closeStatisticsButton;
     [SerializeField] private Button titleButton;
     [SerializeField] private Button continueButton;
     [SerializeField] private MainButton continueButtonLabel;
@@ -55,7 +61,8 @@ public sealed class EndingScreenController : MonoBehaviour
 
     public void OnContinueClicked()
     {
-        if (navigating || invokingAction || !IsVisible || !continueButton.interactable || continueAction == null) return;
+        if (navigating || invokingAction || !IsVisible || !continueButton.isActiveAndEnabled ||
+            !continueButton.interactable || continueAction == null) return;
         invokingAction = true;
         try { continueAction.Invoke(); }
         catch (Exception exception) { Debug.LogException(exception, this); }
@@ -75,7 +82,8 @@ public sealed class EndingScreenController : MonoBehaviour
         EnforceLock();
     }
 
-    public void Show(GameWinner winner, bool canContinue, Action onContinue, Action onRestart = null)
+    public void Show(GameWinner winner, bool canContinue, Action onContinue, Action onRestart = null,
+        MatchStatistics statistics = null)
     {
         if (!HasReferences) return;
         Begin();
@@ -83,6 +91,7 @@ public sealed class EndingScreenController : MonoBehaviour
         victoryCaption.gameObject.SetActive(caption == victoryCaption);
         defeatCaption.gameObject.SetActive(caption == defeatCaption);
         neutralCaption.gameObject.SetActive(caption == neutralCaption);
+        PrepareStatistics(statistics);
         continueAction = canContinue ? onContinue : onRestart;
         string label = canContinue ? continueLabel : restartLabel;
         continueButtonLabel.buttonText = label;
@@ -90,8 +99,8 @@ public sealed class EndingScreenController : MonoBehaviour
         continueButtonLabel.highlightedText.text = label;
         continueButtonLabel.pressedText.text = label;
         continueButton.interactable = continueAction != null;
-        continueButton.gameObject.SetActive(true);
         titleButton.interactable = Application.CanStreamedLevelBeLoaded(titleSceneName);
+        SetStatisticsOpen(false);
         canvas.enabled = true;
         EnforceLock();
         navigationReady = false;
@@ -101,6 +110,60 @@ public sealed class EndingScreenController : MonoBehaviour
             var module = EventSystem.current.currentInputModule as StandaloneInputModule;
             if (module != null) lastPointerPosition = module.input.mousePosition;
         }
+    }
+
+    private void PrepareStatistics(MatchStatistics statistics)
+    {
+        if (statisticsButton == null) return;
+        statisticsButton.interactable = statistics != null && statisticsPanel != null &&
+            statisticsValues != null && closeStatisticsButton != null;
+        if (!statisticsButton.interactable) return;
+
+        statisticsValues.text = string.Join("\n",
+            statistics.PlayerItemsUsed.ToString("N0"),
+            string.Format(potValueFormat, statistics.LargestPotRound, statistics.LargestPotAmount),
+            FormatDuration(statistics.PlaySeconds),
+            string.Format(roundValueFormat, statistics.LongestRound, FormatDuration(statistics.LongestRoundSeconds)),
+            $"{statistics.RoundsWon:N0} / {statistics.RoundsLost:N0} / {statistics.RoundsDrawn:N0}",
+            statistics.PlayerChipsBet.ToString("N0"),
+            statistics.RoundsPlayed.ToString("N0"));
+    }
+
+    public void OnShowStatisticsClicked()
+    {
+        if (!IsVisible || navigating || statisticsButton == null ||
+            !statisticsButton.isActiveAndEnabled || !statisticsButton.interactable) return;
+        SetStatisticsOpen(true);
+    }
+
+    public void OnCloseStatisticsClicked()
+    {
+        if (!IsVisible || navigating || statisticsPanel == null || !statisticsPanel.activeSelf) return;
+        SetStatisticsOpen(false);
+    }
+
+    private void SetStatisticsOpen(bool open)
+    {
+        var events = EventSystem.current;
+        bool hadSelection = events != null && events.currentSelectedGameObject != null;
+        caption.gameObject.SetActive(!open);
+        titleButton.gameObject.SetActive(!open);
+        continueButton.gameObject.SetActive(!open);
+        if (statisticsButton != null) statisticsButton.gameObject.SetActive(!open && statisticsButton.interactable);
+        if (statisticsPanel != null) statisticsPanel.SetActive(open);
+
+        if (hadSelection)
+        {
+            Button nextSelection = open ? closeStatisticsButton : statisticsButton;
+            events.SetSelectedGameObject(nextSelection != null && nextSelection.isActiveAndEnabled
+                ? nextSelection.gameObject : null);
+        }
+    }
+
+    private static string FormatDuration(double seconds)
+    {
+        TimeSpan duration = TimeSpan.FromSeconds(Math.Floor(seconds));
+        return $"{(long)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}";
     }
 
     private void LateUpdate()
@@ -127,8 +190,11 @@ public sealed class EndingScreenController : MonoBehaviour
                       !Mathf.Approximately(module.input.GetAxisRaw(module.verticalAxis), 0f);
         if (!moving) { navigationReady = true; return; }
         if (!navigationReady || events.currentSelectedGameObject != null) return;
-        var first = titleButton.IsInteractable() ? titleButton : continueButton;
-        if (first.IsInteractable()) events.SetSelectedGameObject(first.gameObject);
+        Button first = continueButton.IsInteractable() ? continueButton : titleButton;
+        if (statisticsPanel != null && statisticsPanel.activeSelf) first = closeStatisticsButton;
+        else if (statisticsButton != null && statisticsButton.isActiveAndEnabled) first = statisticsButton;
+        if (first != null && first.isActiveAndEnabled && first.IsInteractable())
+            events.SetSelectedGameObject(first.gameObject);
     }
 
     private void EnforceLock()
@@ -144,6 +210,12 @@ public sealed class EndingScreenController : MonoBehaviour
         if (!IsActive) return;
         IsActive = false;
         if (canvas != null) canvas.enabled = false;
+        if (statisticsPanel != null) statisticsPanel.SetActive(false);
+        if (statisticsButton != null)
+        {
+            statisticsButton.interactable = false;
+            statisticsButton.gameObject.SetActive(false);
+        }
         titleButton.interactable = continueButton.interactable = false;
         for (int i = 0; i < hud.Length; i++)
         {
@@ -162,7 +234,8 @@ public sealed class EndingScreenController : MonoBehaviour
 
     public void GoToTitle()
     {
-        if (!IsVisible || navigating || !Application.CanStreamedLevelBeLoaded(titleSceneName)) return;
+        if (!IsVisible || navigating || !titleButton.isActiveAndEnabled ||
+            !Application.CanStreamedLevelBeLoaded(titleSceneName)) return;
         navigating = true;
         Release();
         Time.timeScale = 1;
