@@ -22,7 +22,7 @@ public sealed class IntroHoldToSkip : MonoBehaviour
         if (keycap != null) keycap.SetActive(false);
     }
 
-    private void Update() => Tick(Input.GetKey(KeyCode.Escape), Time.unscaledDeltaTime);
+    private void Update() => Tick(Input.GetKey(KeyCode.Space), Time.unscaledDeltaTime);
 
     public void SuppressUntilRelease()
     {
