@@ -36,6 +36,24 @@ public sealed class ResultFlowAssetTests
         Assert.That(ending.HasReferences, Is.True);
         Assert.That(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(ending.gameObject), Is.EqualTo(EndingPrefab));
         Assert.That(Read<Canvas>(ending, "canvas").enabled, Is.False);
+        var statisticsPanel = Read<GameObject>(ending, "statisticsPanel");
+        var statisticsValues = Read<TMP_Text>(ending, "statisticsValues");
+        Assert.That(statisticsPanel.activeSelf, Is.False);
+        Assert.That(statisticsValues.transform.IsChildOf(statisticsPanel.transform), Is.True);
+        var statisticsTexts = statisticsPanel.GetComponentsInChildren<TMP_Text>(true)
+            .Where(text => text.transform.parent == statisticsPanel.transform).ToArray();
+        Assert.That(statisticsTexts.Any(text => text.text == "플레이 통계"), Is.True);
+        Assert.That(statisticsTexts.Single(text => text.name == "Statistic Labels").text.Split('\n'), Is.EqualTo(new[]
+        {
+            "아이템 사용 횟수", "최대 팟", "총 플레이 시간", "가장 오래 걸린 라운드",
+            "승리 / 패배 / 무승부", "총 베팅 칩", "총 진행 라운드"
+        }));
+        foreach (var text in statisticsTexts)
+        {
+            Assert.That(text.preferredWidth, Is.LessThan(text.rectTransform.sizeDelta.x));
+            Assert.That(text.preferredHeight, Is.LessThan(text.rectTransform.sizeDelta.y));
+            Assert.That(text.text.Where(c => !char.IsWhiteSpace(c)).All(c => text.font.HasCharacter(c, true)), Is.True);
+        }
         Assert.That(Read<CanvasGroup[]>(ending, "hud"), Does.Contain(view.GameplayHud));
         Assert.That(Read<Behaviour[]>(ending, "inputs"), Does.Contain(Find<InputSystem>()));
         Assert.That(Read<Behaviour[]>(ending, "inputs").All(b => b != null && b.gameObject.scene == owner.gameObject.scene), Is.True);
@@ -54,13 +72,19 @@ public sealed class ResultFlowAssetTests
             Is.SameAs(Read<Button>(prefab, "continueButton").GetComponent<MainButton>()));
         Assert.That(Read<string>(prefab, "continueLabel"), Is.EqualTo("이어서 계속하기"));
         Assert.That(Read<string>(prefab, "restartLabel"), Is.EqualTo("다시하기"));
-        foreach (var entry in new[] { ("titleButton", "GoToTitle"), ("continueButton", "OnContinueClicked") })
+        foreach (var entry in new[]
+        {
+            ("titleButton", "GoToTitle", "메인화면으로 돌아가기"),
+            ("continueButton", "OnContinueClicked", "이어서 계속하기"),
+            ("statisticsButton", "OnShowStatisticsClicked", "통계"),
+            ("closeStatisticsButton", "OnCloseStatisticsClicked", "닫기")
+        })
         {
             var button = Read<Button>(prefab, entry.Item1);
             var original = PrefabUtility.GetCorrespondingObjectFromOriginalSource(button.gameObject);
             Assert.That(AssetDatabase.GetAssetPath(original), Is.EqualTo(SciFiButton));
             Assert.That(button.GetComponent<MainButton>(), Is.Not.Null);
-            string label = entry.Item1 == "titleButton" ? "메인화면으로 돌아가기" : "이어서 계속하기";
+            string label = entry.Item3;
             var main = button.GetComponent<MainButton>();
             Assert.That(main.buttonText, Is.EqualTo(label));
             foreach (var text in new[] { main.normalText, main.highlightedText, main.pressedText })

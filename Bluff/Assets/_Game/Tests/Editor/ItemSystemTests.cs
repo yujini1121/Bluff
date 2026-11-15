@@ -43,6 +43,22 @@ public sealed class ItemSystemTests
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(20));
         Assert.That(inventory.playerItemInventory[0] == null, Is.EqualTo(expectedSuccess));
         Assert.That(item == null, Is.EqualTo(expectedSuccess));
+        Assert.That(gameState.Statistics.PlayerItemsUsed, Is.EqualTo(expectedSuccess ? 1 : 0));
+        Assert.That(gameState.Statistics.PlayerChipsBet, Is.Zero);
+    }
+
+    [Test]
+    public void UseItem_FailedEffectKeepsTheItemAndStatistics()
+    {
+        GameState gameState = CreateBettingGame(TurnOwner.Player);
+        Assert.That(gameState.PlayerChips.TryAdd(int.MaxValue - gameState.PlayerChips.Count), Is.True);
+        ItemSystem itemSystem = CreateItemSystem(gameState, out Inventory inventory);
+        GameObject item = AddItem(inventory, TurnOwner.Player, ItemType.chipPocket);
+
+        Assert.That(itemSystem.UseItem(TurnOwner.Player, item, out var reason), Is.False);
+        Assert.That(reason, Is.EqualTo(ItemUseFailureReason.EffectUnavailable));
+        Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
+        Assert.That(gameState.Statistics.PlayerItemsUsed, Is.Zero);
     }
 
     [Test]
@@ -125,6 +141,7 @@ public sealed class ItemSystemTests
         Assert.That(gameState.DealerChips.Count, Is.EqualTo(23));
         Assert.That(inventory.dealerItemInventory, Is.All.Null);
         Assert.That(item == null, Is.True);
+        Assert.That(gameState.Statistics.PlayerItemsUsed, Is.Zero);
     }
 
     [Test]
@@ -478,6 +495,7 @@ public sealed class ItemSystemTests
         Assert.That(system.GetUseFailureReason(TurnOwner.Player, item), Is.EqualTo(expected));
         Assert.That(system.UseItem(TurnOwner.Player, item, out ItemUseFailureReason actual), Is.False);
         Assert.That(actual, Is.EqualTo(expected));
+        Assert.That(state.Statistics.PlayerItemsUsed, Is.Zero);
         Assert.That(inventory.HasItem(TurnOwner.Player, item), Is.True);
         Assert.That(state.PlayerChips.Count, Is.EqualTo(playerChips));
         Assert.That(state.DealerChips.Count, Is.EqualTo(dealerChips));

@@ -133,6 +133,17 @@ public sealed class EndingContinuationTests
         }
         var state = Read<GameState>(controller, "gameState");
         var items = Read<ItemSystem>(controller, "itemSystem");
+        var statistics = state.Statistics;
+        var pause = Read<Pause>(Find<InputSystem>(), "pause");
+        pause.PauseGame();
+        double pausedPlaySeconds = statistics.PlaySeconds;
+        yield return new WaitForSecondsRealtime(0.2f);
+        Assert.That(statistics.PlaySeconds, Is.EqualTo(pausedPlaySeconds));
+        pause.ResumeGame();
+        yield return null;
+        yield return null;
+        Assert.That(statistics.PlaySeconds, Is.GreaterThan(pausedPlaySeconds));
+
         var inventory = Read<Inventory>(items, "inventory");
         Assert.That(inventory.playerItemInventory.Concat(inventory.dealerItemInventory).Count(i => i != null), Is.Zero);
         items.GetItem();
@@ -146,10 +157,16 @@ public sealed class EndingContinuationTests
         Set(controller, "roundWinner", winner);
         Set(controller, "isShowdownResultVisible", true);
         int playerBefore = state.PlayerChips.Count, dealerBefore = state.DealerChips.Count, carriedPot = state.Pot.Amount;
+        Assert.That(statistics.RoundsDrawn, Is.EqualTo(1));
+        Assert.That(statistics.LongestRoundSeconds, Is.EqualTo(statistics.PlaySeconds));
         Time.timeScale = 0f;
         controller.OnViewEndingClicked();
         var screen = Find<EndingScreenController>();
         Assert.That(screen.IsVisible, Is.True);
+        var statisticsPanel = Read<GameObject>(screen, "statisticsPanel");
+        var statisticsButton = Read<Button>(screen, "statisticsButton");
+        Assert.That(statisticsPanel.activeInHierarchy, Is.False);
+        Assert.That(statisticsButton.gameObject.activeInHierarchy, Is.False);
         Assert.That(Read<Button>(screen, "continueButton").interactable, Is.True);
         Assert.That(Read<Button>(screen, "continueButton").gameObject.activeInHierarchy, Is.True);
         Assert.That(Read<Button>(screen, "titleButton").gameObject.activeInHierarchy, Is.True);
@@ -158,6 +175,7 @@ public sealed class EndingContinuationTests
         Read<Button>(screen, "continueButton").onClick.Invoke();
         Assert.That(Time.timeScale, Is.EqualTo(1f));
         Assert.That(Read<GameState>(controller, "gameState"), Is.SameAs(state));
+        Assert.That(state.Statistics, Is.SameAs(statistics));
         Assert.That(Read<ItemSystem>(controller, "itemSystem"), Is.SameAs(items));
         Assert.That(state.GameMode, Is.EqualTo(GameMode.Endless));
         Assert.That(state.CurrentRound, Is.EqualTo(11));
@@ -202,11 +220,33 @@ public sealed class EndingContinuationTests
         controller.OnViewEndingClicked();
         Assert.That(Find<VictoryCutsceneController>().IsPlaying, Is.False);
         Assert.That(screen.IsVisible, Is.True);
+        Assert.That(statisticsPanel.activeInHierarchy, Is.False);
+        Assert.That(statisticsButton.gameObject.activeInHierarchy, Is.True);
+        typeof(GameplayUiSceneTests).GetMethod("Capture", BindingFlags.Static | BindingFlags.NonPublic)
+            .Invoke(null, new object[] { "Ending-Korean-RestartEndless" });
+        statisticsButton.onClick.Invoke();
+        Assert.That(statisticsPanel.activeInHierarchy, Is.True);
+        var statisticsValues = Read<TMPro.TMP_Text>(screen, "statisticsValues");
+        string[] values = statisticsValues.text.Split('\n');
+        Assert.That(values.Length, Is.EqualTo(7));
+        Assert.That(values[0], Is.EqualTo("0"));
+        Assert.That(values[1], Is.EqualTo("1라운드 / 2칩"));
+        Assert.That(values[2], Does.Match(@"^\d{2,}:\d{2}:\d{2}$"));
+        Assert.That(values[3], Does.Match(@"^\d+라운드 / \d{2,}:\d{2}:\d{2}$"));
+        Assert.That(values[4], Is.EqualTo($"1 / 0 / {statistics.RoundsDrawn}"));
+        Assert.That(values[5], Is.EqualTo("1"));
+        Assert.That(values[6], Is.EqualTo((statistics.RoundsDrawn + 1).ToString()));
+        Assert.That(Read<Button>(screen, "titleButton").gameObject.activeInHierarchy, Is.False);
+        Assert.That(Read<Button>(screen, "continueButton").gameObject.activeInHierarchy, Is.False);
+        typeof(GameplayUiSceneTests).GetMethod("Capture", BindingFlags.Static | BindingFlags.NonPublic)
+            .Invoke(null, new object[] { "Ending-Korean-Statistics" });
+        Read<Button>(screen, "closeStatisticsButton").onClick.Invoke();
+        Assert.That(statisticsPanel.activeInHierarchy, Is.False);
+        Assert.That(statisticsButton.gameObject.activeInHierarchy, Is.True);
+        Assert.That(Read<Button>(screen, "titleButton").gameObject.activeInHierarchy, Is.True);
         Assert.That(Read<Button>(screen, "continueButton").interactable, Is.True);
         Assert.That(Read<MainButton>(screen, "continueButtonLabel").buttonText, Is.EqualTo("다시하기"));
         Assert.That(Read<Button>(screen, "continueButton").gameObject.activeInHierarchy, Is.True);
-        typeof(GameplayUiSceneTests).GetMethod("Capture", BindingFlags.Static | BindingFlags.NonPublic)
-            .Invoke(null, new object[] { "Ending-Korean-RestartEndless" });
     }
 
     [TestCase(GameMode.RoundLimited, 10, 20, 30, false, true)]
@@ -294,6 +334,9 @@ public sealed class EndingContinuationTests
         Find<VictoryCutsceneController>().Skip(); Find<DefeatCutsceneController>().Skip();
         var screen = Find<EndingScreenController>();
         Assert.That(screen.IsVisible, Is.True);
+        Assert.That(Read<GameObject>(screen, "statisticsPanel").activeInHierarchy, Is.False);
+        Assert.That(Read<Button>(screen, "statisticsButton").gameObject.activeInHierarchy,
+            Is.EqualTo(mode == GameMode.Endless));
         Assert.That(Read<MainButton>(screen, "continueButtonLabel").buttonText, Is.EqualTo("다시하기"));
         Assert.That(Read<Button>(screen, "continueButton").interactable, Is.True);
         GameModeSelection.Select(mode == GameMode.Endless ? GameMode.RoundLimited : GameMode.Endless);
@@ -309,6 +352,11 @@ public sealed class EndingContinuationTests
         Assert.That(fresh.PlayerChips.Count, Is.EqualTo(Read<int>(freshController, "playerStartingChips") - 1));
         Assert.That(fresh.DealerChips.Count, Is.EqualTo(Read<int>(freshController, "dealerStartingChips") - 1));
         Assert.That(fresh.Pot.Amount, Is.EqualTo(2));
+        Assert.That(fresh.Statistics, Is.Not.SameAs(state.Statistics));
+        Assert.That(fresh.Statistics.PlayerItemsUsed, Is.Zero);
+        Assert.That(fresh.Statistics.PlayerChipsBet, Is.EqualTo(1));
+        Assert.That(fresh.Statistics.RoundsPlayed, Is.Zero);
+        Assert.That(fresh.Statistics.LargestPotRound, Is.EqualTo(1));
         Assert.That(fresh.Deck.RemainingCount, Is.EqualTo(36));
         Assert.That(oldItems.All(item => item == null), Is.True, "Scene reload must remove all old items");
         var freshItems = Read<ItemSystem>(freshController, "itemSystem");

@@ -211,6 +211,7 @@ public class ItemSystem : MonoBehaviour
             return false;
         }
 
+        itemGameApi.RecordItemUse(owner);
         try
         {
             if (type == ItemType.refreshCard)

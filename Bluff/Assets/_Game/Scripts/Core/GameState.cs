@@ -8,6 +8,8 @@ public sealed class GameState
     private const int MaximumFoldPenaltyAmount = 10;
     public const int MaximumRoundCount = 10;
 
+    private double currentRoundSeconds;
+
     internal static int GetRoundInCycle(int round) =>
         round > 0 ? (round - 1) % MaximumRoundCount + 1 : 0;
 
@@ -24,6 +26,7 @@ public sealed class GameState
     public ChipStack DealerChips { get; }
     public Pot Pot { get; }
     public BettingState Betting { get; }
+    public MatchStatistics Statistics { get; } = new MatchStatistics();
     public Deck Deck { get; private set; }
     public Card PlayerCard { get; private set; }
     public Card DealerCard { get; private set; }
@@ -166,11 +169,14 @@ public sealed class GameState
             Pot.TryAdd(TotalAnteAmount);
             Betting.TryAddToTotalBet(TurnOwner.Player, AnteAmount);
             Betting.TryAddToTotalBet(TurnOwner.Dealer, AnteAmount);
+            Statistics.PlayerChipsBet += AnteAmount;
         }
 
         ResetRoundResult();
 
         CurrentRound++;
+        currentRoundSeconds = 0;
+        RecordPot();
 
         if (PlayerChips.Count == 0 || DealerChips.Count == 0)
         {
@@ -359,8 +365,48 @@ public sealed class GameState
         Phase = GamePhase.RoundEnd;
         Turn.Reset();
         winner = determinedWinner;
+        RecordRoundResult(winner);
         EndGameIfNeeded();
         return true;
+    }
+
+    public void AdvancePlayTime(double deltaSeconds)
+    {
+        if (CurrentRound == 0 || Phase == GamePhase.GameOver || deltaSeconds <= 0)
+        {
+            return;
+        }
+
+        Statistics.PlaySeconds += deltaSeconds;
+        if (Phase == GamePhase.Betting || Phase == GamePhase.Showdown)
+        {
+            currentRoundSeconds += deltaSeconds;
+        }
+    }
+
+    private void RecordPot()
+    {
+        if (Pot.Amount > Statistics.LargestPotAmount)
+        {
+            Statistics.LargestPotAmount = Pot.Amount;
+            Statistics.LargestPotRound = CurrentRound;
+        }
+    }
+
+    private void RecordRoundResult(RoundWinner winner)
+    {
+        if (Statistics.LongestRound == 0 || currentRoundSeconds > Statistics.LongestRoundSeconds)
+        {
+            Statistics.LongestRound = CurrentRound;
+            Statistics.LongestRoundSeconds = currentRoundSeconds;
+        }
+
+        switch (winner)
+        {
+            case RoundWinner.Player: Statistics.RoundsWon++; break;
+            case RoundWinner.Dealer: Statistics.RoundsLost++; break;
+            case RoundWinner.Draw: Statistics.RoundsDrawn++; break;
+        }
     }
 
     private void EndGameIfNeeded()
@@ -463,6 +509,7 @@ public sealed class GameState
         }
 
         AddBetToPot(amount);
+        RecordPot();
         return true;
     }
 
@@ -487,6 +534,10 @@ public sealed class GameState
         ownerChips.TrySpend(amount);
         Pot.TryAdd(amount);
         Betting.TryAddToTotalBet(CurrentTurn, amount);
+        if (CurrentTurn == TurnOwner.Player)
+        {
+            Statistics.PlayerChipsBet += amount;
+        }
     }
 
     public bool TryIgnoreRaise()
@@ -589,6 +640,7 @@ public sealed class GameState
             Turn.TrySwitch();
         }
 
+        RecordPot();
         return true;
     }
 
@@ -687,6 +739,10 @@ public sealed class GameState
         Pot.TryRemove(unmatchedBet);
         Betting.TryRemoveFromTotalBet(unmatchedBetOwner, unmatchedBet);
         ownerChips.TryAdd(unmatchedBet);
+        if (unmatchedBetOwner == TurnOwner.Player)
+        {
+            Statistics.PlayerChipsBet -= unmatchedBet;
+        }
         return true;
     }
 
@@ -734,6 +790,7 @@ public sealed class GameState
         Betting.Reset();
         Phase = GamePhase.RoundEnd;
         Turn.Reset();
+        RecordRoundResult(winner == TurnOwner.Player ? RoundWinner.Player : RoundWinner.Dealer);
         EndGameIfNeeded();
         return true;
     }

@@ -174,6 +174,7 @@ public sealed class GameplayController : MonoBehaviour
             return;
         }
 
+        gameState.AdvancePlayTime(Time.timeScale > 0f ? Time.deltaTime : 0f);
         UpdateVisibleHandRanks();
         CancelInvalidDealerAction();
         TryScheduleDealerAction();
@@ -389,7 +390,8 @@ public sealed class GameplayController : MonoBehaviour
             gameState == null || gameState.Phase != GamePhase.GameOver) return;
         endingScreen.gameObject.SetActive(true);
         endingScreen.enabled = true;
-        endingScreen.Show(endingWinner, gameState.CanContinueAsEndless, OnContinueEndlessClicked, OnRestartClicked);
+        endingScreen.Show(endingWinner, gameState.CanContinueAsEndless, OnContinueEndlessClicked, OnRestartClicked,
+            GetEndingStatistics());
         RefreshView();
     }
 
@@ -451,7 +453,7 @@ public sealed class GameplayController : MonoBehaviour
             isActionProcessing = true;
             gameplayView.SetRestartEnabled(false);
             CancelDealerAction();
-            presentation.PlayClickCue();
+            if (!fromEnding) presentation.PlayClickCue();
             if (endingScreen != null) endingScreen.Release();
             Time.timeScale = 1f;
             SceneManager.LoadScene(buildIndex);
@@ -469,9 +471,14 @@ public sealed class GameplayController : MonoBehaviour
     {
         gameState.TrySetPhase(GamePhase.GameOver);
         finalEndingRequested = true;
-        endingScreen.Show(winner, false, null, OnRestartClicked);
+        endingScreen.Show(winner, false, null, OnRestartClicked, GetEndingStatistics());
         RefreshView();
     }
+
+    private MatchStatistics GetEndingStatistics() =>
+        endingGameMode == GameMode.Endless && gameState.Phase == GamePhase.GameOver
+            ? gameState.Statistics
+            : null;
 
     public void OnDebugToggleClicked()
     {
