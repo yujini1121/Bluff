@@ -230,7 +230,7 @@ public sealed class ChipVisualController : MonoBehaviour
             }
 
             targetPositions[index] = playerBetAreaPoint.TransformPoint(
-                GetChipLocalPosition(index));
+                GetChipLocalPosition(index, centeredChipCount: playerAnteCount));
         }
 
         for (int index = 0; index < dealerAnteCount; index++)
@@ -247,7 +247,7 @@ public sealed class ChipVisualController : MonoBehaviour
 
             targetPositions[targetIndex] =
                 dealerBetAreaPoint.TransformPoint(
-                    GetChipLocalPosition(index));
+                    GetChipLocalPosition(index, centeredChipCount: dealerAnteCount));
         }
 
         isRoundAntePending = true;
@@ -325,12 +325,12 @@ public sealed class ChipVisualController : MonoBehaviour
             return false;
         }
 
-        int dealerBetCountBefore =
-            gameState.Betting.DealerTotalBet - chipCount;
+        int dealerBetCount = GetDealerBetChipCount();
+        int dealerBetCountBefore = dealerBetCount - chipCount;
         int playerBetChipCount = GetPlayerBetChipCount();
         int carryPotChipCount = GetCarryPotChipCount(
             playerBetChipCount,
-            gameState.Betting.DealerTotalBet);
+            dealerBetCount);
 
         if (dealerBetCountBefore < 0 || carryPotChipCount < 0)
         {
@@ -387,7 +387,8 @@ public sealed class ChipVisualController : MonoBehaviour
             betAreaTargetPositions[index] =
                 dealerBetAreaPoint.TransformPoint(
                     GetChipLocalPosition(
-                        dealerBetChipInstances.Count + index));
+                        dealerBetCountBefore + index,
+                        centeredChipCount: dealerBetCount));
         }
 
         return true;
@@ -531,8 +532,8 @@ public sealed class ChipVisualController : MonoBehaviour
         RemoveMissingInstances(playerChipInstances);
         RemoveMissingInstances(playerBetChipInstances);
 
-        int playerBetCountBefore =
-            gameState.Betting.PlayerTotalBet - chipCount;
+        int playerBetCount = GetPlayerBetChipCount();
+        int playerBetCountBefore = playerBetCount - chipCount;
 
         if (playerBetCountBefore < 0 ||
             playerChipInstances.Count < chipCount ||
@@ -564,7 +565,8 @@ public sealed class ChipVisualController : MonoBehaviour
             betAreaTargetPositions[index] =
                 playerBetAreaPoint.TransformPoint(
                     GetChipLocalPosition(
-                        playerBetChipInstances.Count + index));
+                        playerBetCountBefore + index,
+                        centeredChipCount: playerBetCount));
         }
 
         isPlayerBetPending = true;
@@ -1590,25 +1592,32 @@ public sealed class ChipVisualController : MonoBehaviour
     private void ArrangeChips(List<GameObject> instances)
     {
         bool stackFromRight = instances == dealerChipInstances;
+        bool isBetArea = instances == playerBetChipInstances ||
+                         instances == dealerBetChipInstances;
+        int centeredChipCount = isBetArea ? instances.Count : 0;
 
         for (int index = 0; index < instances.Count; index++)
         {
             instances[index].transform.localPosition =
-                GetChipLocalPosition(index, stackFromRight);
+                GetChipLocalPosition(index, stackFromRight, centeredChipCount);
         }
     }
 
     private Vector3 GetChipLocalPosition(
         int index,
-        bool stackFromRight = false)
+        bool stackFromRight = false,
+        int centeredChipCount = 0)
     {
         int stackSize = Mathf.Max(1, maxChipsPerStack);
         int stackIndex = index / stackSize;
         int heightIndex = index % stackSize;
+        float centerStackIndex = centeredChipCount > 0
+            ? ((centeredChipCount - 1) / stackSize) * 0.5f
+            : 0f;
         float stackDirection = stackFromRight ? -1f : 1f;
 
         return new Vector3(
-            stackIndex * Mathf.Max(0f, stackSpacing) * stackDirection,
+            (stackIndex - centerStackIndex) * Mathf.Max(0f, stackSpacing) * stackDirection,
             heightIndex * Mathf.Max(0f, chipHeightSpacing),
             0f);
     }
