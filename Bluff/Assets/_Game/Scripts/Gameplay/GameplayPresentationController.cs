@@ -9,6 +9,9 @@ public sealed class GameplayPresentationController : MonoBehaviour
     [SerializeField] private DealerAnimationController dealerAnimationController;
     [SerializeField] private SwitchCamera switchCamera;
 
+    [Header("Dealer Bet Animation")]
+    [SerializeField, Min(1)] private int dealerTwoHandBetChipThreshold = 10;
+
     private GameState gameState;
     private Action presentationChanged;
     private bool isChipAnimating;
@@ -510,7 +513,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
             onRevealCompleted);
     }
 
-    public bool PlayDealerBet(int chipCount, bool useAllInAnimation)
+    public bool PlayDealerBet(int chipCount)
     {
         if (chipVisualController == null ||
             dealerAnimationController == null ||
@@ -523,7 +526,7 @@ public sealed class GameplayPresentationController : MonoBehaviour
         }
 
         isChipAnimating = true;
-        bool animationStarted = useAllInAnimation
+        bool animationStarted = chipCount >= Mathf.Max(1, dealerTwoHandBetChipThreshold)
             ? dealerAnimationController.TryPlayAllInChips(
                 chips,
                 betAreaTargetPositions,

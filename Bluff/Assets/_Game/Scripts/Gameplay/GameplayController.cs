@@ -1069,21 +1069,13 @@ public sealed class GameplayController : MonoBehaviour
                 }
                 int movedChipCount =
                     dealerChipsBefore - gameState.DealerChips.Count;
-                bool isAllInCall =
-                    decision == DealerDecision.Call &&
-                    dealerChipsBefore > 0 &&
-                    gameState.DealerChips.Count == 0;
-                bool useAllInAnimation =
-                    decision == DealerDecision.AllIn || isAllInCall;
                 bool betAnimationStarted =
                     !isDealerFold &&
                     (decision == DealerDecision.Call ||
                      decision == DealerDecision.Raise ||
                      decision == DealerDecision.AllIn) &&
                     movedChipCount > 0 &&
-                    presentation.PlayDealerBet(
-                        movedChipCount,
-                        useAllInAnimation);
+                    presentation.PlayDealerBet(movedChipCount);
 
                 if (!isDealerFold && !betAnimationStarted)
                 {

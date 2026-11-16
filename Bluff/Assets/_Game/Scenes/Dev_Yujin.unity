@@ -58960,6 +58960,10 @@ PrefabInstance:
       propertyPath: m_LocalScale.y
       value: 1.2
       objectReference: {fileID: 0}
+    - target: {fileID: 6657529189820377581, guid: 89ff07ca65a643db85b4c70695a2bb3f, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -45
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -68558,6 +68562,7 @@ MonoBehaviour:
   chipVisualController: {fileID: 1964738051}
   dealerAnimationController: {fileID: 1705455214}
   switchCamera: {fileID: 1769829635}
+  dealerTwoHandBetChipThreshold: 10
 --- !u!225 &2100000301
 CanvasGroup:
   m_ObjectHideFlags: 0
