@@ -70,6 +70,7 @@ public sealed class GameplayController : MonoBehaviour
     private bool recoverShowdownPresentationOnEnable;
     private bool recoverFoldPresentationOnEnable;
     private int selectedRaiseAmount = 1;
+    private bool isPlayerOpeningBet;
 
     public int CurrentPlayerChipCount =>
         gameState?.PlayerChips.Count ?? 0;
@@ -490,6 +491,7 @@ public sealed class GameplayController : MonoBehaviour
 
     private void CreateGame()
     {
+        isPlayerOpeningBet = false;
         finalEndingRequested = finalCutsceneConsumed = false;
         if (endingScreen != null) endingScreen.Release();
         if (victoryCutscene != null) victoryCutscene.ResetForGame();
@@ -645,6 +647,7 @@ public sealed class GameplayController : MonoBehaviour
             return false;
         }
 
+        isPlayerOpeningBet = roundFirstTurn == TurnOwner.Player;
         gameplayView.HideItemUseFailure();
         RunRoundStartEffects();
         ResetRoundResult();
@@ -731,6 +734,9 @@ public sealed class GameplayController : MonoBehaviour
                 AddLog($"{OwnerText(TurnOwner.Player)} {actionName} 실패");
                 return false;
             }
+
+            if (gameState.CurrentTurn != TurnOwner.Player || gameState.Phase != GamePhase.Betting)
+                isPlayerOpeningBet = false;
 
             if (playClickCue)
             {
@@ -1333,7 +1339,11 @@ public sealed class GameplayController : MonoBehaviour
             canCall,
             IsPlayerShortAllInRequired(),
             selectedRaiseAmount,
-            maxRaiseAmount);
+            maxRaiseAmount,
+            Mathf.Min(gameState.PlayerChips.Count,
+                gameState.Betting.GetCallAmount(TurnOwner.Player)),
+            isPlayerOpeningBet && playerTurn &&
+                gameState.Betting.GetCallAmount(TurnOwner.Player) == 0);
 
         bool canResolve = gameState.Phase == GamePhase.Showdown;
         bool canStartNextRound = IsRoundResultVisible &&

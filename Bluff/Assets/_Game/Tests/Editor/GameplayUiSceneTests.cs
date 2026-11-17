@@ -272,10 +272,10 @@ public sealed class GameplayUiSceneTests
         slider.maxValue = 10;
         slider.SetValueWithoutNotify(1);
         view.Initialize();
-        view.RefreshBetting(true, true, true, false, 4, 10);
+        view.RefreshBetting(true, true, true, false, 4, 10, 3, false);
         Assert.That(slider.value, Is.EqualTo(4));
         Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
-            Is.EqualTo("Raise (+4) [R]"));
+            Is.EqualTo("[R] Raise (7)"));
     }
 
     [Test]
@@ -284,19 +284,65 @@ public sealed class GameplayUiSceneTests
         OpenScene();
         var view = Find<GameplayView>();
         view.Initialize();
-        view.RefreshBetting(true, true, true, true, 5, 5);
+        view.RefreshBetting(true, true, true, true, 5, 5, 2, false);
         var call = Read<Button[]>(view, "bettingActionButtons").Single(button =>
             HasEvent(button.onClick, Find<GameplayController>(), "OnCallClicked"));
         Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
-            Is.EqualTo("All in [R]"));
-        view.RefreshBetting(true, true, false, false, 3, 5);
+            Is.EqualTo("[R] All in (7)"));
+        Assert.That(call.GetComponent<MainButton>().buttonText, Is.EqualTo("[C] All in (2)"));
+        view.RefreshBetting(true, true, false, false, 3, 5, 0, false);
         Assert.That(call.interactable, Is.False);
         Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
-            Is.EqualTo("Raise (+3) [R]"));
-        view.RefreshBetting(false, false, false, false, 0, 0);
+            Is.EqualTo("[R] Raise (3)"));
+        Assert.That(call.GetComponent<MainButton>().buttonText, Is.EqualTo("[C] Call"));
+        view.RefreshBetting(false, false, false, false, 0, 0, 0, false);
         Assert.That(Read<GameObject>(view, "playerActionBar").activeSelf, Is.False);
         Assert.That(Read<Slider>(view, "raiseSlider").interactable, Is.False);
         Assert.That(Read<Button>(view, "raiseExecuteButton").interactable, Is.False);
+    }
+
+    [TestCase(0, 4, 20, false, "[C] Call (4)", "[R] Raise (5)")]
+    [TestCase(2, 2, 20, false, "[C] Call (2)", "[R] Raise (3)")]
+    [TestCase(0, 4, 2, false, "[C] All in (2)", "[R] Raise (0)")]
+    [TestCase(0, 0, 20, true, "[C] Call", "[R] Bet (1)")]
+    [TestCase(0, 0, 20, false, "[C] Call", "[R] Raise (1)")]
+    public void Controller_LabelsShowOnlyChipsPaidNow(
+        int priorPlayerBet, int dealerRaiseBy, int balance, bool openingBet,
+        string callLabel, string raiseLabel)
+    {
+        OpenScene();
+        var controller = Find<GameplayController>();
+        var view = Find<GameplayView>();
+        var state = new GameState(balance, 20,
+            new Deck(new[] { new Card(1), new Card(2), new Card(3), new Card(4) }));
+        Assert.That(state.TrySetPhase(GamePhase.Betting), Is.True);
+        if (priorPlayerBet > 0)
+        {
+            state.Turn.TrySet(TurnOwner.Player);
+            Assert.That(state.TryRaise(priorPlayerBet), Is.True);
+        }
+        if (dealerRaiseBy > 0)
+        {
+            state.Turn.TrySet(TurnOwner.Dealer);
+            Assert.That(state.TryRaise(dealerRaiseBy), Is.True);
+        }
+        state.Turn.TrySet(TurnOwner.Player);
+        Set(controller, "gameState", state);
+        Set(controller, "selectedRaiseAmount", 1);
+        Set(controller, "isPlayerOpeningBet", openingBet);
+        view.Initialize();
+        int chipsBefore = state.PlayerChips.Count;
+        Invoke(controller, "RefreshView");
+        var call = Read<Button[]>(view, "bettingActionButtons").Single(button =>
+            HasEvent(button.onClick, controller, "OnCallClicked"));
+        Assert.That(call.GetComponent<MainButton>().buttonText, Is.EqualTo(callLabel));
+        // The styled button rewrites its normal/hover/pressed texts every frame.
+        Invoke(call.GetComponent<MainButton>(), "Update");
+        foreach (var text in call.GetComponentsInChildren<TMPro.TMP_Text>(true))
+            Assert.That(text.text, Is.EqualTo(callLabel));
+        Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
+            Is.EqualTo(raiseLabel));
+        Assert.That(state.PlayerChips.Count, Is.EqualTo(chipsBefore));
     }
 
     [UnityTest]
@@ -322,6 +368,8 @@ public sealed class GameplayUiSceneTests
         slider.value = 3.4f;
         Assert.That(Read<int>(controller, "selectedRaiseAmount"), Is.EqualTo(3));
         Assert.That(slider.value, Is.EqualTo(3));
+        Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
+            Is.EqualTo("[R] Bet (3)"));
         Assert.That(game.PlayerChips.Count, Is.EqualTo(chips), "Selection must not spend chips");
         yield return null;
         Capture("02-RaiseSelection");
@@ -339,6 +387,9 @@ public sealed class GameplayUiSceneTests
         var call = Read<Button[]>(view, "bettingActionButtons").Single(button =>
             HasEvent(button.onClick, controller, "OnCallClicked"));
         Assert.That(call.interactable, Is.True);
+        Assert.That(call.GetComponent<MainButton>().buttonText, Is.EqualTo("[C] Call (2)"));
+        Assert.That(Read<Button>(view, "raiseExecuteButton").GetComponent<MainButton>().buttonText,
+            Is.EqualTo("[R] Raise (3)"));
         call.onClick.Invoke();
         Assert.That(game.PlayerChips.Count, Is.EqualTo(chips - 5));
         Assert.That(game.Phase, Is.EqualTo(GamePhase.Showdown));

@@ -739,7 +739,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Fold [F]
+  m_text: "[F] Fold"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
   m_sharedMaterial: {fileID: -8255645493277324994, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
@@ -12140,7 +12140,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Fold [F]
+  m_text: "[F] Fold"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
   m_sharedMaterial: {fileID: -8255645493277324994, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
@@ -13686,7 +13686,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Fold [F]
+  m_text: "[F] Fold"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
   m_sharedMaterial: {fileID: -8255645493277324994, guid: 96dabe801ddc0084da2889f115b07c07, type: 2}
@@ -30931,7 +30931,7 @@ MonoBehaviour:
   dialoguePanel: {fileID: 1351702791}
   overlay: {fileID: 1002349142}
   dealerLines:
-  - "\u2026\u2026\uC88B\uC2B5\uB2C8\uB2E4."
+  - "\u2026\u2026 \uC88B\uC2B5\uB2C8\uB2E4."
   - "\uC774\uBC88 \uD310\uC740 \uC190\uB2D8\uC758 \uC2B9\uB9AC\uAD70\uC694."
   - "\uC57D\uC18D\uC740 \uC9C0\uCF1C\uB4DC\uB824\uC57C\uACA0\uC8E0."
   gameplayHud:
@@ -52712,7 +52712,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7f6465851424ac84fa7e7c1d80acd1b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  buttonText: Fold
+  buttonText: "[F] Fold"
   useCustomText: 1
   normalText: {fileID: 371979892}
   highlightedText: {fileID: 411081870}
@@ -68127,6 +68127,12 @@ MonoBehaviour:
   - {fileID: 1501104260}
   resolveShowdownButton: {fileID: 1023836674}
   nextRoundButton: {fileID: 712147648}
+  callLabelFormat: "[C] Call ({0})"
+  callNoChipsLabel: "[C] Call"
+  callAllInLabelFormat: "[C] All in ({0})"
+  betLabelFormat: "[R] Bet ({0})"
+  raiseLabelFormat: "[R] Raise ({0})"
+  raiseAllInLabelFormat: "[R] All in ({0})"
   raiseAmountText: {fileID: 1638112134}
   raiseSlider: {fileID: 2075577690}
   raiseExecuteButton: {fileID: 424820065}

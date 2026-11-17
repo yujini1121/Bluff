@@ -41,6 +41,14 @@ public sealed class GameplayView : MonoBehaviour
     [SerializeField] private Button resolveShowdownButton;
     [SerializeField] private Button nextRoundButton;
 
+    [Header("Betting Button Labels ({0}: chips paid now)")]
+    [SerializeField] private string callLabelFormat = "[C] Call ({0})";
+    [SerializeField] private string callNoChipsLabel = "[C] Call";
+    [SerializeField] private string callAllInLabelFormat = "[C] All in ({0})";
+    [SerializeField] private string betLabelFormat = "[R] Bet ({0})";
+    [SerializeField] private string raiseLabelFormat = "[R] Raise ({0})";
+    [SerializeField] private string raiseAllInLabelFormat = "[R] All in ({0})";
+
     [Header("Raise UI")]
     [SerializeField] private TMP_Text raiseAmountText; // 일단 살려둠
     [SerializeField] private Slider raiseSlider;
@@ -169,7 +177,9 @@ public sealed class GameplayView : MonoBehaviour
         bool canCall,
         bool useAllInText,
         int selectedRaiseBy,
-        int maxRaiseBy)
+        int maxRaiseBy,
+        int callChipCount,
+        bool isOpeningBet)
     {
         playerActionBar.SetActive(playerTurn);
 
@@ -179,12 +189,15 @@ public sealed class GameplayView : MonoBehaviour
                 canAcceptPlayerBettingInput;
         }
 
+        string actionText = callChipCount == 0 ? callNoChipsLabel : string.Format(
+            useAllInText ? callAllInLabelFormat : callLabelFormat, callChipCount);
+
         for (int index = 0; index < callActionButtons.Count; index++)
         {
             callActionButtons[index].interactable = canCall;
+            var styledButton = callActionButtons[index].GetComponent<MainButton>();
+            if (styledButton != null) styledButton.buttonText = actionText;
         }
-
-        string actionText = useAllInText ? "All in" : "Call";
 
         for (int index = 0; index < callActionTexts.Count; index++)
         {
@@ -197,10 +210,11 @@ public sealed class GameplayView : MonoBehaviour
         raiseSlider.maxValue = maxRaiseBy;
         raiseSlider.value = selectedRaiseBy;
         raiseExecuteButton.interactable = canRaise;
-        raiseExecuteButton.GetComponentInChildren<MainButton>().buttonText = maxRaiseBy > 0 &&
-                                selectedRaiseBy == maxRaiseBy
-            ? "All in [R]"
-            : $"Raise (+{selectedRaiseBy}) [R]";
+        int raiseChipCount = maxRaiseBy > 0 ? callChipCount + selectedRaiseBy : 0;
+        string bettingLabelFormat = isOpeningBet ? betLabelFormat : raiseLabelFormat;
+        raiseExecuteButton.GetComponentInChildren<MainButton>().buttonText = string.Format(
+            maxRaiseBy > 0 && selectedRaiseBy == maxRaiseBy
+                ? raiseAllInLabelFormat : bettingLabelFormat, raiseChipCount);
     }
 
     public void RefreshProgress(
@@ -345,13 +359,7 @@ public sealed class GameplayView : MonoBehaviour
                     continue;
                 }
 
-                TMP_Text actionText =
-                    button.GetComponentInChildren<TMP_Text>(true);
-
-                if (actionText != null)
-                {
-                    callActionTexts.Add(actionText);
-                }
+                callActionTexts.AddRange(button.GetComponentsInChildren<TMP_Text>(true));
 
                 callActionButtons.Add(button);
                 break;
