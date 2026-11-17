@@ -23,8 +23,10 @@ public class SoundSystem : MonoBehaviour
     [SerializeField] private AudioSource clickSFX;
     [SerializeField] private AudioSource itemUseFailedSFX;
 
+    private Coroutine bgmPlayback;
+
     public int currentBGMIndex { get; private set; } = 0;
-    public bool isBGMPlaying { get; private set; } = false;
+    public bool isBGMPlaying => bgmPlayback != null;
 
     void Awake()
     {
@@ -59,32 +61,33 @@ public class SoundSystem : MonoBehaviour
         if (SFXVolumeSlider != null) SetSFXVolume(SFXVolumeSlider.value);
     }
 
-    public IEnumerator RepeatPlaybackBGM(int index)
+    public void PlayBGM()
     {
-        if (index < 0 || index >= bgmList.Length)
+        if (bgmPlayback == null && bgmList != null && bgmList.Length > 0)
         {
-            Debug.LogWarning("Invalid BGM index.");
-            yield break;
+            bgmPlayback = StartCoroutine(RepeatPlaybackBGM());
         }
-        bgmList[index].Play();
+    }
 
-        isBGMPlaying = true;
-
-        yield return new WaitForSeconds(bgmList[index].clip.length);
-
-        currentBGMIndex++;
-        if (currentBGMIndex >= bgmList.Length)
+    private IEnumerator RepeatPlaybackBGM()
+    {
+        while (true)
         {
-            currentBGMIndex = 0;
+            AudioSource track = bgmList[currentBGMIndex];
+            track.Play();
+            yield return new WaitForSeconds(track.clip.length);
+            track.Stop();
+            currentBGMIndex = (currentBGMIndex + 1) % bgmList.Length;
         }
-        StartCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
     public void StopBGM()
     {
+        if (bgmPlayback == null) return;
+
+        StopCoroutine(bgmPlayback);
+        bgmPlayback = null;
         bgmList[currentBGMIndex].Stop();
-        isBGMPlaying = false;
-        StopCoroutine(RepeatPlaybackBGM(currentBGMIndex));
     }
 
     public IEnumerator PlayTitleBGM()

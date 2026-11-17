@@ -166,7 +166,7 @@ public sealed class GameplayController : MonoBehaviour
         if (gameState != null && itemSystem != null)
         {
             StartRound();
-            StartCoroutine(SoundSystem.Instance.RepeatPlaybackBGM(SoundSystem.Instance.currentBGMIndex));
+            SoundSystem.Instance.PlayBGM();
         }
     }
 
