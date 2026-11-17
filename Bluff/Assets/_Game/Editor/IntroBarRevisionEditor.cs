@@ -75,7 +75,7 @@ public static class IntroBarRevisionEditor
             new Vector2(0.5f,0.18f),Vector2.zero);
         var previousEsc = All<Transform>(scene).FirstOrDefault(t=>t.name=="Bar ESC Keycap");
         if(previousEsc!=null) UnityEngine.Object.DestroyImmediate(previousEsc.gameObject);
-        var esc = CreateKeycap(canvas,source,"Bar ESC Keycap","ESC",new Vector2(86,54),
+        var esc = CreateKeycap(canvas,source,"Bar ESC Keycap","Skip",new Vector2(86,54),
             new Vector2(1,0),new Vector2(-90,65));
         var oldSkip = All<Transform>(scene).FirstOrDefault(t=>t.name=="Skip Button");
         if(oldSkip!=null) UnityEngine.Object.DestroyImmediate(oldSkip.gameObject);
@@ -98,7 +98,7 @@ public static class IntroBarRevisionEditor
         EditorSceneManager.SaveScene(scene);
         File.WriteAllText("Logs/IntroRevisionBackup/applied.txt",
             $"Entry={entry:F4}\nEnd={end:F4}\nRotation={Quaternion.Euler(rotations.Last()).eulerAngles:F4}\nDuration={timeline.duration}\n");
-        Debug.Log("Intro Bar composition / E and ESC keycaps saved.");
+        Debug.Log("Intro Bar composition / E and Skip keycaps saved.");
     }
 
     private static GameObject CreateKeycap(Transform parent,TMP_Text source,string name,string label,Vector2 size,Vector2 anchor,Vector2 offset)
@@ -114,7 +114,7 @@ public static class IntroBarRevisionEditor
         border.transform.SetParent(root.transform,false);
         Stretch((RectTransform)border.transform);
         border.GetComponent<IntroKeycapOutline>().raycastTarget=false;
-        if (label == "ESC")
+        if (label == "Skip")
         {
             var outlineSettings = new SerializedObject(border.GetComponent<IntroKeycapOutline>());
             outlineSettings.FindProperty("thickness").floatValue = 3.5f;

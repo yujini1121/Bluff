@@ -5,7 +5,7 @@ public sealed class IntroHoldToSkip : MonoBehaviour
     [SerializeField] private IntroFlowController flow;
     [SerializeField] private GameObject keycap;
     [SerializeField] private IntroKeycapOutline outline;
-    [SerializeField, Min(0.1f)] private float holdSeconds = 1.25f;
+    [SerializeField, Min(0.1f)] private float holdSeconds = 1.5f;
     [SerializeField, Min(0.01f)] private float releaseSeconds = 0.18f;
     private bool available;
     private float heldSeconds;

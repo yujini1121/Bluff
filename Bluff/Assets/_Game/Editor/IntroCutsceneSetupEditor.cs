@@ -249,7 +249,7 @@ public static class IntroCutsceneSetupEditor
         var holdFields = new SerializedObject(All<IntroHoldToSkip>(scene).Single());
         foreach (string name in new[] { "flow", "keycap", "outline" })
             Require(holdFields.FindProperty(name).objectReferenceValue != null, "Missing skip reference: " + name);
-        Require(All<IntroKeycapOutline>(scene).Count() == 2, "Expected E and ESC keycaps.");
+        Require(All<IntroKeycapOutline>(scene).Count() == 2, "Expected E and Skip keycaps.");
         foreach (var outline in All<IntroKeycapOutline>(scene))
             Require(outline.GetComponent<CanvasRenderer>() != null, "Keycap renderer missing.");
         Require(All<Transform>(scene).Any(t => t.name == "PF_Dealer"), "Local dealer missing.");

@@ -289,7 +289,7 @@ public sealed class IntroSceneSkeletonTests
                 phase == 4 ? IntroFlowController.IntroState.Dialogue : (IntroFlowController.IntroState)phase;
             Assert.That(flow.State, Is.EqualTo(expectedState));
             Assert.That(hold.IsAvailable, Is.True);
-            Assert.That(keycap.activeSelf, Is.False, "Never show ESC before a press in any phase");
+            Assert.That(keycap.activeSelf, Is.False, "Never show Skip before a press in any phase");
             hold.enabled = false;
             hold.SetAvailable(true);
             hold.Tick(true, 0.65f);
@@ -302,6 +302,8 @@ public sealed class IntroSceneSkeletonTests
             hold.Tick(true, 0.65f);
             Assert.That(flow.State, Is.EqualTo(expectedState), "Released holds must not accumulate");
             hold.Tick(true, 0.6f);
+            Assert.That(flow.State, Is.EqualTo(expectedState));
+            hold.Tick(true, 0.25f);
             Assert.That(flow.State, Is.EqualTo(IntroFlowController.IntroState.Transition));
             flow.SkipIntro();
             Assert.That(hold.IsAvailable, Is.False);
