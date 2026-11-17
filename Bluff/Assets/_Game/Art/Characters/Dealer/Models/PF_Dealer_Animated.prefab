@@ -192,6 +192,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   animator: {fileID: 7924508611544471279}
   chipSocket: {fileID: 6462481952309250546}
+  singleHandChipSpacing: 0.015
+  singleHandChipOffset: {x: 0, y: 0, z: 0}
   allInChipOffset: {x: 0.1, y: 0, z: 0}
   potPoint: {fileID: 0}
   dealerChipPoint: {fileID: 0}

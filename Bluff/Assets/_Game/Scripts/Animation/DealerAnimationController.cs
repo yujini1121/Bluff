@@ -23,6 +23,8 @@ public class DealerAnimationController : MonoBehaviour
 
     [SerializeField] private Animator animator;
     [SerializeField] private Transform chipSocket;
+    [SerializeField, Min(0f)] private float singleHandChipSpacing = 0.015f;
+    [SerializeField] private Vector3 singleHandChipOffset;
     [SerializeField] private Vector3 allInChipOffset;
     [SerializeField] private Transform potPoint;
     [SerializeField] private Transform dealerChipPoint;
@@ -285,8 +287,14 @@ public class DealerAnimationController : MonoBehaviour
             {
                 Transform chip = activeBetChips[index];
                 chipOffsetsAtGrab[index] =
-                    chip.position - offsetOrigin;
-                chipWorldRotationsAtGrab[index] = chip.rotation;
+                    keepChipWorldY
+                        ? chip.position - offsetOrigin
+                        : chipSocket.InverseTransformVector(Vector3.up *
+                            ((activeBetChips.Length - 1) * 0.5f - index) *
+                            singleHandChipSpacing);
+                chipWorldRotationsAtGrab[index] = keepChipWorldY
+                    ? chip.rotation
+                    : Quaternion.Inverse(chipSocket.rotation) * chip.rotation;
                 chipWorldYAtGrab[index] = keepChipWorldY
                     ? GetGroundedChipWorldY(index)
                     : chip.position.y;
@@ -723,6 +731,16 @@ public class DealerAnimationController : MonoBehaviour
         for (int index = 0; index < activeBetChips.Length; index++)
         {
             Transform chip = activeBetChips[index];
+            if (!keepChipWorldY)
+            {
+                // Carry one compact stack in the hand, regardless of which
+                // table stacks supplied the chips. Keep its pose hand-relative.
+                chip.position = chipSocket.TransformPoint(
+                    singleHandChipOffset + chipOffsetsAtGrab[index]);
+                chip.rotation = chipSocket.rotation * chipWorldRotationsAtGrab[index];
+                continue;
+            }
+
             Vector3 followedPosition =
                 allInFollowPosition +
                 chipOffsetsAtGrab[index];

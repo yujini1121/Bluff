@@ -120,6 +120,55 @@ public sealed class DealerBetPresentationTests
         AssertSynchronized();
     }
 
+    [TestCase(13, 5)]
+    [TestCase(24, 9)]
+    [TestCase(40, 1)]
+    public void SingleHandCarry_GathersOneStackAndKeepsItAttachedWhenHandRotates(
+        int balance, int amount)
+    {
+        game = NewGame(balance, TurnOwner.Dealer);
+        presentation.Initialize(game, () => notifications++);
+        Set(dealer, "singleHandChipSpacing", .017f);
+        Vector3 gripOffset = new Vector3(.01f, .02f, -.03f);
+        Set(dealer, "singleHandChipOffset", gripOffset);
+        socket.rotation = Quaternion.Euler(15, 35, 20);
+        Assert.That(game.TryRaise(amount), Is.True);
+        Assert.That(presentation.PlayDealerBet(amount), Is.True);
+        Transform[] moving = Read<Transform[]>(dealer, "activeBetChips");
+        if (amount > 1)
+            Assert.That(Mathf.Abs(moving[0].position.x - moving[amount - 1].position.x),
+                Is.GreaterThan(.01f), "Exercise chips taken across two source stacks.");
+
+        dealer.GrabChip();
+        var offsets = new Vector3[amount];
+        var rotations = new Quaternion[amount];
+        Vector3 grip = socket.TransformPoint(gripOffset);
+        for (int i = 0; i < amount; i++)
+        {
+            Vector3 expected = grip + Vector3.up * ((amount - 1) * .5f - i) * .017f;
+            Assert.That(Vector3.Distance(moving[i].position, expected), Is.LessThan(.0001f));
+            offsets[i] = socket.InverseTransformPoint(moving[i].position);
+            rotations[i] = Quaternion.Inverse(socket.rotation) * moving[i].rotation;
+        }
+
+        socket.position += new Vector3(.4f, .2f, -.3f);
+        socket.rotation = Quaternion.Euler(-35, 70, 60);
+        typeof(DealerAnimationController).GetMethod("LateUpdate", Hidden).Invoke(dealer, null);
+        for (int i = 0; i < amount; i++)
+        {
+            Assert.That(Vector3.Distance(moving[i].position, socket.TransformPoint(offsets[i])),
+                Is.LessThan(.0001f), "Every chip must remain at its grip-relative position.");
+            Assert.That(Quaternion.Angle(moving[i].rotation, socket.rotation * rotations[i]),
+                Is.LessThan(.01f));
+        }
+
+        dealer.ReleaseChip();
+        foreach (Tween tween in Read<List<Tween>>(dealer, "betMoveTweens")) tween.SetUpdate(UpdateType.Manual);
+        DOTween.ManualUpdate(1, 1);
+        Assert.That(notifications, Is.EqualTo(1));
+        AssertSynchronized();
+    }
+
     [Test]
     public void UnavailableAnimator_ClearsPendingMoveWithoutChangingBet()
     {
