@@ -22,14 +22,12 @@ public class PlayerMove : MonoBehaviour
 
     private float xRotation = 0f;
 
-
     void Start()
     {
         rb = GetComponent<Rigidbody>();
 
         // 마우스 커서를 게임 화면 중앙에 고정하고 숨김 처리
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        MouseLock(true);
 
         if (cameraHolder == null)
         {
@@ -102,5 +100,11 @@ public class PlayerMove : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
         }
         Physics.SyncTransforms();
+    }
+
+    public void MouseLock(bool locked)
+    {
+        Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.Confined;
+        Cursor.visible = !locked;
     }
 }
