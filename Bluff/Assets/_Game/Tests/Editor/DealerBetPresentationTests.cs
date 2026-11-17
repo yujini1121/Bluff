@@ -29,6 +29,8 @@ public sealed class DealerBetPresentationTests
         chips = root.AddComponent<ChipVisualController>();
         foreach (string field in new[] { "playerChipArea", "dealerChipArea", "playerBetAreaPoint", "dealerBetAreaPoint", "potArea" })
             Set(chips, field, Child(field));
+        Read<Transform>(chips, "dealerChipArea").position = new Vector3(0, .8f, 0);
+        Read<Transform>(chips, "dealerChipArea").localScale = new Vector3(1, 1.5f, 1);
         Set(chips, "chipPrefabs", new[] { AssetDatabase.LoadAssetAtPath<GameObject>(
             "Assets/_Game/Art/Chips/PF_Chip_Red_01.prefab") });
         animator = root.AddComponent<Animator>();
@@ -63,6 +65,9 @@ public sealed class DealerBetPresentationTests
     [TestCase(DealerDecision.Call, 9, 10, false)]
     [TestCase(DealerDecision.Call, 10, 10, true)]
     [TestCase(DealerDecision.AllIn, 10, 10, true)]
+    [TestCase(DealerDecision.AllIn, 38, 10, true)]
+    [TestCase(DealerDecision.Call, 13, 10, true)]
+    [TestCase(DealerDecision.Raise, 11, 10, true)]
     [TestCase(DealerDecision.Raise, 5, 5, true)]
     [TestCase(DealerDecision.Raise, 10, 11, false)]
     public void ActualAdditionalBet_SelectsExistingTriggerAndCompletesChipMove(
@@ -145,8 +150,8 @@ public sealed class DealerBetPresentationTests
         {
             grabbed[i] = moving[i].position;
             rotations[i] = moving[i].rotation;
-            if (twoHands) Assert.That(grabbed[i].y, Is.EqualTo(originalY[i]).Within(.0001f));
         }
+        if (twoHands) AssertGroundedStacks(moving, originalY);
         Vector3 delta = new Vector3(.5f, .6f, .7f);
         socket.position += delta;
         typeof(DealerAnimationController).GetMethod("LateUpdate", Hidden).Invoke(dealer, null);
@@ -166,6 +171,25 @@ public sealed class DealerBetPresentationTests
         Assert.That(game.DealerChips.Count, Is.EqualTo(balance));
         Assert.That(game.Pot.Amount, Is.EqualTo(pot));
         AssertSynchronized();
+    }
+
+    private void AssertGroundedStacks(Transform[] moving, float[] originalY)
+    {
+        float surfaceY = Read<Transform>(chips, "dealerChipArea").position.y;
+        for (int i = 0; i < moving.Length; i++)
+        {
+            float bottomY = moving[i].position.y;
+            for (int j = 0; j < moving.Length; j++)
+            {
+                if (Mathf.Abs(moving[i].position.x - moving[j].position.x) > .0001f ||
+                    Mathf.Abs(moving[i].position.z - moving[j].position.z) > .0001f) continue;
+                bottomY = Mathf.Min(bottomY, moving[j].position.y);
+                Assert.That(moving[i].position.y - moving[j].position.y,
+                    Is.EqualTo(originalY[i] - originalY[j]).Within(.0001f), "Stack spacing must be preserved.");
+            }
+            Assert.That(bottomY, Is.EqualTo(surfaceY).Within(.0001f),
+                "Every pushed stack must rest on the chip-area surface, including a partially taken stack.");
+        }
     }
 
     private void AssertSynchronized()

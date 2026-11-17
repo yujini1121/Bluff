@@ -287,7 +287,9 @@ public class DealerAnimationController : MonoBehaviour
                 chipOffsetsAtGrab[index] =
                     chip.position - offsetOrigin;
                 chipWorldRotationsAtGrab[index] = chip.rotation;
-                chipWorldYAtGrab[index] = chip.position.y;
+                chipWorldYAtGrab[index] = keepChipWorldY
+                    ? GetGroundedChipWorldY(index)
+                    : chip.position.y;
             }
 
             if (keepChipWorldY)
@@ -736,6 +738,33 @@ public class DealerAnimationController : MonoBehaviour
             chip.position = followedPosition;
             chip.rotation = chipWorldRotationsAtGrab[index];
         }
+    }
+
+    private float GetGroundedChipWorldY(int index)
+    {
+        Transform sourceArea = originalChipParents[index];
+        if (sourceArea == null)
+        {
+            return activeBetChips[index].position.y;
+        }
+
+        Vector3 localPosition = originalChipLocalPositions[index];
+        float bottomY = localPosition.y;
+        // A partial bet can take only the top of a stack. Slide that group
+        // from the authored chip-area surface, preserving its stack spacing.
+        for (int other = 0; other < activeBetChips.Length; other++)
+        {
+            Vector3 otherPosition = originalChipLocalPositions[other];
+            if (originalChipParents[other] == sourceArea &&
+                Mathf.Approximately(otherPosition.x, localPosition.x) &&
+                Mathf.Approximately(otherPosition.z, localPosition.z))
+            {
+                bottomY = Mathf.Min(bottomY, otherPosition.y);
+            }
+        }
+
+        localPosition.y -= bottomY;
+        return sourceArea.TransformPoint(localPosition).y;
     }
 
     private Vector3 GetAllInFollowPosition()
