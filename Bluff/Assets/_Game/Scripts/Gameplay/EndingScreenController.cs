@@ -240,6 +240,7 @@ public sealed class EndingScreenController : MonoBehaviour
         Release();
         Time.timeScale = 1;
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
+        SoundSystem.Instance.StopBGM();
         SceneManager.LoadScene(titleSceneName);
     }
 
